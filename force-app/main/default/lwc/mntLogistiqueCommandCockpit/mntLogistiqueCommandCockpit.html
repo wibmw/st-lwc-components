@@ -1,0 +1,200 @@
+<template>
+    <lightning-card title="Cockpit Commande Logistique">
+      <div class="slds-p-around_medium slds-grid slds-wrap slds-gutters_small">
+  
+        <!-- Filtres -->
+        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-1 slds-m-bottom_small">
+          <div class="slds-grid slds-wrap slds-gutters">
+  
+            <!-- Multi-select Article/Radical -->
+            <div class="slds-col slds-size_1-of-1 slds-large-size_6-of-12">
+              <div class="slds-form-element">
+                <label class="slds-form-element__label">Articles / Radicaux</label>
+  
+                <!-- Pills -->
+                <template if:true={articleSelectedPills.length}>
+                    <lightning-pill-container
+                    items={articleSelectedPills}
+                    onitemremove={handleArticlePillRemove}>
+                    </lightning-pill-container>
+                </template>
+                <!-- Autocomplete -->
+                <div class={articleComboboxClass}
+                     aria-expanded={isDropdownOpenArt}
+                     aria-haspopup="listbox"
+                     role="combobox">
+                  <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                    <lightning-input type="search"
+                                     value={articleSearchTerm}
+                                     onchange={handleArticleSearchInput}
+                                     onfocus={openArticleDropdown}
+                                     onblur={closeArticleDropdown}
+                                     placeholder="Ajouter un article ou radical… (min 3 lettres)">
+                    </lightning-input>
+                    <lightning-icon icon-name="utility:search" size="x-small"
+                                    class="slds-input__icon slds-input__icon_right"></lightning-icon>
+                  </div>
+  
+                  <template if:true={isDropdownOpenArt}>
+                    <div class="slds-dropdown slds-dropdown_fluid slds-dropdown_length-5 mntc-maxheight">
+                      <ul class="slds-listbox slds-listbox_vertical" role="listbox">
+  
+                        <template if:true={isLoadingArticles}>
+                          <li class="slds-listbox__item" role="presentation">
+                            <div class="slds-p-around_small">
+                              <lightning-spinner size="small" alternative-text="Recherche..."></lightning-spinner>
+                            </div>
+                          </li>
+                        </template>
+  
+                        <template if:true={hasArticleSuggestions}>
+                          <template for:each={articleSuggestions} for:item="opt">
+                            <li key={opt.value} role="presentation" class="slds-listbox__item">
+                              <div class="slds-media slds-listbox__option slds-listbox__option_plain slds-media_small"
+                                   role="option"
+                                   data-value={opt.value}
+                                   data-label={opt.label}
+                                   onclick={handleArticleOptionSelect}>
+                                <span class="slds-media__body">
+                                  <span class="slds-truncate" title={opt.label}>{opt.label}</span>
+                                </span>
+                              </div>
+                            </li>
+                          </template>
+                        </template>
+  
+                        <template if:true={showArticleNoResults}>
+                          <li class="slds-listbox__item" role="presentation">
+                            <div class="slds-p-around_small slds-text-color_weak">Aucun résultat</div>
+                          </li>
+                        </template>
+  
+                      </ul>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+  
+            <!-- Multi-select Sites -->
+            <div class="slds-col slds-size_1-of-1 slds-large-size_5-of-12">
+              <div class="slds-form-element">
+                <label class="slds-form-element__label">Sites (lieux de stockage)</label>
+                <template if:true={selectedPills.length}>
+                    <lightning-pill-container
+                    items={selectedPills}
+                    onitemremove={handlePillRemove}>
+                    </lightning-pill-container>
+                </template>
+                <div class={comboboxClass}
+                     aria-expanded={isDropdownOpen}
+                     aria-haspopup="listbox"
+                     role="combobox">
+                  <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                    <lightning-input type="search"
+                                     value={siteSearchTerm}
+                                     onchange={handleSiteSearchInput}
+                                     onfocus={openDropdown}
+                                     onblur={closeDropdown}
+                                     placeholder="Rechercher un site… (min 3 lettres)">
+                    </lightning-input>
+                    <lightning-icon icon-name="utility:search" size="x-small"
+                                    class="slds-input__icon slds-input__icon_right"></lightning-icon>
+                  </div>
+  
+                  <template if:true={isDropdownOpen}>
+                    <div class="slds-dropdown slds-dropdown_fluid slds-dropdown_length-5 mntc-maxheight">
+                      <ul class="slds-listbox slds-listbox_vertical" role="listbox">
+  
+                        <template if:true={isLoadingSites}>
+                          <li class="slds-listbox__item" role="presentation">
+                            <div class="slds-p-around_small">
+                              <lightning-spinner size="small" alternative-text="Recherche..."></lightning-spinner>
+                            </div>
+                          </li>
+                        </template>
+  
+                        <template if:true={hasSuggestions}>
+                          <template for:each={siteSuggestions} for:item="opt">
+                            <li key={opt.value} role="presentation" class="slds-listbox__item">
+                              <div class="slds-media slds-listbox__option slds-listbox__option_plain slds-media_small"
+                                   role="option"
+                                   data-value={opt.value}
+                                   data-label={opt.label}
+                                   onclick={handleOptionSelect}>
+                                <span class="slds-media__body">
+                                  <span class="slds-truncate" title={opt.label}>{opt.label}</span>
+                                </span>
+                              </div>
+                            </li>
+                          </template>
+                        </template>
+  
+                        <template if:true={showNoResults}>
+                          <li class="slds-listbox__item" role="presentation">
+                            <div class="slds-p-around_small slds-text-color_weak">Aucun résultat</div>
+                          </li>
+                        </template>
+  
+                      </ul>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+  
+            <div class="slds-col slds-size_1-of-1 slds-large-size_1-of-12 slds-align_absolute-center">
+              <lightning-button variant="brand" label="Appliquer" onclick={handleApplyFilters}></lightning-button>
+            </div>
+          </div>
+        </div>
+  
+        <!-- Agrégats -->
+        <div class="slds-col slds-size_1-of-1">
+          <lightning-datatable key-field="key"
+                               data={rows}
+                               columns={aggCols}
+                               hide-checkbox-column
+                               onrowaction={handleAggRowAction}
+                               onloadmore={handleLoadMore}
+                               enable-infinite-loading
+                               is-loading={loading}>
+          </lightning-datatable>
+        </div>
+  
+        <!-- Panier -->
+        <div class="slds-col slds-size_1-of-1 slds-m-top_medium">
+          <div class="slds-grid slds-wrap slds-gutters_small slds-m-bottom_x-small">
+            <div class="slds-col slds-size_1-of-1 slds-medium-size_8-of-12">
+              <h2 class="slds-text-title_bold">Panier (lignes à commander)</h2>
+            </div>
+            <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
+              <lightning-textarea data-id="globalCmt" label="Commentaire global (optionnel)"></lightning-textarea>
+            </div>
+          </div>
+  
+          <lightning-datatable data-id="cart"
+                               key-field="key"
+                               data={cart}
+                               columns={cartCols}
+                               draft-values="[]"
+                               hide-checkbox-column
+                               onsave={handleCartSave}
+                               onrowaction={handleCartAction}>
+          </lightning-datatable>
+  
+          <div class="slds-m-top_small slds-text-align_right">
+            <lightning-button variant="brand"
+                              label="Créer la commande"
+                              onclick={handleCreateOrder}
+                              disabled={isDisabled}></lightning-button>
+          </div>
+        </div>
+      </div>
+  
+      <template if:true={loading}>
+        <lightning-spinner alternative-text="Chargement..." size="medium"></lightning-spinner>
+      </template>
+    </lightning-card>
+  </template>
+  

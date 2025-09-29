@@ -1,0 +1,11 @@
+/* Forcer le menu à prendre toute la largeur du conteneur */
+.slds-dropdown_fluid {
+    min-width: 100%;
+  }
+  
+  /* Limiter la hauteur avec scroll agréable */
+  .mntc-maxheight {
+    max-height: 16rem;    /* ~256px */
+    overflow-y: auto;
+  }
+  
