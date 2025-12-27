@@ -1,0 +1,64 @@
+<template>
+    <lightning-card title="Pièces à Réceptionner" icon-name="standard:product_item">
+        <div slot="actions">
+            <lightning-button 
+                label="Créer une Demande de Pièce" 
+                variant="brand"
+                icon-name="utility:add"
+                onclick={handleCreateDemand}>
+            </lightning-button>
+        </div>
+        <div class="slds-p-around_small">
+            <template if:true={loading}>
+                <lightning-spinner alternative-text="Chargement..." size="medium"></lightning-spinner>
+            </template>
+
+            <template if:true={hasPieces}>
+                <div class="slds-grid slds-wrap slds-gutters_small">
+                    <template for:each={pieces} for:item="piece">
+                        <div key={piece.id} class="slds-col slds-size_1-of-1 slds-m-bottom_small">
+                            <div class="mobile-card slds-box slds-box_small slds-theme_shade">
+                                <div class="slds-grid slds-grid_align-spread slds-m-bottom_x-small">
+                                    <div class="slds-text-heading_small slds-truncate slds-text-link" title={piece.title}>
+                                        <strong>{piece.title}</strong>
+                                    </div>
+                                    <div class="slds-text-body_small slds-text-color_weak">
+                                        (Qté {piece.qty})
+                                    </div>
+                                </div>
+                                
+                                <div class="slds-m-bottom_xx-small">
+                                    <span class="slds-text-body_regular slds-text-color_weak">Nom de la pièce : </span>
+                                    <span class="slds-text-body_regular">{piece.subtitle}</span>
+                                </div>
+
+                                <div class="slds-m-bottom_xx-small">
+                                    <span class="slds-text-body_regular slds-text-color_weak">Type : </span>
+                                    <span class="slds-text-body_regular">{piece.type}</span>
+                                </div>
+
+                                <template if:true={piece.serialNumber}>
+                                    <div class="slds-m-bottom_xx-small">
+                                        <span class="slds-text-body_regular slds-text-color_weak">N° Série : </span>
+                                        <span class="slds-text-body_regular">{piece.serialNumber}</span>
+                                    </div>
+                                </template>
+                                
+                                <!-- Action button placeholder -->
+                                <div class="slds-text-align_right slds-m-top_small">
+                                     <lightning-button-icon icon-name="utility:threedots" variant="border-filled" alternative-text="Actions"></lightning-button-icon>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <template if:false={hasPieces}>
+                <div class="slds-text-align_center slds-m-top_medium">
+                    <p>Aucune pièce à réceptionner trouvée.</p>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+</template>

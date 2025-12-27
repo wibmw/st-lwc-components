@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+  <apiVersion>60.0</apiVersion>
+  <isExposed>true</isExposed>
+  <masterLabel>mntGestionEnvoiLogistique</masterLabel>
+  <targets>
+    <target>lightning__AppPage</target>
+    <target>lightning__RecordPage</target>
+    <target>lightning__HomePage</target>
+    <target>lightning__FlowScreen</target>
+  </targets>
+    <!-- Déclarer inputs/outputs visibles par le Flow -->
+  <targetConfigs>
+    <targetConfig targets="lightning__FlowScreen">
+      <property name="componentLabel" type="String" label="Gestion Envoi Logistique" description="Permet la gestion des Envois de Pièces."/>
+      <property name="recordId" type="String" label="ID de l'enregistrement" description="ID de l'envoi"/>
+      <property name="objectApiName" type="String" label="Object API Name" description="API Name de l'objet actuel."/>
+      <property name="isSaveComplete" type="Boolean" label="Sauvegarde terminée" role="outputOnly" description="Devient vrai lorsque la sauvegarde est réussie."/>
+    </targetConfig>
+    <targetConfig targets="lightning__RecordPage">
+        <!-- La balise <objects> doit être ici, après les <property> -->
+        <property name="recordId" type="String" label="Record ID" description="ID de l'enregistrement de la page."/>
+        <property name="objectApiName" type="String" label="Object API Name" description="API Name de l'objet de la page."/>
+        
+        <!-- CORRECTION : La balise <objects> est placée ici -->
+        <objects>
+            <object>Envoi_Logistique__c</object>
+            <object>Commande_Pi_ces__c</object>
+        </objects>
+    </targetConfig>
+  </targetConfigs>
+</LightningComponentBundle>

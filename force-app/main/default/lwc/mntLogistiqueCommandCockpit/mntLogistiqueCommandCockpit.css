@@ -3,9 +3,94 @@
     min-width: 100%;
   }
   
-  /* Limiter la hauteur avec scroll agréable */
+/* Limiter la hauteur avec scroll agréable */
   .mntc-maxheight {
     max-height: 16rem;    /* ~256px */
     overflow-y: auto;
   }
-  
+
+/* Rend la colonne du panier "collante" (sticky) */
+.sticky-panel {
+  position: sticky; /* L'élément reste fixe par rapport au viewport de défilement */
+  top: 1rem;        /* Garde un petit espace (16px) avec le haut de la page */
+  align-self: flex-start; /* S'assure que la colonne ne s'étire pas inutilement en hauteur */
+}
+
+/* Ajoute une barre de défilement aux datatables si elles deviennent trop hautes */
+.datatable-with-scroll {
+  height: 400px; /* Hauteur maximale, ajustez selon vos préférences */
+  overflow-y: auto; /* Affiche une barre de défilement verticale si nécessaire */
+}
+
+.dt--themed {
+  --slds-c-table-header-color-background: #3262db;   /* fond du header */
+  --slds-c-table-header-text-color: #fdff70;         /* texte du header */
+  --slds-c-table-color-border: #0032bd;              /* couleur des traits */
+  --slds-c-table-row-color-background-hover: #d40e0e; /* hover optionnel */
+}
+
+/* Responsive Utilities */
+@media (max-width: 767px) {
+    .desktop-only {
+        display: none;
+    }
+    .mobile-only {
+        display: block;
+    }
+    /* On mobile, remove sticky behavior if it takes too much space or interferes */
+    .sticky-panel {
+        position: static; 
+    }
+}
+
+@media (min-width: 768px) {
+    .desktop-only {
+        display: block;
+    }
+    .mobile-only {
+        display: none;
+    }
+}
+
+/* Mobile Card Styling */
+.mobile-card {
+    background-color: white;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+.mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #f3f2f2;
+    padding-bottom: 0.5rem;
+}
+
+.mobile-card-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #080707;
+}
+
+.mobile-card-subtitle {
+    font-size: 0.8125rem;
+    color: #706e6b;
+}
+
+.mobile-card-body {
+    margin-bottom: 0.5rem;
+}
+
+.mobile-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    border-top: 1px solid #f3f2f2;
+    padding-top: 0.5rem;
+    flex-wrap: wrap;
+}

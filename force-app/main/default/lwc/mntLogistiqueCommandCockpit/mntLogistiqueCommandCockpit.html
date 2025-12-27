@@ -1,200 +1,532 @@
 <template>
-    <lightning-card title="Cockpit Commande Logistique">
-      <div class="slds-p-around_medium slds-grid slds-wrap slds-gutters_small">
-  
-        <!-- Filtres -->
-        <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-1 slds-m-bottom_small">
-          <div class="slds-grid slds-wrap slds-gutters">
-  
-            <!-- Multi-select Article/Radical -->
-            <div class="slds-col slds-size_1-of-1 slds-large-size_6-of-12">
-              <div class="slds-form-element">
-                <label class="slds-form-element__label">Articles / Radicaux</label>
-  
-                <!-- Pills -->
-                <template if:true={articleSelectedPills.length}>
-                    <lightning-pill-container
-                    items={articleSelectedPills}
-                    onitemremove={handleArticlePillRemove}>
-                    </lightning-pill-container>
-                </template>
-                <!-- Autocomplete -->
-                <div class={articleComboboxClass}
-                     aria-expanded={isDropdownOpenArt}
-                     aria-haspopup="listbox"
-                     role="combobox">
-                  <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
-                    <lightning-input type="search"
-                                     value={articleSearchTerm}
-                                     onchange={handleArticleSearchInput}
-                                     onfocus={openArticleDropdown}
-                                     onblur={closeArticleDropdown}
-                                     placeholder="Ajouter un article ou radical… (min 3 lettres)">
-                    </lightning-input>
-                    <lightning-icon icon-name="utility:search" size="x-small"
-                                    class="slds-input__icon slds-input__icon_right"></lightning-icon>
-                  </div>
-  
-                  <template if:true={isDropdownOpenArt}>
-                    <div class="slds-dropdown slds-dropdown_fluid slds-dropdown_length-5 mntc-maxheight">
-                      <ul class="slds-listbox slds-listbox_vertical" role="listbox">
-  
-                        <template if:true={isLoadingArticles}>
-                          <li class="slds-listbox__item" role="presentation">
-                            <div class="slds-p-around_small">
-                              <lightning-spinner size="small" alternative-text="Recherche..."></lightning-spinner>
-                            </div>
-                          </li>
-                        </template>
-  
-                        <template if:true={hasArticleSuggestions}>
-                          <template for:each={articleSuggestions} for:item="opt">
-                            <li key={opt.value} role="presentation" class="slds-listbox__item">
-                              <div class="slds-media slds-listbox__option slds-listbox__option_plain slds-media_small"
-                                   role="option"
-                                   data-value={opt.value}
-                                   data-label={opt.label}
-                                   onclick={handleArticleOptionSelect}>
-                                <span class="slds-media__body">
-                                  <span class="slds-truncate" title={opt.label}>{opt.label}</span>
-                                </span>
-                              </div>
-                            </li>
-                          </template>
-                        </template>
-  
-                        <template if:true={showArticleNoResults}>
-                          <li class="slds-listbox__item" role="presentation">
-                            <div class="slds-p-around_small slds-text-color_weak">Aucun résultat</div>
-                          </li>
-                        </template>
-  
-                      </ul>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </div>
-  
-            <!-- Multi-select Sites -->
-            <div class="slds-col slds-size_1-of-1 slds-large-size_5-of-12">
-              <div class="slds-form-element">
-                <label class="slds-form-element__label">Sites (lieux de stockage)</label>
-                <template if:true={selectedPills.length}>
-                    <lightning-pill-container
-                    items={selectedPills}
-                    onitemremove={handlePillRemove}>
-                    </lightning-pill-container>
-                </template>
-                <div class={comboboxClass}
-                     aria-expanded={isDropdownOpen}
-                     aria-haspopup="listbox"
-                     role="combobox">
-                  <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
-                    <lightning-input type="search"
-                                     value={siteSearchTerm}
-                                     onchange={handleSiteSearchInput}
-                                     onfocus={openDropdown}
-                                     onblur={closeDropdown}
-                                     placeholder="Rechercher un site… (min 3 lettres)">
-                    </lightning-input>
-                    <lightning-icon icon-name="utility:search" size="x-small"
-                                    class="slds-input__icon slds-input__icon_right"></lightning-icon>
-                  </div>
-  
-                  <template if:true={isDropdownOpen}>
-                    <div class="slds-dropdown slds-dropdown_fluid slds-dropdown_length-5 mntc-maxheight">
-                      <ul class="slds-listbox slds-listbox_vertical" role="listbox">
-  
-                        <template if:true={isLoadingSites}>
-                          <li class="slds-listbox__item" role="presentation">
-                            <div class="slds-p-around_small">
-                              <lightning-spinner size="small" alternative-text="Recherche..."></lightning-spinner>
-                            </div>
-                          </li>
-                        </template>
-  
-                        <template if:true={hasSuggestions}>
-                          <template for:each={siteSuggestions} for:item="opt">
-                            <li key={opt.value} role="presentation" class="slds-listbox__item">
-                              <div class="slds-media slds-listbox__option slds-listbox__option_plain slds-media_small"
-                                   role="option"
-                                   data-value={opt.value}
-                                   data-label={opt.label}
-                                   onclick={handleOptionSelect}>
-                                <span class="slds-media__body">
-                                  <span class="slds-truncate" title={opt.label}>{opt.label}</span>
-                                </span>
-                              </div>
-                            </li>
-                          </template>
-                        </template>
-  
-                        <template if:true={showNoResults}>
-                          <li class="slds-listbox__item" role="presentation">
-                            <div class="slds-p-around_small slds-text-color_weak">Aucun résultat</div>
-                          </li>
-                        </template>
-  
-                      </ul>
-                    </div>
-                  </template>
-                </div>
-              </div>
-            </div>
-  
-            <div class="slds-col slds-size_1-of-1 slds-large-size_1-of-12 slds-align_absolute-center">
-              <lightning-button variant="brand" label="Appliquer" onclick={handleApplyFilters}></lightning-button>
-            </div>
-          </div>
-        </div>
-  
-        <!-- Agrégats -->
-        <div class="slds-col slds-size_1-of-1">
-          <lightning-datatable key-field="key"
-                               data={rows}
-                               columns={aggCols}
-                               hide-checkbox-column
-                               onrowaction={handleAggRowAction}
-                               onloadmore={handleLoadMore}
-                               enable-infinite-loading
-                               is-loading={loading}>
-          </lightning-datatable>
-        </div>
-  
-        <!-- Panier -->
-        <div class="slds-col slds-size_1-of-1 slds-m-top_medium">
-          <div class="slds-grid slds-wrap slds-gutters_small slds-m-bottom_x-small">
-            <div class="slds-col slds-size_1-of-1 slds-medium-size_8-of-12">
-              <h2 class="slds-text-title_bold">Panier (lignes à commander)</h2>
-            </div>
-            <div class="slds-col slds-size_1-of-1 slds-medium-size_4-of-12">
-              <lightning-textarea data-id="globalCmt" label="Commentaire global (optionnel)"></lightning-textarea>
-            </div>
-          </div>
-  
-          <lightning-datatable data-id="cart"
-                               key-field="key"
-                               data={cart}
-                               columns={cartCols}
-                               draft-values="[]"
-                               hide-checkbox-column
-                               onsave={handleCartSave}
-                               onrowaction={handleCartAction}>
-          </lightning-datatable>
-  
-          <div class="slds-m-top_small slds-text-align_right">
-            <lightning-button variant="brand"
-                              label="Créer la commande"
-                              onclick={handleCreateOrder}
-                              disabled={isDisabled}></lightning-button>
-          </div>
-        </div>
+  <lightning-card title={cardTitle} icon-name="utility:cart">
+      <div class="slds-p-horizontal_medium slds-m-bottom_small">
+          <template if:true={isDesktop}>
+              <span class="slds-badge slds-theme_success">Mode: Desktop (Cockpit) - {formFactor}</span>
+          </template>
+          <template if:false={isDesktop}>
+              <span class="slds-badge slds-theme_warning">Mode: Mobile (Technicien) - {formFactor}</span>
+          </template>
       </div>
-  
-      <template if:true={loading}>
-        <lightning-spinner alternative-text="Chargement..." size="medium"></lightning-spinner>
-      </template>
-    </lightning-card>
-  </template>
-  
+      <div slot="actions">
+          <div class="desktop-only">
+              <template if:true={isDesktop}>
+                  <lightning-button-group>
+                      <lightning-button label="PEC Cockpit" name="pec_cockpit" onclick={handlePecAction}></lightning-button>
+                      <lightning-button label="PEC Retraitement" name="pec_retraitement" onclick={handlePecAction}></lightning-button>
+                  </lightning-button-group>
+              </template>
+          </div>
+      </div>
+
+      <!-- ======================= SECTION D'EN-TÊTE AVEC LES 4 CHAMPS ======================= -->
+       <!-- ======================= SECTION D'EN-TÊTE AVEC LES 4 CHAMPS ======================= -->
+       <!-- ======================= SECTION D'EN-TÊTE AVEC LES 4 CHAMPS ======================= -->
+       <div class="slds-box slds-box_small slds-theme_shade slds-m-horizontal_medium slds-m-bottom_medium">
+           <div class="slds-grid slds-wrap slds-gutters">
+               <!-- COLONNE GAUCHE : INFORMATIONS COMMANDE -->
+               <div class="slds-col slds-size_1-of-1 slds-large-size_12-of-12">
+                   <h2 class="slds-text-heading_medium slds-m-bottom_medium">Informations Commande</h2>
+                   <lightning-layout multiple-rows="true">
+              
+                <!-- LOOKUP  N° TICKET  ================== -->
+                <lightning-layout-item size="12" padding="around-small">
+                    <div class="slds-form-element">
+                   <div class="slds-grid slds-gutters slds-wrap">
+                    <!-- Colonne 1 -->
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+                        <div class="slds-form-element slds-m-bottom_small">
+                            <label class="slds-form-element__label">N° Ticket Correctif</label>
+                            <div class="slds-form-element__control">
+                                <div class="slds-combobox_container">
+                                    <div class={nTicketComboboxClass} aria-expanded="true" aria-haspopup="listbox" role="combobox">
+                                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                            <template if:true={selectedNTicket}>
+                                                <div class="slds-truncate" style="max-width: 100%">
+                                                    <lightning-pill label={selectedNTicket.pillLabel} onremove={handleLookupPillRemove} data-lookup="ticket">
+                                                        <lightning-icon icon-name="standard:case" alternative-text="N° Ticket Correctif"></lightning-icon>
+                                                    </lightning-pill>
+                                                </div>
+                                            </template>
+                                            <template if:false={selectedNTicket}>
+                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher un ticket..." oninput={handleLookupSearch} data-lookup="ticket" />
+                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                </span>
+                                            </template>
+                                        </div>
+                                        <template if:true={lookupSuggestions.ticket.length}>
+                                            <div id="listbox-ticket" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid">
+                                                <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                                                    <template for:each={lookupSuggestions.ticket} for:item="item">
+                                                        <li key={item.value} role="presentation" class="slds-listbox__item">
+                                                            <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option" data-value={item.value} data-label={item.label} data-sublabel={item.sublabel} data-lookup="ticket" onclick={handleLookupSelect}>
+                                                                <span class="slds-media__figure slds-listbox__option-icon">
+                                                                    <lightning-icon icon-name="standard:case" size="small"></lightning-icon>
+                                                                </span>
+                                                                <span class="slds-media__body">
+                                                                    <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
+                                                                    <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                </span>
+                                                            </div>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="slds-form-element slds-m-bottom_small">
+                            <label class="slds-form-element__label">Demandeur</label>
+                            <div class="slds-form-element__control">
+                                <div class="slds-combobox_container">
+                                    <div class={lookupContainerClassDemandeur} aria-expanded="true" aria-haspopup="listbox" role="combobox">
+                                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                            <template if:true={selectedDemandeur}>
+                                                <div class="slds-truncate" style="max-width: 100%">
+                                                    <lightning-pill label={selectedDemandeur.label} onremove={handleLookupPillRemove} data-lookup="demandeur">
+                                                        <lightning-icon icon-name="standard:user" alternative-text="Demandeur"></lightning-icon>
+                                                    </lightning-pill>
+                                                </div>
+                                            </template>
+                                            <template if:false={selectedDemandeur}>
+                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher un demandeur..." oninput={handleLookupSearch} data-lookup="demandeur" />
+                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                </span>
+                                            </template>
+                                        </div>
+                                        <template if:true={lookupSuggestions.demandeur.length}>
+                                            <div id="listbox-demandeur" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid">
+                                                <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                                                    <template for:each={lookupSuggestions.demandeur} for:item="item">
+                                                        <li key={item.value} role="presentation" class="slds-listbox__item">
+                                                            <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option" data-value={item.value} data-label={item.label} data-sublabel={item.sublabel} data-lookup="demandeur" onclick={handleLookupSelect}>
+                                                                <span class="slds-media__figure slds-listbox__option-icon">
+                                                                    <lightning-icon icon-name="standard:user" size="small"></lightning-icon>
+                                                                </span>
+                                                                <span class="slds-media__body">
+                                                                    <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
+                                                                    <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                </span>
+                                                            </div>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="slds-form-element slds-m-bottom_small">
+                            <label class="slds-form-element__label">Lieu</label>
+                            <div class="slds-form-element__control">
+                                <div class="slds-combobox_container">
+                                    <div class={lookupContainerClassLieu} aria-expanded="true" aria-haspopup="listbox" role="combobox">
+                                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                            <template if:true={selectedLieu}>
+                                                <div class="slds-truncate" style="max-width: 100%">
+                                                    <lightning-pill label={selectedLieu.pillLabel} onremove={handleLookupPillRemove} data-lookup="lieu">
+                                                        <lightning-icon icon-name="standard:location" alternative-text="Lieu"></lightning-icon>
+                                                    </lightning-pill>
+                                                </div>
+                                            </template>
+                                            <template if:false={selectedLieu}>
+                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher un site..." oninput={handleLookupSearch} data-lookup="lieu" />
+                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                </span>
+                                            </template>
+                                        </div>
+                                        <template if:true={lookupSuggestions.lieu.length}>
+                                            <div id="listbox-lieu" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid">
+                                                <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                                                    <template for:each={lookupSuggestions.lieu} for:item="item">
+                                                        <li key={item.value} role="presentation" class="slds-listbox__item">
+                                                            <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option" data-value={item.value} data-label={item.label} data-sublabel={item.sublabel} data-lookup="lieu" onclick={handleLookupSelect}>
+                                                                <span class="slds-media__figure slds-listbox__option-icon">
+                                                                    <lightning-icon icon-name="standard:location" size="small"></lightning-icon>
+                                                                </span>
+                                                                <span class="slds-media__body">
+                                                                    <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
+                                                                    <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                </span>
+                                                            </div>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Colonne 2 -->
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3">
+
+
+                        <div class="slds-form-element slds-m-bottom_small">
+                            <label class="slds-form-element__label">Adresse de Livraison</label>
+                            <div class="slds-form-element__control">
+                                <div class="slds-combobox_container">
+                                    <div class={lookupContainerClassAdresseLivraison} aria-expanded="true" aria-haspopup="listbox" role="combobox">
+                                        <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                            <template if:true={selectedAdresseLivraison}>
+                                                <div class="slds-truncate" style="max-width: 100%">
+                                                    <lightning-pill label={selectedAdresseLivraison.label} onremove={handleLookupPillRemove} data-lookup="adresselivraison">
+                                                        <lightning-icon icon-name="standard:address" alternative-text="Adresse de Livraison"></lightning-icon>
+                                                    </lightning-pill>
+                                                </div>
+                                            </template>
+                                            <template if:false={selectedAdresseLivraison}>
+                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher une adresse..." oninput={handleLookupSearch} data-lookup="adresseLivraison" />
+                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                </span>
+                                            </template>
+                                        </div>
+                                        <template if:true={lookupSuggestions.adresseLivraison.length}>
+                                            <div id="listbox-adresseLivraison" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid">
+                                                <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                                                    <template for:each={lookupSuggestions.adresseLivraison} for:item="item">
+                                                        <li key={item.value} role="presentation" class="slds-listbox__item">
+                                                            <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option" data-value={item.value} data-label={item.label} data-sublabel={item.sublabel} data-lookup="adresseLivraison" onclick={handleLookupSelect}>
+                                                                <span class="slds-media__figure slds-listbox__option-icon">
+                                                                    <lightning-icon icon-name="standard:address" size="small"></lightning-icon>
+                                                                </span>
+                                                                <span class="slds-media__body">
+                                                                    <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
+                                                                    <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                </span>
+                                                            </div>
+                                                        </li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+
+                        <div class="slds-form-element slds-m-bottom_small">
+
+                            <label class="slds-form-element__label">Compte Projet</label>
+                            <div class="slds-form-element__control">
+                                <lightning-input type="text" variant="label-hidden" value={compteProjet} onchange={handleCompteProjetChange} placeholder="Saisir compte projet..."></lightning-input>
+                            </div>
+                        </div>
+                        <div class="slds-form-element slds-m-bottom_small">
+                            <label class="slds-form-element__label">Commentaire</label>
+                            <div class="slds-form-element__control">
+                                <lightning-textarea variant="label-hidden" value={globalComment} onchange={handleGlobalCommentChange} placeholder="Saisir un commentaire..."></lightning-textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                     <!-- Colonne 3 (Photos) - Desktop only -->
+                    <div class="slds-col slds-size_1-of-1 slds-medium-size_1-of-3 desktop-only">
+                        <div class="slds-form-element">
+                            <label class="slds-form-element__label">Photos</label>
+                            <div class="slds-form-element__control">
+                                
+                                <!-- MODE CRÉATION -->
+                                <template if:false={isEditMode}>
+                                    <lightning-input type="file" label="Ajouter des photos" variant="label-hidden" multiple accept=".jpg, .jpeg, .png" onchange={handleFileSelect}></lightning-input>
+                                    <template if:true={hasFilesToUpload}>
+                                        <div class="slds-grid slds-wrap slds-gutters_x-small slds-m-top_small">
+                                            <template for:each={filesToUpload} for:item="file" for:index="index">
+                                                <div key={file.key} class="slds-col slds-size_1-of-4 slds-m-bottom_small">
+                                                    <div class="slds-box slds-box_x-small slds-theme_shade slds-text-align_center" style="position: relative;">
+                                                        <lightning-button-icon icon-name="utility:close" variant="bare" size="small" style="position: absolute; top:0; right:0;" data-index={index} onclick={handleRemoveFileToUpload}></lightning-button-icon>
+                                                        <img src={file.previewUrl} style="max-height: 50px; max-width: 100%;" />
+                                                        <div class="slds-truncate slds-text-body_small" title={file.name}>{file.name}</div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </template>
+
+                                <!-- MODE ÉDITION -->
+                                <template if:true={isEditMode}>
+                                    <lightning-file-upload
+                                        label="Ajouter des photos"
+                                        name="fileUploader"
+                                        record-id={recordId}
+                                        accept=".jpg, .jpeg, .png"
+                                        multiple
+                                        onuploadfinished={handleUploadFinished}>
+                                    </lightning-file-upload>
+                                    <template if:true={hasAttachedFiles}>
+                                        <div class="slds-grid slds-wrap slds-gutters_x-small slds-m-top_small">
+                                            <template for:each={attachedFiles} for:item="file">
+                                                <div key={file.id} class="slds-col slds-size_1-of-4 slds-m-bottom_small">
+                                                    <div class="slds-box slds-box_x-small slds-theme_shade slds-text-align_center slds-p-around_none" style="position: relative;">
+                                                        <lightning-button-icon icon-name="utility:close" variant="border-filled" size="small" class="delete-btn" style="position: absolute; top: 2px; right: 2px; z-index: 10;" data-id={file.id} onclick={handleDeleteAttachedFile}></lightning-button-icon>
+                                                        <img src={file.previewUrl} style="width: 100%; height: 60px; object-fit: cover; display: block; cursor: pointer;" data-id={file.id} onclick={handlePreviewFile} />
+                                                    </div>
+                                                    <div class="slds-text-align_center slds-text-body_small slds-m-top_xx-small slds-truncate" title={file.title}>{file.title}</div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                </lightning-layout-item>
+
+                <!-- Dates/Users below main form - Desktop only -->
+                <lightning-layout-item size="12" medium-device-size="12" padding="around-small" class="desktop-only">
+                    <div class="slds-grid slds-gutters slds-wrap">
+                        <!-- Dates à gauche -->
+                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-3">
+                            <div class="slds-form-element slds-m-bottom_x-small">
+                                <label class="slds-form-element__label">Date de Création</label>
+                                <div class="slds-form-element__control">
+                                    <div class="slds-form-element__static"><lightning-formatted-date-time value={createdDate}></lightning-formatted-date-time></div>
+                                </div>
+                            </div>
+                            <div class="slds-form-element slds-m-bottom_x-small">
+                                <label class="slds-form-element__label">Date PEC Cockpit</label>
+                                <div class="slds-form-element__control">
+                                    <div class="slds-form-element__static"><lightning-formatted-date-time value={pecCockpitDate}></lightning-formatted-date-time></div>
+                                </div>
+                            </div>
+                            <div class="slds-form-element slds-m-bottom_x-small">
+                                <label class="slds-form-element__label">Date Retraitement</label>
+                                <div class="slds-form-element__control">
+                                    <div class="slds-form-element__static"><lightning-formatted-date-time value={pecRetraitementDate}></lightning-formatted-date-time></div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Users à droite -->
+                        <div class="slds-col slds-size_1-of-2 slds-medium-size_1-of-3">
+                            <div class="slds-form-element slds-m-bottom_x-small">
+                                <label class="slds-form-element__label">Créé Par</label>
+                                <div class="slds-form-element__control">
+                                    <div class="slds-form-element__static">{createdByName}</div>
+                                </div>
+                            </div>
+                            <div class="slds-form-element slds-m-bottom_x-small">
+                                <label class="slds-form-element__label">PEC Par</label>
+                                <div class="slds-form-element__control">
+                                    <div class="slds-form-element__static">{pecCockpitBy}</div>
+                                </div>
+                            </div>
+                            <div class="slds-form-element slds-m-bottom_x-small">
+                                <label class="slds-form-element__label">Retraitement par</label>
+                                <div class="slds-form-element__control">
+                                    <div class="slds-form-element__static">{pecRetraitementBy}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </lightning-layout-item>
+
+          </lightning-layout>
+        </div>
+
+        <!-- COLONNE DROITE : LIGNES TECHNICIEN -->
+        <!--template if:true={hasTechnicianRows}>
+            <div class="slds-col slds-size_1-of-1 slds-large-size_4-of-12">
+                <div class="slds-box slds-theme_shade slds-m-top_medium">
+                    <h2 class="slds-text-heading_small slds-m-bottom_small">Lignes Technicien</h2>
+                    <lightning-datatable
+                        key-field="id"
+                        data={technicianRows}
+                        columns={technicianColumns}
+                        hide-checkbox-column>
+                    </lightning-datatable>
+                </div>
+            </div>
+        </template-->
+    </div>
+      </div>
+
+      <!-- ======================= CORPS DU COMPOSANT : DEUX COLONNES ======================= -->
+      <div class="slds-grid slds-wrap slds-gutters_medium slds-p-around_medium">
+          <!-- COLONNE DE GAUCHE : RECHERCHE ARTICLES -->
+          <div class="slds-col slds-size_1-of-1 slds-large-size_5-of-12 slds-m-bottom_medium">
+              <div class="slds-box slds-box_small slds-theme_shade">
+                  <h2 class="slds-text-heading_medium slds-m-bottom_medium">Rechercher un Article</h2>
+                  <div class="slds-form-element">
+                      <div class="slds-combobox_container">
+                          <div class="slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click">
+                              <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                                  <lightning-input type="search" id="article-search" label="Rechercher des articles" variant="label-hidden" value={articleSearchTerm} onchange={handleArticleSearchInput} placeholder="Rechercher... (min 3 lettres)"></lightning-input>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+                  <div class="slds-m-top_medium">
+                  <template if:true={isDesktop}>
+                      <!-- Desktop Card View - Full width rows -->
+                      <template for:each={enhancedRows} for:item="row">
+                          <div key={row.key} class="slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small" style="border-left: 3px solid #0176d3; padding: 0.4rem 0.75rem;">
+                              <!-- Line 1: Mnemonique left, Article right -->
+                              <div class="slds-grid slds-grid_align-spread">
+                                  <span class="slds-text-title_bold">{row.mnemonique}</span>
+                                  <span class="slds-text-body_small">{row.articleName}</span>
+                              </div>
+                              <!-- Line 2: Site left, Stock + Button right -->
+                              <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
+                                  <span class="slds-text-body_small slds-text-color_weak">{row.siteName}</span>
+                                  <div class="slds-grid slds-grid_vertical-align-center">
+                                      <span class="slds-badge slds-badge_inverse slds-m-right_x-small" style="font-size: 0.65rem;">Stock: {row.stock}</span>
+                                      <lightning-button-icon icon-name="utility:add" variant="brand" size="small" disabled={row.isAddedToCart} data-key={row.key} onclick={handleMobileAggAdd} alternative-text="Ajouter"></lightning-button-icon>
+                                  </div>
+                              </div>
+                          </div>
+                      </template>
+                  </template>
+                  <template if:false={isDesktop}>
+                      <template for:each={enhancedRows} for:item="row">
+                          <div key={row.key} class="mobile-card">
+                              <div class="mobile-card-header">
+                                  <div>
+                                      <div class="mobile-card-title">{row.mnemonique}</div>
+                                      <div class="mobile-card-subtitle">{row.articleName}</div>
+                                  </div>
+                              </div>
+                              <div class="mobile-card-body">
+                                  <p class="slds-text-body_small">{row.description}</p>
+                              </div>
+                              <div class="mobile-card-footer">
+                                  <lightning-button label="Ajouter" variant="brand-outline" disabled={row.isAddedToCart} data-key={row.key} onclick={handleMobileAggAdd}></lightning-button>
+                              </div>
+                          </div>
+                      </template>
+                  </template>
+                      <template if:true={showNoResultsMessage}>
+                        <div class="slds-align_absolute-center slds-m-top_large slds-text-align_center">
+                            <h3 class="slds-text-heading_small">Aucun article trouvé</h3>
+                            <p class="slds-text-body_regular">Essayez avec un autre terme de recherche.</p>
+                        </div>
+                    </template>
+                  </div>
+              </div>
+          </div>
+
+          <!-- COLONNE DE DROITE : PANIER -->
+          <div class="slds-col slds-size_1-of-1 slds-large-size_7-of-12 sticky-panel">
+              <div class="slds-box slds-box_small slds-theme_shade">
+                  <h2 class="slds-text-heading_medium slds-m-bottom_medium">Panier</h2>
+                  <template if:true={cart.length}>
+                    <!-- Vue Panier Desktop (Style Cartes) -->
+<template if:true={isDesktop}>
+    <div class="slds-scrollable_y" style="max-height: 500px;">
+        <template for:each={cart} for:item="item">
+            <div key={item.key} class="slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small" style="border-left: 3px solid #0176d3; padding: 0.4rem 0.75rem;">
+                
+                <!-- Ligne 1 : Mnémonique (Gauche) et Nom Article (Droite) -->
+                <div class="slds-grid slds-grid_align-spread">
+                    <span class="slds-text-title_bold">{item.mnemonique}</span>
+                    <span class="slds-text-body_small slds-truncate" title={item.articleName}>{item.articleName}</span>
+                </div>
+
+                <!-- Ligne 2 : Site (Gauche) et Contrôles Quantité/Suppression (Droite) -->
+                <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
+                    <span class="slds-text-body_small slds-text-color_weak">{item.siteName}</span>
+                    
+                    <div class="slds-grid slds-grid_vertical-align-center">
+                        <span class="slds-text-body_small slds-m-right_xx-small">Qté:</span>
+                        <div style="width: 70px;">
+                            <lightning-input 
+                                type="number" 
+                                variant="label-hidden" 
+                                value={item.quantity} 
+                                data-key={item.key} 
+                                min="1" 
+                                onchange={handleCartQuantityChange}>
+                            </lightning-input>
+                        </div>
+                        
+                        <lightning-button-icon 
+                            icon-name="utility:delete" 
+                            variant="bare" 
+                            alternative-text="Supprimer" 
+                            title="Supprimer" 
+                            class="slds-m-left_small slds-text-color_error" 
+                            data-key={item.key} 
+                            onclick={handleCartRemove}>
+                        </lightning-button-icon>
+                    </div>
+                </div>
+
+                <!-- Ligne 3 : Commentaire -->
+                <div class="slds-m-top_xx-small">
+                    <lightning-input 
+                        type="text" 
+                        variant="label-hidden" 
+                        placeholder="Ajouter un commentaire..." 
+                        value={item.comment} 
+                        data-key={item.key} 
+                        onchange={handleCartCommentChange}>
+                    </lightning-input>
+                </div>
+
+            </div>
+        </template>
+    </div>
+</template>
+                      <!--div class="desktop-only">
+                          <lightning-datatable class="datatable-with-scroll" data-id="cart" key-field="key" data={cart} columns={cartCols} hide-checkbox-column onsave={handleCartSave} onrowaction={handleCartAction}></lightning-datatable>
+                      </div-->
+                      <div class="mobile-only">
+                          <template for:each={cart} for:item="item">
+                              <div key={item.key} class="mobile-card">
+                                  <div class="mobile-card-header">
+                                      <div>
+                                          <div class="mobile-card-title">{item.mnemonique}</div>
+                                          <div class="mobile-card-subtitle">{item.articleName}</div>
+                                      </div>
+                                      <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Supprimer" title="Supprimer" data-key={item.key} onclick={handleMobileRemove}></lightning-button-icon>
+                                  </div>
+                                  <div class="mobile-card-body">
+                                      <p class="slds-text-body_small slds-m-bottom_small">{item.description}</p>
+                                      <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
+                                           <label class="slds-col slds-size_1-of-3 slds-text-body_regular">Quantité</label>
+                                           <div class="slds-col slds-size_2-of-3">
+                                               <lightning-input type="number" variant="label-hidden" value={item.quantity} data-key={item.key} onchange={handleMobileQuantityChange} min="1"></lightning-input>
+                                           </div>
+                                      </div>
+                                      <template if:true={item.isAutre}>
+                                          <lightning-textarea label="Commentaire" value={item.comment} data-key={item.key} onchange={handleMobileCommentChange} required></lightning-textarea>
+                                      </template>
+                                  </div>
+                                  <!-- Footer removed as per requirement (no status management in mobile) -->
+                              </div>
+                          </template>
+                      </div>
+                  </template>
+                  <template if:false={cart.length}>
+                      <div class="slds-illustration slds-illustration_small" style="text-align: center;">
+                          <h3 class="slds-text-heading_small">Le panier est vide</h3>
+                          <p class="slds-text-body_regular">Ajoutez des articles depuis la recherche.</p>
+                      </div>
+                  </template>
+                  <!-- Save button always visible -->
+                  <div class="slds-m-top_small slds-text-align_right">
+                      <lightning-button variant="brand" label={saveButtonLabel} onclick={handleSaveOrder} disabled={isDisabled}></lightning-button>
+                  </div>
+              </div>
+          </div>
+      </div>
+
+      <template if:true={loading}><lightning-spinner alternative-text="Chargement..." size="medium"></lightning-spinner></template>
+  </lightning-card>
+</template>

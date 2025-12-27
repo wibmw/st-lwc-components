@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>55.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <target>lightning__RecordPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__RecordPage">
+            <property 
+                name="urlTemplate" 
+                type="String" 
+                label="URL Template (utiliser {0}, {1}, etc.)" 
+                description="URL complète avec des marqueurs pour les valeurs dynamiques. Ex: https://site.com/search?q={0}&amp;cat={1}"/>
+            <property 
+                name="dynamicFieldNames" 
+                type="String" 
+                label="Noms API des Champs Dynamiques (séparés par une virgule)" 
+                description="Entrez la liste des noms API des champs dans l'ordre de vos marqueurs. Ex: Numero_Colis__c,Categorie__c"/>
+            <property 
+                name="iframeHeight" 
+                type="String" 
+                label="Hauteur de l'iFrame" 
+                default="500px"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

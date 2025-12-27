@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Stock__c</fullName>
+    <deleteConstraint>SetNull</deleteConstraint>
+    <label>Stock</label>
+    <referenceTo>sitetracker__Site__c</referenceTo>
+    <relationshipLabel>Envois Logistiques</relationshipLabel>
+    <relationshipName>Envois_Logistiques</relationshipName>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Lookup</type>
+</CustomField>

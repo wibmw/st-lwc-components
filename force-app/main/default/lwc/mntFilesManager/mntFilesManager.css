@@ -1,0 +1,26 @@
+.relative-container {
+    position: relative;
+}
+
+.image-container {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.preview-image {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.delete-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 0 0 0 4px;
+}

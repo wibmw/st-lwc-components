@@ -1,0 +1,15 @@
+<apex:page standardController="sitetracker__Site__c" showHeader="false" sidebar="false">
+    <apex:includeLightning />
+    <div id="lightning" style="min-height: 300px;" />
+    <script>
+        $Lightning.use("c:mntLwcWrapper", function() {
+            $Lightning.createComponent("c:mntMobilePieceReception",
+                { recordId: "{!sitetracker__Site__c.Id}" },
+                "lightning",
+                function(cmp) {
+                    console.log("LWC Component created");
+                }
+            );
+        });
+    </script>
+</apex:page>

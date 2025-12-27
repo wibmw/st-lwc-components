@@ -1,0 +1,93 @@
+.mobile-top-spacing {
+    margin-top: 0;
+}
+
+@media (max-width: 1023px) {
+    .mobile-top-spacing {
+        margin-top: 1rem;
+    }
+}
+
+.responsive-padding {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+@media (min-width: 480px) {
+    .responsive-padding {
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+}
+
+/* Visibility Classes */
+.mobile-only {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    .desktop-only {
+        display: none;
+    }
+    .mobile-only {
+        display: block;
+    }
+}
+
+/* Mobile Card Styling */
+.mobile-card {
+    background-color: white;
+    border: 1px solid #dddbda;
+    border-radius: 0.25rem;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+.mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid #f3f2f2;
+    padding-bottom: 0.5rem;
+}
+
+.mobile-card-title {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #080707;
+}
+
+.mobile-card-subtitle {
+    font-size: 0.8125rem;
+    color: #706e6b;
+}
+
+.mobile-card-body {
+    margin-bottom: 0.5rem;
+}
+
+.mobile-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    border-top: 1px solid #f3f2f2;
+    padding-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* Scrollbar fine pour la liste des cartes */
+.slds-scrollable_y {
+    scrollbar-width: thin;
+    scrollbar-color: #dddbda transparent;
+}
+
+/* Utilitaires */
+.slds-text-color_weak {
+    color: #696969;
+}
+
+.compact-input {
+    max-width: 150px;
+}

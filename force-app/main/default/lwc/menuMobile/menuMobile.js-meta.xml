@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+  <apiVersion>64.0</apiVersion>
+  <isExposed>true</isExposed>
+  <targets>
+    <target>lightning__FlowScreen</target>
+  </targets>
+  <targetConfigs>
+    <targetConfig targets="lightning__FlowScreen">
+      <property name="options" type="String" role="inputOnly" label="Options JSON" />
+      <property name="selected" type="String" role="outputOnly" label="Choix sélectionné" />
+      <property name="autoNext" type="Boolean" role="inputOnly" label="Avancer automatiquement" default="true"/>
+    </targetConfig>
+  </targetConfigs>
+</LightningComponentBundle>

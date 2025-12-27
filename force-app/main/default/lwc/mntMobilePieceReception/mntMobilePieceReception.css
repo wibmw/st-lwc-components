@@ -1,0 +1,10 @@
+.mobile-card {
+    background-color: white;
+    border-radius: 0.25rem;
+    border: 1px solid #dddbda;
+    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+.slds-text-link {
+    color: #0176d3; /* Salesforce Blue */
+}

@@ -1,0 +1,21 @@
+<template>
+    <template if:true={pdfUrl}>
+        <!-- Iframe invisible qui charge le PDF -->
+        <iframe
+            src={pdfUrl}
+            onload={handleIframeLoad}
+            class="hidden-frame">
+        </iframe>
+
+        <!-- Petit message au cas où -->
+        <div class="slds-p-around_medium">
+            <p>Préparation de l'impression du document...</p>
+        </div>
+    </template>
+
+    <template if:false={pdfUrl}>
+        <div class="slds-p-around_medium">
+            <p>Aucune URL PDF fournie.</p>
+        </div>
+    </template>
+</template>

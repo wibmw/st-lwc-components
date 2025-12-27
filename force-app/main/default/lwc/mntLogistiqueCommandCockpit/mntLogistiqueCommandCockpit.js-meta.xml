@@ -7,5 +7,14 @@
     <target>lightning__AppPage</target>
     <target>lightning__RecordPage</target>
     <target>lightning__HomePage</target>
+    <target>lightning__FlowScreen</target>
   </targets>
+    <!-- Déclarer inputs/outputs visibles par le Flow -->
+  <targetConfigs>
+    <targetConfig targets="lightning__FlowScreen">
+      <property name="componentLabel" type="String" label="Création de Commande Logistique" description="Permet la création d'une commande d'Article à partir d'une commande Technicien."/>
+      <property name="recordId" type="String" label="ID de l'enregistrement" description="ID de la commande à modifier"/>
+      <property name="isSaveComplete" type="Boolean" label="Sauvegarde terminée" role="outputOnly" description="Devient vrai lorsque la sauvegarde (création ou mise à jour) est réussie."/>
+    </targetConfig>
+  </targetConfigs>
 </LightningComponentBundle>

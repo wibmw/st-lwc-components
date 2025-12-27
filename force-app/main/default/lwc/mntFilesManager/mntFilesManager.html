@@ -1,0 +1,43 @@
+<template>
+    <lightning-card title="Fichiers" icon-name="standard:file">
+        <div class="slds-p-around_small">
+            <!-- Upload Section -->
+            <div class="slds-m-bottom_small">
+                <lightning-file-upload
+                    label="Ajouter des fichiers"
+                    name="fileUploader"
+                    record-id={recordId}
+                    accept={acceptedFormats}
+                    onuploadfinished={handleUploadFinished}
+                    multiple>
+                </lightning-file-upload>
+            </div>
+
+            <!-- Files Grid - Compact Style -->
+            <template if:true={hasAttachedFiles}>
+                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                    <template for:each={attachedFiles} for:item="file">
+                        <div key={file.id} class="slds-col slds-size_1-of-3 slds-medium-size_1-of-4 slds-m-bottom_x-small">
+                            <div class="slds-box slds-box_xx-small slds-theme_shade slds-text-align_center slds-p-around_none" style="position: relative;">
+                                <lightning-button-icon 
+                                    icon-name="utility:close" 
+                                    variant="border-filled" 
+                                    size="x-small" 
+                                    alternative-text="Supprimer" 
+                                    style="position: absolute; top: 2px; right: 2px; z-index: 10;" 
+                                    data-id={file.id} 
+                                    onclick={handleDeleteAttachedFile}>
+                                </lightning-button-icon>
+                                <img src={file.previewUrl} alt={file.title} style="width: 100%; height: 60px; object-fit: cover; display: block; cursor: pointer;" data-id={file.id} onclick={handlePreviewFile}/>
+                            </div>
+                            <div class="slds-text-align_center slds-text-body_small slds-m-top_xx-small slds-truncate" title={file.title}>{file.title}</div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+            <template if:false={hasAttachedFiles}>
+                <p class="slds-text-align_center slds-text-color_weak">Aucun fichier attaché.</p>
+            </template>
+        </div>
+    </lightning-card>
+</template>

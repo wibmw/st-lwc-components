@@ -1,4 +1,4 @@
-public without sharing class MntLogistiqueCommandCockpitCtrl {
+public without sharing class MntGestionDemandeLogistiqueCtrl {
 
     // --- CLASSES DE DONNÉES (WRAPPERS) ---
 
@@ -12,6 +12,7 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
     public class AggregationRow {
         @AuraEnabled public String siteId;
         @AuraEnabled public String siteName;
+        @AuraEnabled public String siteNomDuSite;
         @AuraEnabled public String articleId;
         @AuraEnabled public String articleName;
         @AuraEnabled public Decimal stock;
@@ -28,12 +29,12 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
         @AuraEnabled public String commentaireRefus;
         @AuraEnabled public Id detailId;
         @AuraEnabled public String typeLigne;
-        @AuraEnabled public String descriptionArticle;
     }
     
     public class OrderLineOutput {
         @AuraEnabled public Id siteId;
         @AuraEnabled public String siteName;
+        @AuraEnabled public String siteNomDuSite;
         @AuraEnabled public Id articleId;
         @AuraEnabled public String articleName;
         @AuraEnabled public Decimal quantity;
@@ -58,11 +59,24 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
         @AuraEnabled public String typeLigneContext; // 'Cockpit' or 'Technicien'
     }
 
+    public class InitialDataWrapper {
+        @AuraEnabled public Id currentUserId;
+        @AuraEnabled public String currentUserName;
+        @AuraEnabled public Id nTicketCorrectifId;
+        @AuraEnabled public String nTicketName;
+        @AuraEnabled public String nTicketSubLabel;
+        @AuraEnabled public String g2r;
+        @AuraEnabled public String siteName;
+        @AuraEnabled public Id lieuId;
+        @AuraEnabled public String lieuName;
+        @AuraEnabled public String lieuNomDuSite;
+        @AuraEnabled public String pillLabels;
+    }
+
     public class OrderDetailsWrapper {
         @AuraEnabled public Id nTicketCorrectifId;
         @AuraEnabled public String nTicketName;
         @AuraEnabled public String nTicketSubLabel;
-        @AuraEnabled public String nTicketPillLabel;
         @AuraEnabled public String globalComment;
         @AuraEnabled public List<OrderLineOutput> lines;
         @AuraEnabled public Id demandeurId;
@@ -83,10 +97,49 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
         @AuraEnabled public String pecCockpitBy;
         @AuraEnabled public DateTime pecRetraitementDate;
         @AuraEnabled public String pecRetraitementBy;
+        @AuraEnabled public String ticketPriority;
+        @AuraEnabled public String ticketStatus;
+        @AuraEnabled public String typeReception;
+        @AuraEnabled public String g2r;
+        @AuraEnabled public String siteName;
         public OrderDetailsWrapper() { this.lines = new List<OrderLineOutput>(); }
     }
 
     // --- MÉTHODES APEX ---
+
+    @AuraEnabled(cacheable=true)
+    public static InitialDataWrapper getInitialData(Id nTicketId) {
+        InitialDataWrapper data = new InitialDataWrapper();
+        data.currentUserId = UserInfo.getUserId();
+        data.currentUserName = UserInfo.getName();
+
+        if (nTicketId != null) {
+            List<Correctif__c> tickets = [
+                SELECT ID_ticket_client__c, Code_site__c, Nom_du_site__c, Site__c, Site__r.Name, Site__r.Nom_du_site__c
+                FROM Correctif__c
+                WHERE Id = :nTicketId
+                LIMIT 1
+            ];
+            if (!tickets.isEmpty()) {
+                Correctif__c t = tickets[0];
+                data.nTicketCorrectifId = t.Id;
+                data.nTicketName = t.ID_ticket_client__c;
+                data.g2r = t.Code_site__c;
+                data.siteName = t.Nom_du_site__c;
+                
+                data.nTicketSubLabel = formatTicketSublabel(t.Code_site__c, t.Nom_du_site__c);
+
+                // Pre-fill Site info if available on the ticket
+                if (t.Site__c != null) {
+                    data.lieuId = t.Site__c;
+                    data.lieuName = t.Site__r.Name;
+                    data.lieuNomDuSite = t.Site__r.Nom_du_site__c;
+                    data.pillLabels = (t.Site__r.Name != null ? t.Site__r.Name : '') + (String.isNotBlank(t.Site__r.Nom_du_site__c) ? ' - ' + t.Site__r.Nom_du_site__c : '');
+                }
+            }
+        }
+        return data;
+    }
 
     @AuraEnabled
     public static List<IdLabel> searchRecords(String searchTerm, String sObjectType) {
@@ -97,14 +150,12 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
         if (sObjectName == 'User') {
             query = 'SELECT Id, Name, Phone FROM User WHERE Name LIKE :queryTerm AND IsActive = true ORDER BY Name LIMIT 10';
         } else if (sObjectName == 'Contact') {
-            query = 'SELECT Id, Name, MailingStreet, MailingCity, MailingState, MailingCountry FROM Contact WHERE Name LIKE :queryTerm ORDER BY Name LIMIT 10';
+            query = 'SELECT Id, Name, MailingStreet, MailingCity, MailingPostalCode, MailingState, MailingCountry FROM Contact WHERE Name LIKE :queryTerm ORDER BY Name LIMIT 10';
         } else if (sObjectName == 'sitetracker__Site__c') {
             query = 'SELECT Id, Name, Nom_du_site__c FROM ' + sObjectName + ' WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) ORDER BY Name LIMIT 10';
-            } else if (sObjectName == 'TT_SFR__c') {
-                query = 'SELECT Id, Name, G2R__c, Site__r.Name FROM TT_SFR__c WHERE Name LIKE :queryTerm OR G2R__c LIKE :queryTerm ORDER BY Name, G2R__c LIMIT 10';
-            } else if (sObjectName == 'Correctif__c') {
-                query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c FROM Correctif__c WHERE Name LIKE :queryTerm OR ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY Name LIMIT 10';
-            }
+        } else if (sObjectName == 'Correctif__c') {
+            query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
+        }
 
         List<IdLabel> results = new List<IdLabel>();
         for (SObject record : Database.query(query)) {
@@ -116,24 +167,16 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
             } else if (sObjectName == 'Contact') {
                 String street = (String)record.get('MailingStreet');
                 String city = (String)record.get('MailingCity');
-                il.sublabel = String.isNotBlank(street) ? street + ', ' + city : 'Adresse non renseignée';
+                il.sublabel = formatAddress(street, (String)record.get('MailingPostalCode'), city);
             }else if (sObjectName == 'sitetracker__Site__c') {
                 il.label = (String)record.get('Name');
                 il.sublabel = (String)record.get('Nom_du_site__c');
-            } else if (sObjectName == 'TT_SFR__c') {
-                il.label = (String)record.get('Name');
-                String g2r = (String)record.get('G2R__c');
-                String siteName = (String)record.getSObject('Site__r')?.get('Name');
-                il.sublabel = (String.isNotBlank(g2r) ? g2r : '') + (String.isNotBlank(siteName) ? ' - ' + siteName : '');
+
             } else if (sObjectName == 'Correctif__c') {
                 il.label = (String)record.get('ID_ticket_client__c');
-                if (String.isBlank(il.label)) il.label = (String)record.get('Name'); // Fallback to Name if ID is blank
                 String codeSite = (String)record.get('Code_site__c');
                 String nomSite = (String)record.get('Nom_du_site__c');
-                List<String> parts = new List<String>();
-                if (String.isNotBlank(codeSite)) parts.add(codeSite);
-                if (String.isNotBlank(nomSite)) parts.add(nomSite);
-                il.sublabel = String.join(parts, ' - ');
+                il.sublabel = formatTicketSublabel(codeSite, nomSite);
             }
 
             results.add(il);
@@ -171,9 +214,9 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
         if (groupBySite == null || groupBySite == true) {
             // Desktop behavior: Group by Site + Article
             aggResults = [
-                SELECT Lieu__c siteId, Lieu__r.Name siteName, Code_Article__c articleId, Code_Article__r.Name articleName, Code_Article__r.Mnemonique__c mnemonique, COUNT(Id) stock
+                SELECT Lieu__c siteId, Lieu__r.Name siteName, Lieu__r.Nom_du_site__c siteNom, Code_Article__c articleId, Code_Article__r.Name articleName, Code_Article__r.Mnemonique__c mnemonique, COUNT(Id) stock
                 FROM Pi_ce_Unitaire__c WHERE Code_Article__c IN :articleIds AND Statut__c = 'En Stock'
-                GROUP BY Lieu__c, Lieu__r.Name, Code_Article__c, Code_Article__r.Name, Code_Article__r.Mnemonique__c
+                GROUP BY Lieu__c, Lieu__r.Name, Lieu__r.Nom_du_site__c, Code_Article__c, Code_Article__r.Name, Code_Article__r.Mnemonique__c
                 ORDER BY Lieu__r.Name, Code_Article__r.Name LIMIT :limitSize OFFSET :offsetVal
             ];
         } else {
@@ -205,6 +248,7 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
             if (groupBySite == null || groupBySite == true) {
                 row.siteId = (Id)ar.get('siteId');
                 row.siteName = (String)ar.get('siteName');
+                row.siteNomDuSite = (String)ar.get('siteNom');
             }
             row.articleId = (Id)ar.get('articleId');
             row.articleName = (String)ar.get('articleName');
@@ -220,27 +264,21 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
     public static OrderDetailsWrapper getOrderDetails(Id orderId) {
         OrderDetailsWrapper result = new OrderDetailsWrapper();
         Commande_Pi_ces__c order = [
-            SELECT Id, N_Ticket_Correctif__c, N_Ticket_Correctif__r.Name, N_Ticket_Correctif__r.ID_ticket_client__c, N_Ticket_Correctif__r.Code_site__c, N_Ticket_Correctif__r.Nom_du_site__c, Commentaire__c, Demandeur__c, Demandeur__r.Name, 
+            SELECT Id, N_Ticket_Correctif__c, N_Ticket_Correctif__r.ID_ticket_client__c, N_Ticket_Correctif__r.Code_site__c, N_Ticket_Correctif__r.Nom_du_site__c, N_Ticket_Correctif__r.Priorit__c, N_Ticket_Correctif__r.Statut_ticket__c, Commentaire__c, Demandeur__c, Demandeur__r.Name, 
                    Compte_Projet__c, Adresse_de_Livraison__c, Adresse_de_Livraison__r.Name, Demandeur__r.Phone, Lieu__c, Lieu__r.Name, Lieu__r.Nom_du_site__c,
-                    Adresse_de_Livraison__r.MailingStreet, Adresse_de_Livraison__r.MailingCity, CreatedDate, CreatedBy.Name,
-                     Statut_Commande__c, PEC_Cockpit__c, Nom_PEC_Cockpit__r.Name, PEC_Retraitement__c, Nom_PEC_Retraitement__r.Name,
-                     (SELECT Id, Lieu__c, Lieu__r.Name, Code_Articles__c, Code_Articles__r.Name, Code_Articles__r.Mnemonique__c, Code_Articles__r.Description__c, Quantit__c, Commentaire__c, Statut_Commande__c, Commentaire_Refus__c, Type_Ligne__c FROM D_tails_Commandes_Pi_ces__r)
+                    Adresse_de_Livraison__r.MailingStreet, Adresse_de_Livraison__r.MailingCity, Adresse_de_Livraison__r.MailingPostalCode, CreatedDate, CreatedBy.Name,
+                     Statut_Commande__c, PEC_Cockpit__c, Nom_PEC_Cockpit__r.Name, PEC_Retraitement__c, Nom_PEC_Retraitement__r.Name, Type_de_R_ception__c,
+                     (SELECT Id, Lieu__c, Lieu__r.Name, Lieu__r.Nom_du_site__c, Code_Articles__c, Code_Articles__r.Name, Code_Articles__r.Mnemonique__c, Code_Articles__r.Description__c, Quantit__c, Commentaire__c, Statut_Commande__c, Commentaire_Refus__c, Type_Ligne__c FROM D_tails_Commandes_Pi_ces__r)
             FROM Commande_Pi_ces__c WHERE Id = :orderId LIMIT 1
         ];
         result.nTicketCorrectifId = order.N_Ticket_Correctif__c;
         if (order.N_Ticket_Correctif__c != null) {
             result.nTicketName = order.N_Ticket_Correctif__r.ID_ticket_client__c;
-            if (String.isBlank(result.nTicketName)) result.nTicketName = order.N_Ticket_Correctif__r.Name;
-            
-            List<String> subParts = new List<String>();
-            if (String.isNotBlank(order.N_Ticket_Correctif__r.Code_site__c)) subParts.add(order.N_Ticket_Correctif__r.Code_site__c);
-            if (String.isNotBlank(order.N_Ticket_Correctif__r.Nom_du_site__c)) subParts.add(order.N_Ticket_Correctif__r.Nom_du_site__c);
-            result.nTicketSubLabel = String.join(subParts, ' - ');
-
-            List<String> pillParts = new List<String>();
-            pillParts.add(result.nTicketName);
-            pillParts.addAll(subParts);
-            result.nTicketPillLabel = String.join(pillParts, ' - ');
+            result.nTicketSubLabel = order.N_Ticket_Correctif__r.Code_site__c;
+            result.g2r = order.N_Ticket_Correctif__r.Code_site__c;
+            result.siteName = order.N_Ticket_Correctif__r.Nom_du_site__c;
+            result.ticketPriority = order.N_Ticket_Correctif__r.Priorit__c;
+            result.ticketStatus = order.N_Ticket_Correctif__r.Statut_ticket__c;
         } 
         result.globalComment = order.Commentaire__c;
         result.demandeurId = order.Demandeur__c;
@@ -253,7 +291,7 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
         result.compteProjet = order.Compte_Projet__c;
         result.adresseLivraisonId = order.Adresse_de_Livraison__c;
         result.adresseLivraisonName = order.Adresse_de_Livraison__r.Name;
-        result.adresseLivraisonFull = order.Adresse_de_Livraison__r.MailingStreet + ', ' + order.Adresse_de_Livraison__r.MailingCity;
+        result.adresseLivraisonFull = formatAddress(order.Adresse_de_Livraison__r.MailingStreet, order.Adresse_de_Livraison__r.MailingPostalCode, order.Adresse_de_Livraison__r.MailingCity);
         result.createdDate = order.CreatedDate;
         result.createdByName = order.CreatedBy.Name;
         result.status = order.Statut_Commande__c;
@@ -261,10 +299,12 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
         result.pecCockpitBy = order.Nom_PEC_Cockpit__r.Name;
         result.pecRetraitementDate = order.PEC_Retraitement__c;
         result.pecRetraitementBy = order.Nom_PEC_Retraitement__r.Name;
+        result.typeReception = order.Type_de_R_ception__c;
         for (Commande_Pi_ces_D_tails__c detail : order.D_tails_Commandes_Pi_ces__r) {
             OrderLineOutput line = new OrderLineOutput();
             line.siteId = detail.Lieu__c;
             line.siteName = detail.Lieu__r.Name;
+            line.siteNomDuSite = detail.Lieu__r.Nom_du_site__c; 
             line.articleId = detail.Code_Articles__c;
             line.articleName = detail.Code_Articles__r.Name;
             line.quantity = detail.Quantit__c;
@@ -296,64 +336,27 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
             );
             insert newOrder;
 
-            // --- ENVOI LOGISTIQUE CREATION LOGIC ---
-            // Group Cockpit lines by Site (Lieu__c)
-            Map<Id, Envoi_Logistique__c> siteToEnvoiMap = new Map<Id, Envoi_Logistique__c>();
-            Map<Id, List<OrderLineInput>> siteToLinesMap = new Map<Id, List<OrderLineInput>>();
+            // 1. Ensure Envois exist (and get map)
+            Map<Id, Id> siteToEnvoiIdMap = ensureEnvoisExist(newOrder.Id, input.lines, input.adresseLivraisonId, input.nTicketCorrectifId);
 
-            for (OrderLineInput line : input.lines) {
-                if (line.typeLigne == 'Cockpit' && line.siteId != null) {
-                    if (!siteToLinesMap.containsKey(line.siteId)) {
-                        siteToLinesMap.put(line.siteId, new List<OrderLineInput>());
-                    }
-                    siteToLinesMap.get(line.siteId).add(line);
-                }
-            }
-
-            // Create Envoi_Logistique__c for each site
-            List<Envoi_Logistique__c> envoisToInsert = new List<Envoi_Logistique__c>();
-            for (Id siteId : siteToLinesMap.keySet()) {
-                Envoi_Logistique__c envoi = new Envoi_Logistique__c(
-                    Commande_Pi_ces__c = newOrder.Id,
-                    Destinataire__c = input.adresseLivraisonId, // Using Delivery Address Contact
-                    Stock__c = siteId,
-                    N_Ticket_Correctif__c = input.nTicketCorrectifId
-                );
-                envoisToInsert.add(envoi);
-            }
-            
-            if (!envoisToInsert.isEmpty()) {
-                insert envoisToInsert;
-                for (Envoi_Logistique__c envoi : envoisToInsert) {
-                    siteToEnvoiMap.put(envoi.Stock__c, envoi);
-                }
-            }
-
+            // 2. Create Lines
             List<Commande_Pi_ces_D_tails__c> orderDetails = new List<Commande_Pi_ces_D_tails__c>();
             for (OrderLineInput line : input.lines) {
-                Id envoiId = null;
-                if (line.typeLigne == 'Cockpit' && line.siteId != null && siteToEnvoiMap.containsKey(line.siteId)) {
-                    envoiId = siteToEnvoiMap.get(line.siteId).Id;
-                }
-
-                Commande_Pi_ces_D_tails__c detail = new Commande_Pi_ces_D_tails__c(
+                Id envoiId = (line.typeLigne == 'Cockpit' && line.siteId != null) ? siteToEnvoiIdMap.get(line.siteId) : null;
+                orderDetails.add(new Commande_Pi_ces_D_tails__c(
                     Commande_Pi_ces__c = newOrder.Id, 
                     Lieu__c = line.siteId, 
                     Code_Articles__c = line.articleId,
                     Quantit__c = line.quantity, 
                     Commentaire__c = line.comment, 
-                    Type_Ligne__c = getCorrectPicklistValue('Commande_Pi_ces_D_tails__c', 'Type_Ligne__c', line.typeLigne),
+                    Type_Ligne__c = line.typeLigne,
                     Envoi_Logistique__c = envoiId,
                     Statut_Commande__c = line.statut
-                );
-                // Store Description only for Technicien (mobile) lines
-                if (line.typeLigne == 'Technicien' && String.isNotBlank(line.descriptionArticle)) {
-                    detail.Description_Article__c = line.descriptionArticle;
-                }
-                orderDetails.add(detail);
+                ));
             }
             insert orderDetails;
-            // Envoyer les notifications ---
+
+            // 3. Notifications
             try {
                 sendNotificationsToLogisticians(newOrder.Id);
             } catch (Exception e) {
@@ -371,10 +374,18 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
         if (pecType == 'Cockpit') {
             orderToUpdate.PEC_Cockpit__c = DateTime.now();
             orderToUpdate.Nom_PEC_Cockpit__c = UserInfo.getUserId();
+            orderToUpdate.Statut_Commande__c = 'PEC Cockpit'; 
         } else if (pecType == 'Retraitement') {
             orderToUpdate.PEC_Retraitement__c = DateTime.now();
             orderToUpdate.Nom_PEC_Retraitement__c = UserInfo.getUserId();
+            orderToUpdate.Statut_Commande__c = 'PEC Retraitement'; 
         }
+        // 1. Update with Bypass = true
+        orderToUpdate.Bypass_ValidationRules__c = true;
+        update orderToUpdate;
+
+        // 2. Reset Bypass = false
+        orderToUpdate.Bypass_ValidationRules__c = false;
         update orderToUpdate;
     }
 
@@ -384,7 +395,11 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
             OrderInput input = (OrderInput) JSON.deserialize(inputJSON, OrderInput.class);
             Map<String, Id> clientKeyToNewIdMap = new Map<String, Id>();
             
-            // 1. Mettre à jour l'en-tête de la commande
+            // 0. Récupérer le statut actuel de la commande pour la logique de transition
+            Commande_Pi_ces__c currentOrder = [SELECT Id, Statut_Commande__c FROM Commande_Pi_ces__c WHERE Id = :input.orderId LIMIT 1];
+            String currentStatus = currentOrder.Statut_Commande__c;
+            
+            // 1. Update Header with Bypass
             Commande_Pi_ces__c orderToUpdate = new Commande_Pi_ces__c(
                 Id = input.orderId, 
                 N_Ticket_Correctif__c = input.nTicketCorrectifId, 
@@ -392,227 +407,181 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
                 Demandeur__c = input.demandeurId, 
                 Lieu__c = input.lieuId,
                 Compte_Projet__c = input.compteProjet, 
-                Adresse_de_Livraison__c = input.adresseLivraisonId
+                Adresse_de_Livraison__c = input.adresseLivraisonId,
+                Bypass_ValidationRules__c = true
             );
+            
+            // Logique de transition de statut : si le statut est 'PEC Cockpit' ou 'PEC Retraitement'
+            // et qu'il y a des lignes dans le panier, on passe à 'Commande en Cours'
+            if (input.lines != null && !input.lines.isEmpty()) {
+                if (currentStatus == 'PEC Cockpit' || currentStatus == 'PEC Retraitement') {
+                    orderToUpdate.Statut_Commande__c = 'Commande en Cours';
+                }
+            }
+            
             update orderToUpdate;
 
-            // --- ENVOI LOGISTIQUE MANAGEMENT ---
-            // Fetch existing Envois for this order to avoid duplicates
-            Map<Id, Id> siteToEnvoiIdMap = new Map<Id, Id>();
-            for (Envoi_Logistique__c envoi : [SELECT Id, Stock__c FROM Envoi_Logistique__c WHERE Commande_Pi_ces__c = :input.orderId]) {
-                siteToEnvoiIdMap.put(envoi.Stock__c, envoi.Id);
-            }
+            // Reset Bypass
+            orderToUpdate.Bypass_ValidationRules__c = false;
+            update orderToUpdate;
 
-            // Identify new sites that need an Envoi
-            Set<Id> sitesNeedingEnvoi = new Set<Id>();
-            if (input.lines != null) {
-                for (OrderLineInput line : input.lines) {
-                    if (line.typeLigne == 'Cockpit' && line.siteId != null && !siteToEnvoiIdMap.containsKey(line.siteId)) {
-                        sitesNeedingEnvoi.add(line.siteId);
-                    }
-                }
-            }
+            // 2. Ensure Envois exist
+            Map<Id, Id> siteToEnvoiIdMap = ensureEnvoisExist(input.orderId, input.lines, input.adresseLivraisonId, input.nTicketCorrectifId);
 
-            // Create missing Envois
-            List<Envoi_Logistique__c> newEnvois = new List<Envoi_Logistique__c>();
-            for (Id siteId : sitesNeedingEnvoi) {
-                newEnvois.add(new Envoi_Logistique__c(
-                    Commande_Pi_ces__c = input.orderId,
-                    Destinataire__c = input.adresseLivraisonId,
-                    Stock__c = siteId,
-                    N_Ticket_Correctif__c = input.nTicketCorrectifId,
-                    Statut__c = 'Commande à traiter'
-                ));
-            }
-            if (!newEnvois.isEmpty()) {
-                insert newEnvois;
-                for (Envoi_Logistique__c envoi : newEnvois) {
-                    siteToEnvoiIdMap.put(envoi.Stock__c, envoi.Id);
-                }
-            }
+            // 3. Sync Lines (Create/Update/Delete)
+            clientKeyToNewIdMap = syncOrderLines(input.orderId, input.lines, siteToEnvoiIdMap, input.typeLigneContext);
 
-            // 2. Logique de Synchronisation des lignes
-            List<Commande_Pi_ces_D_tails__c> linesToCreate = new List<Commande_Pi_ces_D_tails__c>();
-            List<Commande_Pi_ces_D_tails__c> linesToUpdate = new List<Commande_Pi_ces_D_tails__c>();
-            
-            // On récupère les lignes existantes
-            Map<Id, Commande_Pi_ces_D_tails__c> existingLinesMap = new Map<Id, Commande_Pi_ces_D_tails__c>(
-                [SELECT Id, Statut_Commande__c, Type_Ligne__c, Envoi_Logistique__c FROM Commande_Pi_ces_D_tails__c WHERE Commande_Pi_ces__c = :input.orderId]
-            );
-
-            Set<Id> detailIdsFromInput = new Set<Id>();
-
-            if (input.lines != null) {
-                for (OrderLineInput line : input.lines) {
-                    Id envoiId = (line.typeLigne == 'Cockpit' && line.siteId != null) ? siteToEnvoiIdMap.get(line.siteId) : null;
-
-                    // Si la ligne a un detailId, elle existait potentiellement déjà
-                    if (line.detailId != null && existingLinesMap.containsKey(line.detailId)) {
-                        Commande_Pi_ces_D_tails__c existingLine = existingLinesMap.get(line.detailId);
-                        
-                        existingLine.Quantit__c = line.quantity;
-                        existingLine.Commentaire__c = line.comment;
-                        existingLine.Statut_Commande__c = line.statut;
-                        existingLine.Commentaire_Refus__c = line.commentaireRefus;
-                        // Force update Envoi if envoiId is determined (Desktop mode)
-                        if (envoiId != null) {
-                            existingLine.Envoi_Logistique__c = envoiId;
-                        }
-                        
-                        linesToUpdate.add(existingLine);
-                        detailIdsFromInput.add(line.detailId);
-                    } 
-                    // Sinon, c'est une nouvelle ligne
-                    else {
-                        linesToCreate.add(new Commande_Pi_ces_D_tails__c(
-                            Commande_Pi_ces__c = input.orderId, 
-                            Lieu__c = line.siteId, 
-                            Code_Articles__c = line.articleId,
-                            Quantit__c = line.quantity, 
-                            Commentaire__c = line.comment,
-                            Statut_Commande__c = line.statut,
-                            Commentaire_Refus__c = line.commentaireRefus,
-                            Type_Ligne__c = getCorrectPicklistValue('Commande_Pi_ces_D_tails__c', 'Type_Ligne__c', line.typeLigne),
-                            Envoi_Logistique__c = envoiId
-                        ));
-                    }
-                }
-            }
-
-            // 3. Identifier les lignes à supprimer
-            Set<Id> existingIds = existingLinesMap.keySet();
-            existingIds.removeAll(detailIdsFromInput); 
-            List<Commande_Pi_ces_D_tails__c> linesToDelete = new List<Commande_Pi_ces_D_tails__c>();
-            Set<Id> envoiIdsToCheck = new Set<Id>(); // Envois potentiellement vides
-
-            for (Id idToDelete : existingIds) {
-                Commande_Pi_ces_D_tails__c lineToDelete = existingLinesMap.get(idToDelete);
-                if (String.isNotBlank(input.typeLigneContext)) {
-                    if (lineToDelete.Type_Ligne__c == input.typeLigneContext) {
-                        linesToDelete.add(lineToDelete);
-                        if (lineToDelete.Envoi_Logistique__c != null) {
-                            envoiIdsToCheck.add(lineToDelete.Envoi_Logistique__c);
-                        }
-                    }
-                } else {
-                    linesToDelete.add(lineToDelete);
-                    if (lineToDelete.Envoi_Logistique__c != null) {
-                        envoiIdsToCheck.add(lineToDelete.Envoi_Logistique__c);
-                    }
-                }
-            }
-
-            // 4. Effectuer les opérations DML
-            if (!linesToUpdate.isEmpty()) { update linesToUpdate; }
-            if (!linesToDelete.isEmpty()) { delete linesToDelete; }
-            if (!linesToCreate.isEmpty()) { 
-                insert linesToCreate;
-                for (Commande_Pi_ces_D_tails__c newLine : linesToCreate) {
-                    String clientKey = newLine.Lieu__c + '-' + newLine.Code_Articles__c;
-                    clientKeyToNewIdMap.put(clientKey, newLine.Id);
-                }
-            }
-
-            // 5. Nettoyer les Envois vides
-            // 5. Nettoyer les Envois vides
-            if (!envoiIdsToCheck.isEmpty()) {
-                List<Envoi_Logistique__c> envoisToDelete = new List<Envoi_Logistique__c>();
-                for (Envoi_Logistique__c envoi : [SELECT Id, (SELECT Id FROM Lignes_de_Commande__r LIMIT 1) FROM Envoi_Logistique__c WHERE Id IN :envoiIdsToCheck]) {
-                    if (envoi.Lignes_de_Commande__r.isEmpty()) {
-                        envoisToDelete.add(envoi);
-                    }
-                }
-                if (!envoisToDelete.isEmpty()) {
-                    delete envoisToDelete;
-                }
-            }
-            
-            // 6. Envoyer les notifications
+            // 4. Notifications
             sendNotificationsToLogisticians(input.orderId);
 
-            // 7. Retourner la map des nouveaux IDs
             return clientKeyToNewIdMap;
         } catch (Exception e) {
             throw new AuraHandledException('Erreur lors de la mise à jour de la commande : ' + e.getMessage() + ' ' + e.getStackTraceString());
         }
     }
 
-    // --- GESTION ENVOI LOGISTIQUE ---
-    private static void manageEnvoiLogistique(Id orderId, List<Commande_Pi_ces_D_tails__c> lines) {
-        if (lines == null || lines.isEmpty()) return;
+    // --- HELPER METHODS FOR FORMATTING ---
 
-        // 1. Identifier les sites concernés par des lignes "Cockpit"
-        Set<Id> siteIds = new Set<Id>();
-        List<Commande_Pi_ces_D_tails__c> cockpitLines = new List<Commande_Pi_ces_D_tails__c>();
-
-        for (Commande_Pi_ces_D_tails__c line : lines) {
-            // On ne gère les envois que pour les lignes Cockpit (ou si le type n'est pas spécifié, par défaut on assume Cockpit pour la rétrocompatibilité si nécessaire, mais ici on filtre strict)
-            if (line.Type_Ligne__c == 'Cockpit' && line.Lieu__c != null) {
-                siteIds.add(line.Lieu__c);
-                cockpitLines.add(line);
-            }
-        }
-
-        if (siteIds.isEmpty()) return;
-
-        // 2. Récupérer les Envois existants pour cette commande et ces sites
-        Map<Id, Envoi_Logistique__c> siteToEnvoiMap = new Map<Id, Envoi_Logistique__c>();
-        List<Envoi_Logistique__c> existingEnvois = [
-            SELECT Id, Stock__c 
-            FROM Envoi_Logistique__c 
-            WHERE Commande_Pi_ces__c = :orderId AND Stock__c IN :siteIds
-        ];
-
-        for (Envoi_Logistique__c envoi : existingEnvois) {
-            siteToEnvoiMap.put(envoi.Stock__c, envoi);
-        }
-
-        // 3. Créer les Envois manquants
-        List<Envoi_Logistique__c> envoisToInsert = new List<Envoi_Logistique__c>();
-        for (Id siteId : siteIds) {
-            if (!siteToEnvoiMap.containsKey(siteId)) {
-                Envoi_Logistique__c newEnvoi = new Envoi_Logistique__c(
-                    Commande_Pi_ces__c = orderId,
-                    Stock__c = siteId,
-                    Statut__c = 'Commande à traiter'
-                );
-                envoisToInsert.add(newEnvoi);
-            }
-        }
-
-        if (!envoisToInsert.isEmpty()) {
-            insert envoisToInsert;
-            // Ajouter les nouveaux envois à la map
-            for (Envoi_Logistique__c envoi : envoisToInsert) {
-                siteToEnvoiMap.put(envoi.Stock__c, envoi);
-            }
-        }
-
-        // 4. Lier les lignes de commande aux Envois correspondants
-        List<Commande_Pi_ces_D_tails__c> linesToUpdate = new List<Commande_Pi_ces_D_tails__c>();
-        for (Commande_Pi_ces_D_tails__c line : cockpitLines) {
-            if (siteToEnvoiMap.containsKey(line.Lieu__c)) {
-                // On vérifie si la ligne n'est pas déjà liée (ou si elle est liée au mauvais envoi, ce qui est rare mais possible)
-                // Note: Comme on n'a pas requêté le champ Envoi_Logistique__c sur les lignes en entrée (elles viennent d'être insérées ou sont des objets en mémoire),
-                // on force la mise à jour pour être sûr.
-                
-                // Attention: Si 'line' vient de 'insert linesToCreate', elle a un Id.
-                // Si elle vient de 'linesToUpdate', elle a un Id.
-                // On doit créer une instance pour l'update pour éviter d'écraser d'autres champs si l'objet en mémoire est incomplet,
-                // mais ici on a besoin de mettre à jour Envoi_Logistique__c.
-                
-                Commande_Pi_ces_D_tails__c lineUpdate = new Commande_Pi_ces_D_tails__c(
-                    Id = line.Id,
-                    Envoi_Logistique__c = siteToEnvoiMap.get(line.Lieu__c).Id
-                );
-                linesToUpdate.add(lineUpdate);
-            }
-        }
-
-        if (!linesToUpdate.isEmpty()) {
-            update linesToUpdate;
-        }
+    private static String formatTicketSublabel(String codeSite, String nomSite) {
+        List<String> parts = new List<String>();
+        if (String.isNotBlank(codeSite)) parts.add(codeSite);
+        if (String.isNotBlank(nomSite)) parts.add(nomSite);
+        return String.join(parts, ' - ');
     }
+
+    private static String formatAddress(String street, String postalCode, String city) {
+        List<String> addressParts = new List<String>();
+        if (String.isNotBlank(street)) addressParts.add(street);
+        if (String.isNotBlank(postalCode) || String.isNotBlank(city)) {
+            addressParts.add((postalCode != null ? postalCode : '') + ' ' + (city != null ? city : ''));
+        }
+        return String.join(addressParts, '\n');
+    }
+
+    // --- HELPER METHODS FOR LOGIC ---
+
+    private static Map<Id, Id> ensureEnvoisExist(Id orderId, List<OrderLineInput> lines, Id adresseLivraisonId, Id nTicketId) {
+        Map<Id, Id> siteToEnvoiIdMap = new Map<Id, Id>();
+        
+        // Fetch existing
+        for (Envoi_Logistique__c envoi : [SELECT Id, Stock__c FROM Envoi_Logistique__c WHERE Commande_Pi_ces__c = :orderId]) {
+            siteToEnvoiIdMap.put(envoi.Stock__c, envoi.Id);
+        }
+
+        // Identify missing
+        Set<Id> sitesNeedingEnvoi = new Set<Id>();
+        if (lines != null) {
+            for (OrderLineInput line : lines) {
+                if (line.typeLigne == 'Cockpit' && line.siteId != null && !siteToEnvoiIdMap.containsKey(line.siteId)) {
+                    sitesNeedingEnvoi.add(line.siteId);
+                }
+            }
+        }
+
+        // Create missing
+        if (!sitesNeedingEnvoi.isEmpty()) {
+            List<Envoi_Logistique__c> newEnvois = new List<Envoi_Logistique__c>();
+            for (Id siteId : sitesNeedingEnvoi) {
+                newEnvois.add(new Envoi_Logistique__c(
+                    Commande_Pi_ces__c = orderId,
+                    Destinataire__c = adresseLivraisonId,
+                    Stock__c = siteId,
+                    N_Ticket_Correctif__c = nTicketId,
+                    Statut__c = 'Commande à Traiter'
+                ));
+            }
+            insert newEnvois;
+            for (Envoi_Logistique__c envoi : newEnvois) {
+                siteToEnvoiIdMap.put(envoi.Stock__c, envoi.Id);
+            }
+        }
+        return siteToEnvoiIdMap;
+    }
+
+    private static Map<String, Id> syncOrderLines(Id orderId, List<OrderLineInput> inputLines, Map<Id, Id> siteToEnvoiIdMap, String typeLigneContext) {
+        Map<String, Id> clientKeyToNewIdMap = new Map<String, Id>();
+        List<Commande_Pi_ces_D_tails__c> linesToCreate = new List<Commande_Pi_ces_D_tails__c>();
+        List<Commande_Pi_ces_D_tails__c> linesToUpdate = new List<Commande_Pi_ces_D_tails__c>();
+        
+        Map<Id, Commande_Pi_ces_D_tails__c> existingLinesMap = new Map<Id, Commande_Pi_ces_D_tails__c>(
+            [SELECT Id, Statut_Commande__c, Type_Ligne__c, Envoi_Logistique__c FROM Commande_Pi_ces_D_tails__c WHERE Commande_Pi_ces__c = :orderId]
+        );
+
+        Set<Id> processedDetailIds = new Set<Id>();
+
+        if (inputLines != null) {
+            for (OrderLineInput line : inputLines) {
+                Id envoiId = (line.typeLigne == 'Cockpit' && line.siteId != null) ? siteToEnvoiIdMap.get(line.siteId) : null;
+
+                if (line.detailId != null && existingLinesMap.containsKey(line.detailId)) {
+                    Commande_Pi_ces_D_tails__c existingLine = existingLinesMap.get(line.detailId);
+                    existingLine.Quantit__c = line.quantity;
+                    existingLine.Commentaire__c = line.comment;
+                    existingLine.Statut_Commande__c = line.statut;
+                    existingLine.Commentaire_Refus__c = line.commentaireRefus;
+                    if (existingLine.Envoi_Logistique__c == null && envoiId != null) {
+                        existingLine.Envoi_Logistique__c = envoiId;
+                    }
+                    linesToUpdate.add(existingLine);
+                    processedDetailIds.add(line.detailId);
+                } else {
+                    linesToCreate.add(new Commande_Pi_ces_D_tails__c(
+                        Commande_Pi_ces__c = orderId, 
+                        Lieu__c = line.siteId, 
+                        Code_Articles__c = line.articleId,
+                        Quantit__c = line.quantity, 
+                        Commentaire__c = line.comment,
+                        Statut_Commande__c = line.statut,
+                        Commentaire_Refus__c = line.commentaireRefus,
+                        Type_Ligne__c = line.typeLigne,
+                        Envoi_Logistique__c = envoiId
+                    ));
+                }
+            }
+        }
+
+        // Identify deletions
+        List<Commande_Pi_ces_D_tails__c> linesToDelete = new List<Commande_Pi_ces_D_tails__c>();
+        
+        for (Id id : existingLinesMap.keySet()) {
+            if (!processedDetailIds.contains(id)) {
+                Commande_Pi_ces_D_tails__c line = existingLinesMap.get(id);
+                // Only delete if it matches the current context (e.g. don't delete Technicien lines when saving Cockpit)
+                if (String.isBlank(typeLigneContext) || line.Type_Ligne__c == typeLigneContext) {
+                    linesToDelete.add(line);
+                }
+            }
+        }
+
+        if (!linesToUpdate.isEmpty()) update linesToUpdate;
+        if (!linesToDelete.isEmpty()) delete linesToDelete;
+
+        // Clean up empty Envois
+        /* 
+        if (!envoiIdsToCheck.isEmpty()) {
+            List<Envoi_Logistique__c> envoisToDelete = new List<Envoi_Logistique__c>();
+            for (Envoi_Logistique__c envoi : [SELECT Id, (SELECT Id FROM Lignes_de_Commande__r LIMIT 1) FROM Envoi_Logistique__c WHERE Id IN :envoiIdsToCheck]) {
+                if (envoi.Lignes_de_Commande__r.isEmpty()) {
+                    envoisToDelete.add(envoi);
+                }
+            }
+            if (!envoisToDelete.isEmpty()) {
+                delete envoisToDelete;
+            }
+        }
+        */
+        if (!linesToCreate.isEmpty()) { 
+            insert linesToCreate;
+            for (Commande_Pi_ces_D_tails__c newLine : linesToCreate) {
+                String clientKey = newLine.Lieu__c + '-' + newLine.Code_Articles__c;
+                clientKeyToNewIdMap.put(clientKey, newLine.Id);
+            }
+        }
+        
+        return clientKeyToNewIdMap;
+    }
+
+
 
     // --- NOTIFICATIONS ---
     private static void sendNotificationsToLogisticians(Id orderId) {
@@ -774,32 +743,5 @@ public without sharing class MntLogistiqueCommandCockpitCtrl {
             results.add(f);
         }
         return results;
-    }
-
-    // --- UTILITAIRES ---
-    private static String getCorrectPicklistValue(String objectName, String fieldName, String valueToCheck) {
-        if (String.isBlank(valueToCheck)) return valueToCheck;
-        
-        // Si la valeur est 'Technicien' (ou variante), on essaie de trouver la bonne valeur API
-        if (valueToCheck.equalsIgnoreCase('Technicien')) {
-            Schema.SObjectType sObjType = Schema.getGlobalDescribe().get(objectName);
-            if (sObjType == null) return valueToCheck;
-
-            Schema.DescribeSObjectResult describeResult = sObjType.getDescribe();
-            Map<String, Schema.SObjectField> fields = describeResult.fields.getMap();
-            Schema.SObjectField field = fields.get(fieldName);
-            
-            if (field != null) {
-                List<Schema.PicklistEntry> ple = field.getDescribe().getPicklistValues();
-                for (Schema.PicklistEntry entry : ple) {
-                    // On cherche une correspondance exacte ou proche (Label ou Value)
-                    if (entry.getValue().equalsIgnoreCase('Technicien') || entry.getLabel().equalsIgnoreCase('Technicien') ||
-                        entry.getValue().equalsIgnoreCase('Technician') || entry.getLabel().equalsIgnoreCase('Technician')) {
-                        return entry.getValue();
-                    }
-                }
-            }
-        }
-        return valueToCheck;
     }
 }

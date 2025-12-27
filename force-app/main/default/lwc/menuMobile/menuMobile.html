@@ -1,0 +1,20 @@
+<template>
+    <div class="stack">
+      <template for:each={_opts} for:item="o" for:index="i">
+        <button key={o.value}
+                class="slds-button slds-button_brand menu-btn"
+                data-index={i}
+                onclick={handleClick}
+                aria-label={o.label}
+                title={o.label}>
+          <lightning-icon if:true={o.iconName}
+                          icon-name={o.iconName}
+                          size="small"
+                          class="icon"
+                          alternative-text={o.label}>
+          </lightning-icon>
+          <span class="label">{o.label}</span>
+        </button>
+      </template>
+    </div>
+  </template>

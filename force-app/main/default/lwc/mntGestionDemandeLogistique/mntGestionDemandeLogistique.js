@@ -1,22 +1,19 @@
 import { LightningElement, track, api, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { FlowNavigationNextEvent } from 'lightning/flowSupport';
-import getInventoryAggregatesMulti from '@salesforce/apex/MntLogistiqueCommandCockpitCtrl.getInventoryAggregatesMulti';
-import searchArticles from '@salesforce/apex/MntLogistiqueCommandCockpitCtrl.searchArticles';
-import createOrder from '@salesforce/apex/MntLogistiqueCommandCockpitCtrl.createOrder';
-import getOrderDetails from '@salesforce/apex/MntLogistiqueCommandCockpitCtrl.getOrderDetails';
-import updateOrder from '@salesforce/apex/MntLogistiqueCommandCockpitCtrl.updateOrder';
-import searchRecords from '@salesforce/apex/MntLogistiqueCommandCockpitCtrl.searchRecords';
-import uploadFiles from '@salesforce/apex/MntLogistiqueCommandCockpitCtrl.uploadFiles';
-import getAttachedFiles from '@salesforce/apex/MntLogistiqueCommandCockpitCtrl.getAttachedFiles';
-import updatePec from '@salesforce/apex/MntLogistiqueCommandCockpitCtrl.updatePec';
+import getInventoryAggregatesMulti from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.getInventoryAggregatesMulti';
+import searchArticles from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.searchArticles';
+import createOrder from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.createOrder';
+import getOrderDetails from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.getOrderDetails';
+import updateOrder from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.updateOrder';
+import searchRecords from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.searchRecords';
+import uploadFiles from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.uploadFiles';
+import getAttachedFiles from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.getAttachedFiles';
+import getInitialData from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.getInitialData';
+import updatePec from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.updatePec';
 import { NavigationMixin } from 'lightning/navigation';
-import { getRecord, getFieldValue, deleteRecord } from 'lightning/uiRecordApi';
-import USER_ID from '@salesforce/user/Id';
-import USER_NAME_FIELD from '@salesforce/schema/User.Name';
+import { getRecord, getFieldValue, deleteRecord, notifyRecordUpdateAvailable, getRecordNotifyChange } from 'lightning/uiRecordApi';
 import FORM_FACTOR from '@salesforce/client/formFactor';
-
-const TICKET_FIELDS = ['Correctif__c.ID_ticket_client__c', 'Correctif__c.Code_site__c', 'Correctif__c.Nom_du_site__c'];
 
 // --- GESTION CENTRALISÉE DES STATUTS ---
 const STATUS_DEFINITIONS_BY_KEY = {
@@ -69,11 +66,13 @@ const COLS_CART_EDIT = [
     { type: 'action', typeAttributes: { rowActions: getRowActions } }
 ];
 
-export default class MntLogistiqueCommandCockpit extends NavigationMixin(LightningElement) {
-    @api recordId; // ID de la commande (si edit)
-    @api nTicketId; // ID du ticket (si flow)
+export default class MntGestionDemandeLogistique extends NavigationMixin(LightningElement) {
+    @api recordId; 
+    @api objectApiName;
+    @api nTicketId; 
     @api componentLabel;
-    @track selectedNTicket = null; // { id, title, subtitle }
+    @api isSaveComplete = false;
+    @track selectedNTicket = null; 
     @track demandeurId;
     @track lieuId;
     @track compteProjet = '';
@@ -91,7 +90,36 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
     @track cartItemKeys = new Set();
     @track createdDate;
     @track createdByName;
-    @api isSaveComplete = false;
+    @track hasExistingCockpitLines = false;
+    @track ticketPriority;
+    @track ticketStatus;
+    @track ticketStatus;
+    @track typeReception = 'Livraison'; // Default
+    @track g2r;
+    @track siteName;
+    @track contactAddress;
+    @track activeSections = ['info_demande'];
+
+    get typeReceptionOptions() {
+        return [
+            { label: 'Livraison', value: 'Livraison' },
+            { label: 'Remise en main propre', value: 'Remise en main propre' }
+        ];
+    }
+
+    // Variable interne pour stocker l'état
+    _viewCommandInfo;
+
+    @api
+    get viewCommandInfo() {
+        // Si la valeur n'a jamais été définie (cas du Quick Action), on retourne TRUE par défaut.
+        // Si la valeur a été définie (par App Builder/Flow), on retourne cette valeur.
+        return this._viewCommandInfo !== undefined ? this._viewCommandInfo : true;
+    }
+
+    set viewCommandInfo(value) {
+        this._viewCommandInfo = value;
+    }
 
     aggCols = COLS_AGG;
     pageSize = 20;
@@ -118,25 +146,56 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
         if (isMobileDevice || isSalesforceMobile || isSmallScreen) {
             return false;
         }
-        
-        // Fallback to FORM_FACTOR
+
         return FORM_FACTOR === 'Large';
     }
 
-    get formFactor() {
-        return FORM_FACTOR + ' (' + window.innerWidth + 'px)';
+    get isViewCommandInfo() { return !!this.viewCommandInfo; }
+    // En mode Desktop, on est en "édition" seulement s'il y a un recordId ET des lignes Cockpit existantes
+    // En mode Mobile, on est en "édition" simplement s'il y a un recordId
+    get isEditMode() { 
+        if (!this.recordId) return false;
+        if (this.isDesktop) {
+            return this.hasExistingCockpitLines;
+        }
+        return true; // Mobile : édition si recordId existe
     }
-
-    get isEditMode() { return !!this.recordId; }
     get cardTitle() { return this.isEditMode ? 'Modifier la Commande' : 'Créer une nouvelle Commande'; }
-    get saveButtonLabel() { return this.isEditMode ? 'Mettre à jour' : 'Créer la commande'; }
+    // saveButtonLabel removed (duplicate)
     get cartCols() { return this.isEditMode ? COLS_CART_EDIT : COLS_CART_CREATE; }
     get isDisabled() { 
-        if (this.cart.length === 0) return true;
+        // --- RESTRICTIONS BASÉES SUR LE STATUT (DESKTOP UNIQUEMENT) ---
+        // En mode mobile, pas de restriction de statut pour la création
+        if (this.isDesktop) {
+            // En mode édition sur Desktop, on vérifie les statuts autorisés pour la mise à jour
+            if (this.isEditMode) {
+                // Les statuts 'Nouveau', 'PEC Cockpit' et 'Clôturer' NE permettent PAS la mise à jour
+                const forbiddenStatusesForUpdate = ['Nouveau', 'Clôturer'];
+                if (forbiddenStatusesForUpdate.includes(this.status)) {
+                    return true; // Désactivé
+                }
+            } else {
+                // En création sur Desktop : autorisé uniquement si ticketStatus = 'PEC Cockpit'
+                if (this.ticketStatus && this.ticketStatus !== 'PEC Cockpit') {
+                    return true; // Désactivé - création non autorisée
+                }
+            }
+        }
+        // En mode mobile : pas de restriction de statut, la création est toujours possible
+
+        // --- VALIDATIONS DU PANIER (logique existante) ---
+        // Si le panier est vide
+        if (this.cart.length === 0) {
+            // En mode "Mise à jour" (isEditMode = true), on active le bouton (return false) pour permettre la suppression totale.
+            // En mode "Création", on laisse désactivé (return true) car créer une commande vide n'a pas de sens.
+            return !this.isEditMode;
+        }
+
+        // Si le panier contient des articles, on vérifie qu'ils sont valides (Quantité > 0, Commentaire si "Autre")
         return !this.cart.every(c => {
             const hasQuantity = c.quantity && c.quantity > 0;
             // "Autre" requires a comment
-            const isAutre = c.articleName === 'Autre';
+            const isAutre = c.articleName && c.articleName.toLowerCase() === 'autre';
             const hasCommentIfRequired = isAutre ? (c.comment && c.comment.trim().length > 0) : true;
             return hasQuantity && hasCommentIfRequired;
         });
@@ -146,48 +205,100 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
     get lieuComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.lieu ? 'slds-is-open' : ''}`; }
     get adresseLivraisonComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.adresseLivraison ? 'slds-is-open' : ''}`; }
     get nTicketComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.ticket ? 'slds-is-open' : ''}`; }
+    
+    get showNoResultsMessage() {
+        return this.articleSearchTerm.length >= 3 && this.rows.length === 0 && !this.loading;
+    }
 
-    get showNoResultsMessage() { return this.articleSearchTerm.length >= 3 && this.rows.length === 0 && !this.loading; }
+    get saveButtonLabel() {
+        if (!this.isEditMode) {
+            return 'Créer la Demande';
+        }
+        if (!this.isDesktop) {
+            return 'Mettre à jour la Demande';
+        }
+        return this.hasExistingCockpitLines ? 'Mettre à jour' : 'Créer la Demande';
+    }
 
+    // Getter pour afficher un message d'erreur sur le statut (Desktop uniquement)
+    get statusRestrictionMessage() {
+        // Pas de message de restriction en mobile
+        if (!this.isDesktop) {
+            return null;
+        }
+        
+        if (this.isEditMode) {
+            const forbiddenStatusesForUpdate = ['Nouveau', 'PEC Cockpit', 'Clôturer'];
+            if (forbiddenStatusesForUpdate.includes(this.status)) {
+                return `La mise à jour n'est pas autorisée pour le statut "${this.status}".`;
+            }
+        } else {
+            // En création sur Desktop
+            if (this.ticketStatus && this.ticketStatus !== 'PEC Cockpit') {
+                return `La création de demande n'est autorisée que lorsque le statut du ticket est "PEC Cockpit". Statut actuel : "${this.ticketStatus}".`;
+            }
+        }
+        return null;
+    }
+
+    get hasStatusRestriction() {
+        return !!this.statusRestrictionMessage;
+    }
     // --- LOGIQUE PRINCIPALE ---
     
-    @wire(getRecord, { recordId: USER_ID, fields: [USER_NAME_FIELD] })
-    wiredUser({ error, data }) {
-        if (data) {
-            this.currentUserName = getFieldValue(data, USER_NAME_FIELD);
-            // Si on est en mode création et qu'aucun demandeur n'est encore sélectionné
-            if (!this.isEditMode && !this.demandeurId) {
-                this.demandeurId = USER_ID;
-                this.selectedDemandeur = { value: USER_ID, label: this.currentUserName };
-            }
-        } else if (error) {
-            console.error('Error loading user data', error);
-        }
-    }
-
-    @wire(getRecord, { recordId: '$nTicketId', fields: TICKET_FIELDS })
-    wiredTicket({ error, data }) {
-        if (data) {
-            const title = getFieldValue(data, 'Correctif__c.ID_ticket_client__c') || '';
-            const codeSite = getFieldValue(data, 'Correctif__c.Code_site__c') || '';
-            const nomSite = getFieldValue(data, 'Correctif__c.Nom_du_site__c') || '';
-            const parts = [codeSite, nomSite].filter(p => p);
-            const subtitle = parts.join(' - ');
-            this.selectedNTicket = {
-                id: this.nTicketId,
-                value: this.nTicketId,
-                label: title,
-                sublabel: subtitle,
-                pillLabel: title + (subtitle ? ' - ' + subtitle : '')
-            };
-        } else if (error) {
-            console.error('Error loading ticket', error);
-        }
-    }
-
     connectedCallback() {
-        if (this.isEditMode) { this.loadOrderData(); } 
-        else { this.loading = false; }
+        // On utilise recordId directement car isEditMode dépend de hasExistingCockpitLines 
+        // qui n'est pas encore chargé à ce stade
+        if (this.recordId) { 
+            this.loadOrderData(); 
+        } else { 
+            this.loadInitialData(); 
+        }
+    }
+
+    async loadInitialData() {
+        this.loading = true;
+        try {
+            const data = await getInitialData({ nTicketId: this.nTicketId });
+            
+            // 1. User Info
+            this.currentUserName = data.currentUserName;
+            if (!this.demandeurId) {
+                this.demandeurId = data.currentUserId;
+                this.selectedDemandeur = { value: data.currentUserId, label: this.currentUserName };
+            }
+
+            // 2. Ticket Info
+            if (data.nTicketCorrectifId) {
+                this.nTicketId = data.nTicketCorrectifId;
+                const label = data.nTicketName || '';
+                const sublabel = data.nTicketSubLabel || '';
+                this.selectedNTicket = {
+                    value: data.nTicketCorrectifId,
+                    label: label,
+                    sublabel: sublabel,
+                    pillLabel: sublabel ? `${label} - ${sublabel}` : label
+                };
+                this.g2r = data.g2r;
+                this.siteName = data.siteName;
+
+                // 3. Site Info from Ticket
+                if (data.lieuId && !this.lieuId) {
+                    this.lieuId = data.lieuId;
+                    this.selectedLieu = {
+                        value: data.lieuId,
+                        label: data.lieuName,
+                        sublabel: data.lieuNomDuSite,
+                        pillLabel: data.pillLabels
+                    };
+                }
+            }
+        } catch (error) {
+            console.error('Error loading initial data', error);
+            this.showToast('Erreur', 'Impossible de charger les données initiales', 'error');
+        } finally {
+            this.loading = false;
+        }
     }
 
     async loadOrderData() {
@@ -196,7 +307,15 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
         try {
             const orderData = await getOrderDetails({ orderId: this.recordId });
             this.nTicketId = orderData.nTicketCorrectifId;
-            if (orderData.nTicketCorrectifId) {const label = orderData.nTicketName || ''; const sublabel = orderData.nTicketSubLabel || ''; this.selectedNTicket = { value: orderData.nTicketCorrectifId, label: orderData.nTicketName, sublabel: orderData.nTicketSubLabel, pillLabel: orderData.nTicketPillLabel };}
+            if (orderData.nTicketCorrectifId) {
+                const label = orderData.nTicketName || ''; 
+                const sublabel = orderData.nTicketSubLabel || ''; 
+                this.selectedNTicket = { value: orderData.nTicketCorrectifId, label: orderData.nTicketName, sublabel: sublabel, pillLabel: sublabel ? `${label} - ${sublabel}` : label };
+                this.ticketPriority = orderData.ticketPriority;
+                this.ticketStatus = orderData.ticketStatus;
+                this.g2r = orderData.g2r;
+                this.siteName = orderData.siteName;
+            }
             this.globalComment = orderData.globalComment || '';
             this.demandeurId = orderData.demandeurId;
             this.lieuId = orderData.lieuId;
@@ -205,6 +324,7 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
             if (orderData.lieuId) this.selectedLieu = { value: orderData.lieuId, label: orderData.lieuName, sublabel: orderData.lieuNomDuSite, pillLabel: orderData.pillLabels }; 
             this.compteProjet = orderData.compteProjet;
             if (orderData.adresseLivraisonId) this.selectedAdresseLivraison = { value: orderData.adresseLivraisonId, label: orderData.adresseLivraisonName, sublabel: orderData.adresseLivraisonFull };
+            this.contactAddress = orderData.adresseLivraisonFull;
             this.createdDate = orderData.createdDate;
             this.createdByName = orderData.createdByName;
             this.status = orderData.status;
@@ -212,6 +332,7 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
             this.pecCockpitBy = orderData.pecCockpitBy;
             this.pecRetraitementDate = orderData.pecRetraitementDate;
             this.pecRetraitementBy = orderData.pecRetraitementBy;
+            this.typeReception = orderData.typeReception || 'Livraison';
 
             // Load attached files
             this.refreshAttachedFiles();
@@ -228,10 +349,15 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
                     }
                 })
                 .map(line => {
-                const statusDef = STATUS_DEFINITIONS_BY_APIVALUE[line.statut];
-                const key = `${line.siteId}-${line.articleId}`;
-                return { ...line, key: key, statutForDisplay: statusDef ? statusDef.displayValue : line.statut || '', isAutre: line.articleName === 'Autre', mnemonique: line.mnemonique, description: line.description };
-            });
+                    const siteSuffix = line.siteNomDuSite ? ` - ${line.siteNomDuSite}` : '';
+                    const fullSiteName = line.siteName + siteSuffix;
+                    const statusDef = STATUS_DEFINITIONS_BY_APIVALUE[line.statut];
+                    const key = `${line.siteId}-${line.articleId}`;
+                    return { ...line, key: key, statutForDisplay: statusDef ? statusDef.displayValue : line.statut || '', isAutre: line.articleName && line.articleName.toLowerCase() === 'autre', mnemonique: line.mnemonique, description: line.description, siteName: fullSiteName };
+                });
+                if (this.isDesktop) {
+                    this.hasExistingCockpitLines = cartLines.length > 0;
+                }   
             this.cart = cartLines;
             this.updateCartKeys();
             this.cartItemKeys = new Set(this.cart.map(c => c.key));
@@ -247,7 +373,7 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
         if (this.isDisabled) { this.toast('Attention', 'Veuillez renseigner une quantité valide (> 0) et un commentaire pour les articles "Autre".', 'warning'); return; }
         
         const targetType = this.isDesktop ? 'Cockpit' : 'Technicien';
-        const linesInput = this.cart.map(c => ({ detailId: c.detailId, siteId: c.siteId, articleId: c.articleId, quantity: parseInt(c.quantity, 10), comment: c.comment, statut: c.statut, commentaireRefus: c.commentaireRefus, typeLigne: targetType, descriptionArticle: c.description }));
+        const linesInput = this.cart.map(c => ({ detailId: c.detailId, siteId: c.siteId, articleId: c.articleId, quantity: parseInt(c.quantity, 10), comment: c.comment, statut: c.statut, commentaireRefus: c.commentaireRefus, typeLigne: targetType }));
         this.loading = true;
         try {
             if (this.isEditMode) {
@@ -265,6 +391,7 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
                 });
 
                 this.toast('Succès', 'Commande mise à jour.', 'success');
+                getRecordNotifyChange([{recordId: this.recordId}]);
             } 
             else { 
                 const input = { nTicketCorrectifId: this.nTicketId, globalComment: this.globalComment, lines: linesInput, demandeurId: this.demandeurId, lieuId: this.lieuId, compteProjet: this.compteProjet, adresseLivraisonId: this.adresseLivraisonId };
@@ -277,7 +404,8 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
                 }
 
                 this.toast('Succès', 'Commande créée avec succès.', 'success'); 
-                            // On met à jour la variable de sortie pour indiquer au Flow que c'est terminé
+                getRecordNotifyChange([{recordId: this.recordId}]);
+                // On met à jour la variable de sortie pour indiquer au Flow que c'est terminé
                 this.isSaveComplete = true;
 
                 // On envoie l'événement pour que le Flow avance automatiquement
@@ -327,7 +455,7 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
 
     handleLookupSelect(event) {
         const { value, label, sublabel, pillLabel, lookup } = event.currentTarget.dataset;
-        switch (lookup) { case 'ticket': this.nTicketId = value; this.selectedNTicket = { value, label, sublabel, pillLabel: sublabel ? `${label} - ${sublabel}` : label }; break; case 'demandeur': this.demandeurId = value; this.selectedDemandeur = { value, label, sublabel }; break; case 'lieu': this.lieuId = value; this.selectedLieu = { value, label, sublabel, pillLabel: sublabel ? `${label} - ${sublabel}` : label}; break; case 'adresseLivraison': this.adresseLivraisonId = value; this.selectedAdresseLivraison = { value, label, sublabel }; break; }
+        switch (lookup) { case 'ticket': this.nTicketId = value; this.selectedNTicket = { value, label, sublabel, pillLabel: label }; break; case 'demandeur': this.demandeurId = value; this.selectedDemandeur = { value, label, sublabel }; break; case 'lieu': this.lieuId = value; this.selectedLieu = { value, label, sublabel, pillLabel: sublabel ? `${label} - ${sublabel}` : label}; break; case 'adresseLivraison': this.adresseLivraisonId = value; this.selectedAdresseLivraison = { value, label, sublabel }; break; }
         this.lookupSuggestions[lookup] = [];
         const inputElement = this.template.querySelector(`lightning-input[data-lookup="${lookup}"]`);
         if (inputElement) { inputElement.value = ''; }
@@ -336,29 +464,14 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
 
     handleLookupPillRemove(event) {
         const lookupType = event.target.dataset.lookup;
-        switch (lookupType) {
-            case 'nticket':
-                this.nTicketId = null;
-                this.selectedNTicket = null;
-                break;
-            case 'ticket':
-                this.nTicketId = null;
-                this.selectedNTicket = null;
-                break;
-            case 'demandeur':
-                this.demandeurId = null;
-                this.selectedDemandeur = null;
-                break;
-            case 'lieu':
-                this.lieuId = null;
-                this.selectedLieu = null;
-                break;
-            case 'adresseLivraison':
-            case 'adresselivraison':
-                this.adresseLivraisonId = null;
-                this.selectedAdresseLivraison = null;
-                break;
-        }
+        const lookupMap = {
+            'ticket': () => { this.nTicketId = null; this.selectedNTicket = null; },
+            'demandeur': () => { this.demandeurId = null; this.selectedDemandeur = null; },
+            'lieu': () => { this.lieuId = null; this.selectedLieu = null; },
+            'adresseLivraison': () => { this.adresseLivraisonId = null; this.selectedAdresseLivraison = null; },
+            'adresselivraison': () => { this.adresseLivraisonId = null; this.selectedAdresseLivraison = null; }
+        };
+        if (lookupMap[lookupType]) lookupMap[lookupType]();
     }
     
     handleLookupFocus(event) { this.isLookupOpen[event.target.dataset.lookup] = true; }
@@ -385,6 +498,15 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
     handleCompteProjetKeyDown(event) { if (event.key === 'Enter') { this.handleCompteProjetChange(event); event.target.blur(); } }
     handleCompteProjetPillRemove() { this.compteProjet = ''; }
     handleGlobalCommentChange(event) { this.globalComment = event.target.value; }
+
+    handleTypeReceptionChange(event) {
+        this.typeReception = event.detail.value;
+        if (this.typeReception === 'Remise en main propre') {
+            this.contactAddress = '';
+        } else if (this.selectedAdresseLivraison && this.selectedAdresseLivraison.sublabel) {
+            this.contactAddress = this.selectedAdresseLivraison.sublabel;
+        }
+    }
 
     // --- GESTION DES PHOTOS ---
     @track filesToUpload = []; // Pour le mode création : { name, base64, previewUrl }
@@ -419,14 +541,29 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
         // Force refresh if needed (track handles it)
     }
 
+    get isPecCockpitDisabled() {
+        return this.status !== 'Nouveau';
+    }
+
+    get isPecRetraitementDisabled() {
+        return this.status !== 'À Retraiter';
+    }
+    
     async handlePecAction(event) {
-        const actionName = event.target.name; // 'pec_cockpit' or 'pec_retraitement'
+        const actionName = event.target.name; 
         const pecType = actionName === 'pec_cockpit' ? 'Cockpit' : 'Retraitement';
         
         this.loading = true;
         try {
             await updatePec({ orderId: this.recordId, pecType: pecType });
             this.toast('Succès', `PEC ${pecType} enregistrée.`, 'success');
+            if (pecType === 'Cockpit') {
+                this.status = 'PEC Cockpit'; 
+            } else if (pecType === 'Retraitement') {
+                this.status = 'PEC Retraitement'; 
+            }
+
+            getRecordNotifyChange([{recordId: this.recordId}]);
         } catch (error) {
             this.toast('Erreur', 'Impossible de mettre à jour la PEC : ' + (error.body?.message || error.message), 'error');
         } finally {
@@ -477,7 +614,7 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
     }
 
     handlePreviewFile(event) {
-        const fileId = event.currentTarget.dataset.id; // ContentDocumentId
+        const fileId = event.currentTarget.dataset.id; 
         this[NavigationMixin.Navigate]({
             type: 'standard__namedPage',
             attributes: {
@@ -490,7 +627,7 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
     }
 
     async handleDeleteAttachedFile(event) {
-        event.stopPropagation(); // Prevent opening preview
+        event.stopPropagation(); 
         const fileId = event.target.dataset.id;
         if (!fileId) return;
 
@@ -518,7 +655,18 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
             
             if (this.isDesktop) {
                 const articleIds = articlesFound.map(art => art.value);
-                if (articleIds.length > 0) { const res = await getInventoryAggregatesMulti({ articleIds: articleIds, limitSize: this.pageSize, offsetVal: this.offset, groupBySite: this.isDesktop }); this.rows = reset ? [...res] : [...this.rows, ...res]; this.hasMore = res.length === this.pageSize; } 
+                if (articleIds.length > 0) { 
+                    let res = await getInventoryAggregatesMulti({ articleIds: articleIds, limitSize: this.pageSize, offsetVal: this.offset, groupBySite: this.isDesktop }); 
+                    res = res.map(row => {
+                        const suffix = row.siteNomDuSite ? ` - ${row.siteNomDuSite}` : '';
+                        return { 
+                            ...row, 
+                            siteName: row.siteName + suffix 
+                        };
+                    });
+                    this.rows = reset ? [...res] : [...this.rows, ...res]; 
+                    this.hasMore = res.length === this.pageSize; 
+                } 
                 else { this.rows = []; }
             } else {
                 // Mobile: Use articles directly without site aggregation
@@ -563,15 +711,18 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
             description: row.description,
             quantity: 1,
             comment: '',
-            statut: 'Disponible', // Statut par défaut
+            statut: 'Disponible', 
             statutForDisplay: 'Disponible',
-            isAutre: row.articleName === 'Autre',
+            isAutre: row.articleName && row.articleName.toLowerCase() === 'autre',
             typeLigne: this.isDesktop ? 'Cockpit' : 'Technicien'
         };
         this.cart = [...this.cart, newItem];
         this.updateCartKeys();
         this.cartItemKeys.add(rowKey);
         this.toast('Succès', `${row.articleName} ajouté.`, 'success'); 
+        if (this.isDesktop) {
+            this.hasExistingCockpitLines = this.cart.length > 0;
+        } 
     }
 
     handleCartAction(event) {
@@ -585,6 +736,9 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
             this.cart = this.cart.map(item => { if (item.key === row.key) { return { ...item, statut: statusDef.apiValue, statutForDisplay: statusDef.displayValue }; } return item; });
             this.toast('Statut mis à jour', `La ligne est maintenant "${statusDef.label}".`, 'success');
         }
+        if (this.isDesktop) {
+            this.hasExistingCockpitLines = this.cart.length > 0;
+        }
     }
 
     handleCartSave(e) {
@@ -594,58 +748,49 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
         this.template.querySelector('lightning-datatable[data-id="cart"]').draftValues = []; 
     }
 
-    // --- GESTION PANIER DESKTOP (CARTES) ---
+    // --- GESTION PANIER (SHARED) ---
 
-    handleCartQuantityChange(event) {
-        const key = event.target.dataset.key;
-        const val = event.target.value;
-        // Mise à jour directe de la quantité dans le tableau cart
+    updateCartItem(key, field, value) {
         this.cart = this.cart.map(item => 
-            item.key === key ? { ...item, quantity: val } : item
+            item.key === key ? { ...item, [field]: value } : item
         );
     }
 
-    handleCartCommentChange(event) {
-        const key = event.target.dataset.key;
-        const val = event.target.value;
-        // Mise à jour directe du commentaire dans le tableau cart
-        this.cart = this.cart.map(item => 
-            item.key === key ? { ...item, comment: val } : item
-        );
-    }
-
-    handleCartRemove(event) {
-        const key = event.target.dataset.key;
-        // Suppression de l'élément du tableau cart et mise à jour du Set de clés
+    removeCartItem(key) {
         this.cart = this.cart.filter(c => c.key !== key);
         this.updateCartKeys();
         this.cartItemKeys.delete(key);
+    }
+
+    // --- GESTION PANIER DESKTOP (CARTES) ---
+
+    handleCartQuantityChange(event) {
+        this.updateCartItem(event.target.dataset.key, 'quantity', event.target.value);
+    }
+
+    handleCartCommentChange(event) {
+        this.updateCartItem(event.target.dataset.key, 'comment', event.target.value);
+    }
+
+    handleCartRemove(event) {
+        this.removeCartItem(event.target.dataset.key);
     }
 
     // --- MOBILE HANDLERS ---
     handleMobileQuantityChange(event) {
-        const key = event.target.dataset.key;
-        const val = event.target.value;
-        this.cart = this.cart.map(item => item.key === key ? { ...item, quantity: val } : item);
+        this.updateCartItem(event.target.dataset.key, 'quantity', event.target.value);
     }
 
     handleMobileCommentChange(event) {
-        const key = event.target.dataset.key;
-        const val = event.target.value;
-        this.cart = this.cart.map(item => item.key === key ? { ...item, comment: val } : item);
+        this.updateCartItem(event.target.dataset.key, 'comment', event.target.value);
     }
 
     handleMobileRefusalChange(event) {
-        const key = event.target.dataset.key;
-        const val = event.target.value;
-        this.cart = this.cart.map(item => item.key === key ? { ...item, commentaireRefus: val } : item);
+        this.updateCartItem(event.target.dataset.key, 'commentaireRefus', event.target.value);
     }
 
     handleMobileRemove(event) {
-        const key = event.target.dataset.key;
-        this.cart = this.cart.filter(c => c.key !== key);
-        this.updateCartKeys();
-        this.cartItemKeys.delete(key);
+        this.removeCartItem(event.target.dataset.key);
     }
 
     handleMobileAction(event) {
@@ -655,7 +800,6 @@ export default class MntLogistiqueCommandCockpit extends NavigationMixin(Lightni
         let statusKey = null;
         if (actionName === 'set_validated') statusKey = 'Disponible';
         if (actionName === 'set_refused') statusKey = 'Non Disponible';
-        // if (actionName === 'set_pending') statusKey = 'Nouveau';
 
         if (statusKey) {
             const statusDef = STATUS_DEFINITIONS_BY_KEY[statusKey];

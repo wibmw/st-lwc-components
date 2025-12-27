@@ -1,0 +1,17 @@
+<template>
+    <!-- On affiche l'iframe uniquement si l'URL est prête -->
+    <template if:true={iframeUrl}>
+        <iframe src={iframeUrl}
+                width="100%"
+                height={iframeHeight}
+                style="border: none;">
+        </iframe>
+    </template>
+    
+    <!-- On affiche un message clair si quelque chose manque -->
+    <template if:true={errorMessage}>
+        <div class="slds-box slds-theme_light" style="text-align:center;">
+            <p>{errorMessage}</p>
+        </div>
+    </template>
+</template>
