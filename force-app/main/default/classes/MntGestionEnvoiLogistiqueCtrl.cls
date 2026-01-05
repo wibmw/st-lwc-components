@@ -232,7 +232,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                 Pi_ce_Unitaire__r.Sous_Lieux__c, N_Bon_Livraison__c, Statut_Chronopost__c,
                 Pi_ce_Unitaire__r.Code_Article__r.Mnemonique__c
             FROM Historique_Pi_ces__c
-            WHERE Envoi_Logistique__c = :envoiId
+            WHERE Envoi_Logistique__c = :envoiId AND Type__c = 'ENV'
         ]) {
             CartLine line = new CartLine();
             line.pieceUnitaireId = hist.Pi_ce_Unitaire__c;
@@ -653,6 +653,27 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
     
         } catch (Exception e) {
             throw new AuraHandledException(e.getMessage() + ' at line ' + e.getLineNumber());
+        }
+    }
+
+    @AuraEnabled
+    public static void updateLineStatus(Id envoiId, Id pieceId, String newStatus) {
+        try {
+            // On récupère la ligne d'historique correspondante (Type = 'ENV')
+            Historique_Pi_ces__c hist = [
+                SELECT Id, Statut_Chronopost__c 
+                FROM Historique_Pi_ces__c 
+                WHERE Envoi_Logistique__c = :envoiId 
+                  AND Pi_ce_Unitaire__c = :pieceId 
+                  AND Type__c = 'ENV'
+                LIMIT 1
+            ];
+            
+            hist.Statut_Chronopost__c = newStatus;
+            update hist;
+            
+        } catch (Exception e) {
+            throw new AuraHandledException('Erreur lors de la mise à jour du statut : ' + e.getMessage());
         }
     }
 

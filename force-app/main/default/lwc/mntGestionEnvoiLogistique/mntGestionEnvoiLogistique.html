@@ -448,8 +448,8 @@
     <!-- Bouton VALIDER LA COMMANDE (Si tout est Disponible) -->
     <template if:true={canValidateOrder}>
         <lightning-button 
-            label="Valider la Commande" 
-            variant="success" 
+            label={validateButtonLabel} 
+            variant={validateButtonVariant} 
             class="slds-m-left_small"
             data-global-action="VALIDER" 
             onclick={handleSave} 

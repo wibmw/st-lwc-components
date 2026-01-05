@@ -9,6 +9,7 @@ import getInitialData from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getIn
 import searchPiecesUnitaires from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.searchPiecesUnitaires';
 import saveEnvoi from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.saveEnvoi';
 import searchRecords from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.searchRecords';
+import updateLineStatus from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.updateLineStatus';
 import TrackingModal from 'c/trackingModal';
 import { getRecord, getFieldValue, getRecordNotifyChange } from 'lightning/uiRecordApi';
 
@@ -279,6 +280,14 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
 
     get hasCommandeDetails() {
         return this.commandeDetails && this.commandeDetails.length > 0;
+    }
+
+    get validateButtonLabel() {
+        return this.dateEnvoi ? 'Mettre à jour la Commande' : 'Valider la Commande';
+    }
+
+    get validateButtonVariant() {
+        return this.dateEnvoi ? 'brand' : 'success';
     }
 
 
@@ -659,12 +668,36 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     }
 
     updateCartItemStatus(pieceId, newStatus) {
+        // 1. Optimistic UI Update
         this.cart = this.cart.map(item => {
             if (item.pieceUnitaireId === pieceId) {
                 return { ...item, statutChronopost: newStatus };
             }
             return item;
         });
+
+        // 2. Call Apex if we have an Envoi ID (existing record)
+        if (this._recordId && this._objectApiName === 'Envoi_Logistique__c') {
+            this.isLoading = true;
+            updateLineStatus({ envoiId: this._recordId, pieceId: pieceId, newStatus: newStatus })
+                .then(() => {
+                    this.showToast('Succès', `Statut mis à jour à "${newStatus}"`, 'success');
+                    
+                    // Rafraîchir l'enregistrement pour que les autres composants soient notifiés
+                    getRecordNotifyChange([{ recordId: this._recordId }]);
+                    
+                    // Recharger les données du composant pour être sûr d'avoir l'état le plus frais
+                    return this.loadEnvoiData(this._recordId);
+                })
+                .catch(error => {
+                    this.showToast('Erreur', 'Erreur lors de la mise à jour du statut', 'error');
+                    console.error(error);
+                    // Revert UI on error? (Optional, but good practice)
+                })
+                .finally(() => {
+                    this.isLoading = false;
+                });
+        }
     }
 
     // -----------------------
@@ -706,10 +739,15 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             orderLines: orderLinesToSend 
         };
 
+        // Si on a déjà une date d'envoi et qu'on demande à VALIDER, on change en UPDATE simple
+        if (this.dateEnvoi && actionGlobale === 'VALIDER') {
+            input.actionGlobale = 'UPDATE';
+        }
+
         saveEnvoi({ inputJSON: JSON.stringify(input) })
             .then(envoiId => {
                 let successMsg = "L'envoi a été sauvegardé.";
-                if (actionGlobale === 'VALIDER') successMsg = "Commande Validée. Envoi passé à 'Livraison en Cours'.";
+                if (actionGlobale === 'VALIDER' && !this.dateEnvoi) successMsg = "Commande Validée. Envoi passé à 'Livraison en Cours'.";
                 if (actionGlobale === 'REFUSER') successMsg = "Commande Refusée. Envoi passé à 'Clôturé NOK'.";
 
                 this.showToast('Succès', successMsg, 'success');
