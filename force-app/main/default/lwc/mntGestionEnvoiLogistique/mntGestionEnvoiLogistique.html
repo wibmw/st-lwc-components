@@ -36,7 +36,7 @@
                                                     <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                                                         <template for:each={lookupSuggestions.ticket} for:item="suggestion">
                                                             <li key={suggestion.value} role="presentation" class="slds-listbox__item">
-                                                                <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option" onclick={handleLookupSelect} data-value={suggestion.value} data-label={suggestion.label} data-sublabel={suggestion.sublabel} data-pill-label={suggestion.label} data-lookup="ticket" data-g2r={suggestion.g2r} data-sitename={suggestion.siteName}>
+                                                                <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option" onclick={handleLookupSelect} data-value={suggestion.value} data-label={suggestion.label} data-sublabel={suggestion.sublabel} data-pill-label={suggestion.label} data-lookup="ticket" data-g2r={suggestion.g2r} data-sitename={suggestion.siteName} data-compteprojet={suggestion.compteProjet}>
                                                                     <span class="slds-media__figure slds-listbox__option-icon">
                                                                         <lightning-icon icon-name="standard:case" size="small"></lightning-icon>
                                                                     </span>

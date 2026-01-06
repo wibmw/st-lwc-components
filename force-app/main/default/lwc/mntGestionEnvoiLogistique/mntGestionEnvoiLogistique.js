@@ -448,10 +448,10 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     handleTypeChange(event) { 
         // if (this.isDestinationLocked) return;
         this.typeEnvoi = event.detail.value; 
-        this.destinataireId = null; 
-        this.selectedDestinataire = null; 
-        this.stockId = null; 
-        this.selectedStock = null;
+        // this.destinataireId = null; 
+        // this.selectedDestinataire = null; 
+        // this.stockId = null; 
+        // this.selectedStock = null;
 
         // On ré-exécute la recherche si un terme de recherche est déjà saisi
         const searchInput = this.template.querySelector('lightning-input[data-search-input="true"]');
@@ -506,13 +506,16 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     handleLookupSearch(event) { const lookupType = event.target.dataset.lookup; const searchTerm = event.target.value; window.clearTimeout(this.delayTimeout); this.delayTimeout = setTimeout(() => { if (searchTerm.length >= 3) this.fetchLookupSuggestions(searchTerm, lookupType); }, 300); }
     async fetchLookupSuggestions(searchTerm, lookupType) { this.lookupLoading[lookupType] = true; const sObjectTypeMap = { ticket: 'Correctif__c', destinataire: 'Contact', stock: 'sitetracker__Site__c' }; try { this.lookupSuggestions[lookupType] = await searchRecords({ searchTerm: searchTerm, sObjectType: sObjectTypeMap[lookupType] }); } catch (error) { this.showToast('Erreur', 'Recherche impossible', 'error'); } finally { this.lookupLoading[lookupType] = false; } }
     handleLookupSelect(event) { 
-        const { value, label, sublabel, pillLabel, lookup, address, g2r, sitename } = event.currentTarget.dataset; 
+        const { value, label, sublabel, pillLabel, lookup, address, g2r, sitename, compteprojet } = event.currentTarget.dataset; 
         switch (lookup) { 
             case 'ticket': 
                 this.nTicketCorrectifId = value; 
                 this.selectedNTicket = { value, label, sublabel, pillLabel: sublabel ? `${label} - ${sublabel}` : label }; 
                 this.g2r = g2r || '';
                 this.siteName = sitename || '';
+                if (compteprojet) {
+                    this.compteProjet = compteprojet;
+                }
                 break; 
             case 'destinataire': 
                 this.destinataireId = value; 

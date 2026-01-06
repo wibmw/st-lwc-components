@@ -264,7 +264,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             query = 'SELECT Id, Name, Nom_du_site__c FROM sitetracker__Site__c WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) ORDER BY Name LIMIT 10';
         } 
         else if (sObjectType == 'Correctif__c') {
-            query = 'SELECT Id, ID_ticket_client__c, Code_site__c, Nom_du_site__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
+            query = 'SELECT Id, ID_ticket_client__c, Code_site__c, Nom_du_site__c, Compte_Projet__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
         }
         // Cas par défaut pour tout autre objet
         else {
@@ -300,6 +300,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                 il.sublabel = (g2r != null ? g2r : '') + (String.isNotBlank(g2r) && String.isNotBlank(siteName) ? ' - ' : '') + siteName;
                 il.g2r = g2r;
                 il.siteName = siteName;
+                il.compteProjet = (String)record.get('Compte_Projet__c');
             }
             else {
                 il.label = (String)record.get('Name');
@@ -685,5 +686,6 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         @AuraEnabled public String address;
         @AuraEnabled public String g2r;
         @AuraEnabled public String siteName;
+        @AuraEnabled public String compteProjet;
     }
 }

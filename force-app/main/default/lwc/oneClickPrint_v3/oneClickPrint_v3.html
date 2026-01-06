@@ -1,43 +1,9 @@
 <template>
-    <lightning-card title="Impression des documents">
-        <div class="slds-p-around_medium" style="min-height: 100px;">
-            <template if:true={isLoading}>
-                <div class="slds-align_absolute-center">
-                    <lightning-spinner alternative-text="Préparation..." size="medium"></lightning-spinner>
-                    <p class="slds-m-left_small">Préparation des documents...</p>
-                </div>
-            </template>
-            
-            <template if:false={isLoading}>
-                <template if:true={hasResults}>
-                    <p class="slds-m-bottom_medium">Les documents suivants sont prêts. Cliquez sur un bouton pour lancer l'impression.</p>
-                    <ul>
-                        <template for:each={printableFiles} for:item="file">
-                            <li key={file.id} class="slds-item slds-p-vertical_small slds-border_bottom">
-                                <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
-                                    <div class="slds-col">
-                                        <lightning-icon icon-name="doctype:pdf" size="small" class="slds-m-right_small"></lightning-icon>
-                                        <span title={file.title}><b>{file.title}</b></span>
-                                    </div>
-                                    <div class="slds-col slds-text-align_right">
-                                        <lightning-button 
-                                            label="Imprimer" 
-                                            icon-name="utility:print" 
-                                            data-url={file.url} 
-                                            onclick={handlePrintClick}>
-                                        </lightning-button>
-                                    </div>
-                                </div>
-                            </li>
-                        </template>
-                    </ul>
-                </template>
-                <template if:false={hasResults}>
-                    <div class="slds-align_absolute-center">
-                        <p>Aucun document imprimable n'a été trouvé.</p>
-                    </div>
-                </template>
-            </template>
+    <!-- Composant automatisé : affiche seulement un spinner pendant le traitement -->
+    <template if:true={isLoading}>
+        <div class="slds-align_absolute-center slds-p-around_medium" style="min-height: 100px;">
+            <lightning-spinner alternative-text="Préparation des documents..." size="medium"></lightning-spinner>
+            <p class="slds-m-left_small">Préparation des documents...</p>
         </div>
-    </lightning-card>
+    </template>
 </template>

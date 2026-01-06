@@ -4,6 +4,8 @@
     <isExposed>true</isExposed>
     <targets>
         <target>lightning__FlowScreen</target>
+        <target>lightning__RecordPage</target>
+        <target>lightning__RecordAction</target>
     </targets>
     
     <targetConfigs>
@@ -14,11 +16,31 @@
                 label="IDs des enregistrements sélectionnés"
                 role="inputOnly"
             />
+            <property 
+                name="recordId" 
+                type="String" 
+                label="ID de l'enregistrement (Contexte unique)"
+                role="inputOnly"
+            />
             <property
                 name="isProcessingComplete"
                 type="Boolean"
-                label="Traitement terminé"
+                label="isProcessingComplete"
+                description="Devient vrai lorsque le composant a fini de traiter les documents. Conservé pour compatibilité."
+                role="outputOnly"
+            />
+            <property
+                name="isSaveComplete"
+                type="Boolean"
+                label="isSaveComplete"
                 description="Devient vrai lorsque le composant a fini de traiter les documents."
+                role="outputOnly"
+            />
+            <property
+                name="sourcePageUrl"
+                type="String"
+                label="sourcePageUrl"
+                description="URL de la page depuis laquelle le flow a été déclenché."
                 role="outputOnly"
             />
         </targetConfig>

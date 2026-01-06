@@ -1,18 +1,14 @@
-public with sharing class OneClickPrintCtrl {
+public without sharing class OneClickPrintCtrl {
 
     public class PrintableFileInfo {
         @AuraEnabled public Id documentId;
         @AuraEnabled public String documentTitle;
+        @AuraEnabled public String base64Content; // Contenu du fichier en base64 pour la fusion
     }
 
     @AuraEnabled(cacheable=false)
     public static List<PrintableFileInfo> preparePrintableFilesForListView(List<Id> recordIds) {
-        // --- LOG 1: Vérifier les IDs reçus ---
-        System.debug('--- OneClickPrint --- Début du traitement.');
-        System.debug('IDs reçus : ' + recordIds);
-
         if (recordIds == null || recordIds.isEmpty()) {
-            System.debug('La liste des IDs est vide. Arrêt.');
             return new List<PrintableFileInfo>();
         }
 
@@ -29,59 +25,83 @@ public with sharing class OneClickPrintCtrl {
             ORDER BY ContentDocument.CreatedDate DESC
         ];
 
-        // --- LOG 2: Vérifier si la requête a trouvé des fichiers ---
-        System.debug('Nombre de fichiers liés trouvés : ' + links.size());
-        
-        if (links.isEmpty()) {
-            System.debug('Aucun ContentDocumentLink trouvé pour ces IDs. Assurez-vous que les enregistrements ont bien des fichiers attachés.');
-        }
-
         for (ContentDocumentLink cdl : links) {
-            // --- LOG 3: Log pour chaque fichier trouvé ---
-            System.debug('Traitement du fichier pour l\'enregistrement : ' + cdl.LinkedEntityId);
-
             if (processedEntityIds.contains(cdl.LinkedEntityId)) {
-                System.debug('Cet enregistrement a déjà un fichier traité. On passe au suivant.');
                 continue;
             }
 
             ContentVersion docVersion = cdl.ContentDocument.LatestPublishedVersion;
             if (docVersion == null) {
-                System.debug('Le fichier n\'a pas de "LatestPublishedVersion". On l\'ignore.');
                 continue;
             }
 
             String ext = docVersion.FileExtension != null ? docVersion.FileExtension.toLowerCase() : '';
-            System.debug('Titre du fichier : ' + docVersion.Title + ', Extension: ' + ext);
 
-            Id finalVersionId = null;
-
-            // ... (le reste de la logique reste inchangé)
-            // Note: N'oubliez pas que la conversion des fichiers Word/Excel
-            // nécessite toujours une API externe comme discuté précédemment.
             if (ext == 'pdf') {
-                finalVersionId = docVersion.Id;
-                 System.debug('Fichier PDF trouvé. ID de version : ' + finalVersionId);
-            } else if (ext == 'doc' || ext == 'docx' || ext == 'xls' || ext == 'xlsx' || ext == 'txt') {
-                System.debug('Type de fichier nécessitant une conversion (' + ext + '). Logique de conversion non implémentée.');
-                // Ici, vous auriez l'appel à l'API externe. Pour l'instant, on lance une erreur.
-                throw new AuraHandledException('La conversion pour le format "' + ext + '" n\'est pas encore implémentée.');
-            } else {
-                System.debug('Extension non supportée (' + ext + '). Fichier ignoré.');
-            }
-            
-            if (finalVersionId != null) {
                 PrintableFileInfo info = new PrintableFileInfo();
-                info.documentId = finalVersionId;
+                info.documentId = docVersion.Id;
                 info.documentTitle = docVersion.Title;
                 results.add(info);
                 processedEntityIds.add(cdl.LinkedEntityId);
             }
         }
         
-        // --- LOG 4: Afficher le résultat final ---
-        System.debug('Traitement terminé. Nombre de documents imprimables préparés : ' + results.size());
-        System.debug('Résultats : ' + results);
         return results;
+    }
+
+    /**
+     * Récupère le contenu des fichiers PDF en base64 pour permettre la fusion côté client
+     * Cette méthode est nécessaire car le fetch côté client échoue à cause des restrictions CORS
+     */
+    @AuraEnabled
+    public static List<PrintableFileInfo> getPdfContentsForMerge(List<Id> contentVersionIds) {
+        if (contentVersionIds == null || contentVersionIds.isEmpty()) {
+            return new List<PrintableFileInfo>();
+        }
+
+        List<PrintableFileInfo> results = new List<PrintableFileInfo>();
+
+        List<ContentVersion> versions = [
+            SELECT Id, Title, VersionData
+            FROM ContentVersion
+            WHERE Id IN :contentVersionIds
+        ];
+
+        for (ContentVersion cv : versions) {
+            PrintableFileInfo info = new PrintableFileInfo();
+            info.documentId = cv.Id;
+            info.documentTitle = cv.Title;
+            info.base64Content = EncodingUtil.base64Encode(cv.VersionData);
+            results.add(info);
+        }
+        
+        return results;
+    }
+
+    /**
+     * Récupère l'ID du Lieu (Site) depuis les enregistrements Pi_ce_Unitaire__c
+     * Retourne l'ID du Lieu du dernier enregistrement qui a un Lieu renseigné
+     */
+    @AuraEnabled
+    public static Id getSiteIdFromRecords(List<Id> recordIds) {
+        if (recordIds == null || recordIds.isEmpty()) {
+            return null;
+        }
+
+        // Récupérer le Lieu__c des enregistrements Pi_ce_Unitaire__c
+        List<Pi_ce_Unitaire__c> pieces = [
+            SELECT Id, Lieu__c 
+            FROM Pi_ce_Unitaire__c 
+            WHERE Id IN :recordIds 
+            AND Lieu__c != null
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+
+        if (!pieces.isEmpty()) {
+            return pieces[0].Lieu__c;
+        }
+        
+        return null;
     }
 }
