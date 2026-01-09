@@ -49,10 +49,8 @@ const COLS_TECHNICIAN = [
 
 const getRowActions = (row, doneCallback) => {
     const actions = [];
-    // -- CORRIGÉ : Comparaison avec la valeur de l'API (sans icône) pour que les conditions fonctionnent --
     if (row.statut !== 'Disponible') actions.push({ label: 'Valider la ligne', name: 'set_validated', iconName: 'utility:check' });
     if (row.statut !== 'Non Disponible') actions.push({ label: 'Refuser la ligne', name: 'set_refused', iconName: 'utility:close' });
-    // if (row.statut !== 'Nouveau') actions.push({ label: 'Marquer "Nouveau"', name: 'set_pending', iconName: 'utility:forward_up' });
     actions.push({ label: 'Supprimer', name: 'remove', iconName: 'utility:delete' });
     doneCallback(actions);
 };
@@ -70,6 +68,7 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     @api recordId; 
     @api objectApiName;
     @api nTicketId; 
+    @api ticketCorrectifID;
     @api componentLabel;
     @api isSaveComplete = false;
     @track selectedNTicket = null; 
@@ -93,8 +92,7 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     @track hasExistingCockpitLines = false;
     @track ticketPriority;
     @track ticketStatus;
-    @track ticketStatus;
-    @track typeReception = 'Livraison'; // Default
+    @track typeReception = 'Livraison';
     @track g2r;
     @track siteName;
     @track contactAddress;
@@ -247,9 +245,23 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     // --- LOGIQUE PRINCIPALE ---
     
     connectedCallback() {
+        // Auto-populate ticket ID if provided via input variable
+        if (this.ticketCorrectifID && !this.nTicketId) {
+            this.nTicketId = this.ticketCorrectifID;
+        }
+
+        // Handle context where component is on a Ticket record page
+        if (this.objectApiName === 'Correctif__c' && this.recordId) {
+            this.nTicketId = this.recordId;
+            this.loadInitialData();
+        } 
+        // Handle context where component is on a Job record page
+        else if (this.objectApiName === 'sitetracker__Job__c' && this.recordId) {
+            this.loadInitialData();
+        }
         // On utilise recordId directement car isEditMode dépend de hasExistingCockpitLines 
         // qui n'est pas encore chargé à ce stade
-        if (this.recordId) { 
+        else if (this.recordId) { 
             this.loadOrderData(); 
         } else { 
             this.loadInitialData(); 
@@ -259,7 +271,12 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     async loadInitialData() {
         this.loading = true;
         try {
-            const data = await getInitialData({ nTicketId: this.nTicketId });
+            let params = { nTicketId: this.nTicketId };
+            if (this.objectApiName === 'sitetracker__Job__c' && this.recordId) {
+                params = { recordId: this.recordId, sObjectType: 'sitetracker__Job__c' };
+            }
+
+            const data = await getInitialData(params);
             
             // 1. User Info
             this.currentUserName = data.currentUserName;

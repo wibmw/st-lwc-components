@@ -108,16 +108,28 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
     // --- MÉTHODES APEX ---
 
     @AuraEnabled(cacheable=true)
-    public static InitialDataWrapper getInitialData(Id nTicketId) {
+    public static InitialDataWrapper getInitialData(Id nTicketId, Id recordId, String sObjectType) {
         InitialDataWrapper data = new InitialDataWrapper();
         data.currentUserId = UserInfo.getUserId();
         data.currentUserName = UserInfo.getName();
 
-        if (nTicketId != null) {
+        Id ticketIdToUse = nTicketId;
+
+        // Handle Job context to resolve Ticket ID
+        if (sObjectType == 'sitetracker__Job__c' && recordId != null) {
+            List<sitetracker__Job__c> jobs = [SELECT Correctif__c FROM sitetracker__Job__c WHERE Id = :recordId LIMIT 1];
+            if (!jobs.isEmpty()) {
+                ticketIdToUse = jobs[0].Correctif__c;
+            }
+        } else if (sObjectType == 'Correctif__c' && recordId != null) {
+             ticketIdToUse = recordId;
+        }
+
+        if (ticketIdToUse != null) {
             List<Correctif__c> tickets = [
                 SELECT ID_ticket_client__c, Code_site__c, Nom_du_site__c, Site__c, Site__r.Name, Site__r.Nom_du_site__c
                 FROM Correctif__c
-                WHERE Id = :nTicketId
+                WHERE Id = :ticketIdToUse
                 LIMIT 1
             ];
             if (!tickets.isEmpty()) {

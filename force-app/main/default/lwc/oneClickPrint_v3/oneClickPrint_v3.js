@@ -29,8 +29,7 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
     @track printableFiles = [];
     @api isSaveComplete = false;
     @api isProcessingComplete = false; // Conservé pour compatibilité avec les flows existants
-    @api sourcePageUrl = ''; // URL de la page du Lieu à naviguer après le flow
-    
+    @api sourcePageUrl = "";
     // Fenêtre ouverte avant les opérations async pour éviter le blocage popup
     pdfWindow = null;
     
@@ -93,14 +92,8 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
                 preparePrintableFilesForListView({ recordIds: this.effectiveRecordIds }),
                 getSiteIdFromRecords({ recordIds: this.effectiveRecordIds })
             ]);
-            
-            // Construire l'URL du Lieu pour la navigation
-            if (siteId) {
-                this.sourcePageUrl = `/lightning/r/sitetracker__Site__c/${siteId}/view`;
-                this.log(`Site URL: ${this.sourcePageUrl}`);
-            }
-            
-            this.printableFiles = files.map(file => ({
+                
+                this.printableFiles = files.map(file => ({
                 id: file.documentId,
                 title: file.documentTitle,
                 url: `/sfc/servlet.shepherd/version/download/${file.documentId}`
@@ -230,19 +223,7 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
         this.isProcessingComplete = true; // Compatibilité avec les flows existants
         this.log('Flow terminé - isSaveComplete = true');
         
-        // Naviguer vers la page du Lieu si disponible
-        if (this.sourcePageUrl) {
-            this.log(`Navigation vers: ${this.sourcePageUrl}`);
-            this[NavigationMixin.Navigate]({
-                type: 'standard__webPage',
-                attributes: {
-                    url: this.sourcePageUrl
-                }
-            });
-        } else {
-            // Sinon, utiliser FlowNavigationNextEvent
-            this.dispatchEvent(new FlowNavigationNextEvent());
-        }
+        this.dispatchEvent(new FlowNavigationNextEvent());
     }
 
     // Charger pdf-lib depuis CDN
@@ -254,6 +235,9 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+            script.async = true;
+            script.defer = true;
+            script.crossOrigin = 'anonymous';
             script.onload = () => resolve(window.PDFLib);
             script.onerror = () => reject(new Error('Impossible de charger pdf-lib'));
             document.head.appendChild(script);

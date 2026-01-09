@@ -3,8 +3,9 @@
    ========================================================================== */
 
 /* Force le menu déroulant (Lookup) à prendre toute la largeur disponible */
-.slds-dropdown_fluid {
+.mntc-dropdown_fluid {
     min-width: 100%;
+    z-index: 9000; /* Ensure it appears above other elements */
 }
 
 /* Limite de hauteur pour les listes déroulantes personnalisées */

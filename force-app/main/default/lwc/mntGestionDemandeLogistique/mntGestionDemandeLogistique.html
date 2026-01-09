@@ -19,7 +19,7 @@
             <div class="slds-grid slds-wrap slds-gutters">
                 <!-- COLONNE GAUCHE : INFORMATIONS COMMANDE -->
                 <div class="slds-col slds-size_1-of-1 slds-large-size_12-of-12">
-                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">Informations Commande</h2>
+                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">Informations de la Demande</h2>
                     
                     <lightning-accordion allow-multiple-sections-open active-section-name={activeSections} class="accordion-themed">
                         
@@ -50,7 +50,7 @@
                                                         </template>
                                                     </div>
                                                     <template if:true={lookupSuggestions.ticket.length}>
-                                                        <div id="listbox-ticket" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid">
+                                                        <div id="listbox-ticket" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown mntc-dropdown_fluid">
                                                             <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                                                                 <template for:each={lookupSuggestions.ticket} for:item="item">
                                                                     <li key={item.value} role="presentation" class="slds-listbox__item">
@@ -59,8 +59,8 @@
                                                                                 <lightning-icon icon-name="standard:case" size="small"></lightning-icon>
                                                                             </span>
                                                                             <span class="slds-media__body">
-                                                                                <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
-                                                                                <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                                <span class="slds-listbox__option-text">{item.label}</span>
+                                                                                <span class="slds-listbox__option-meta">{item.sublabel}</span>
                                                                             </span>
                                                                         </div>
                                                                     </li>
@@ -109,8 +109,8 @@
                                                                                 <lightning-icon icon-name="standard:user" size="small"></lightning-icon>
                                                                             </span>
                                                                             <span class="slds-media__body">
-                                                                                <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
-                                                                                <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                                <span class="slds-listbox__option-text">{item.label}</span>
+                                                                                <span class="slds-listbox__option-meta">{item.sublabel}</span>
                                                                             </span>
                                                                         </div>
                                                                     </li>
@@ -159,8 +159,8 @@
                                                                                 <lightning-icon icon-name="standard:location" size="small"></lightning-icon>
                                                                             </span>
                                                                             <span class="slds-media__body">
-                                                                                <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
-                                                                                <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                                <span class="slds-listbox__option-text">{item.label}</span>
+                                                                                <span class="slds-listbox__option-meta">{item.sublabel}</span>
                                                                             </span>
                                                                         </div>
                                                                     </li>
@@ -209,8 +209,8 @@
                                                                                 <lightning-icon icon-name="standard:address" size="small"></lightning-icon>
                                                                             </span>
                                                                             <span class="slds-media__body">
-                                                                                <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
-                                                                                <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                                <span class="slds-listbox__option-text">{item.label}</span>
+                                                                                <span class="slds-listbox__option-meta">{item.sublabel}</span>
                                                                             </span>
                                                                         </div>
                                                                     </li>
@@ -285,7 +285,7 @@
            <div class="slds-grid slds-wrap slds-gutters">
                <!-- COLONNE GAUCHE : INFORMATIONS COMMANDE -->
                <div class="slds-col slds-size_1-of-1 slds-large-size_12-of-12">
-                   <h2 class="slds-text-heading_medium slds-m-bottom_medium">Informations Commande</h2>
+                   <h2 class="slds-text-heading_medium slds-m-bottom_medium">Informations de la Demande</h2>
                    <lightning-layout multiple-rows="true">
               
                 <!-- LOOKUP  N° TICKET  ================== -->
@@ -308,14 +308,11 @@
                                                 </div>
                                             </template>
                                             <template if:false={selectedNTicket}>
-                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher un ticket..." oninput={handleLookupSearch} data-lookup="ticket" />
-                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
-                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
-                                                </span>
+                                                <lightning-input type="search" variant="label-hidden" placeholder="Rechercher un ticket..." oninput={handleLookupSearch} data-lookup="ticket" autocomplete="off"></lightning-input>
                                             </template>
                                         </div>
                                         <template if:true={lookupSuggestions.ticket.length}>
-                                            <div id="listbox-ticket-mobile" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid">
+                                            <div id="listbox-ticket-mobile" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown mntc-dropdown_fluid">
                                                 <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                                                     <template for:each={lookupSuggestions.ticket} for:item="item">
                                                         <li key={item.value} role="presentation" class="slds-listbox__item">
@@ -324,8 +321,8 @@
                                                                     <lightning-icon icon-name="standard:case" size="small"></lightning-icon>
                                                                 </span>
                                                                 <span class="slds-media__body">
-                                                                    <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
-                                                                    <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                    <span class="slds-listbox__option-text">{item.label}</span>
+                                                                    <span class="slds-listbox__option-meta">{item.sublabel}</span>
                                                                 </span>
                                                             </div>
                                                         </li>
@@ -352,14 +349,11 @@
                                                 </div>
                                             </template>
                                             <template if:false={selectedDemandeur}>
-                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher un demandeur..." oninput={handleLookupSearch} data-lookup="demandeur" />
-                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
-                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
-                                                </span>
+                                                <lightning-input type="search" variant="label-hidden" placeholder="Rechercher un demandeur..." onkeyup={handleLookupSearch} data-lookup="demandeur" autocomplete="off"></lightning-input>
                                             </template>
                                         </div>
                                         <template if:true={lookupSuggestions.demandeur.length}>
-                                            <div id="listbox-demandeur-mobile" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid">
+                                            <div id="listbox-demandeur-mobile" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown mntc-dropdown_fluid">
                                                 <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                                                     <template for:each={lookupSuggestions.demandeur} for:item="item">
                                                         <li key={item.value} role="presentation" class="slds-listbox__item">
@@ -368,8 +362,8 @@
                                                                     <lightning-icon icon-name="standard:user" size="small"></lightning-icon>
                                                                 </span>
                                                                 <span class="slds-media__body">
-                                                                    <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
-                                                                    <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                    <span class="slds-listbox__option-text">{item.label}</span>
+                                                                    <span class="slds-listbox__option-meta">{item.sublabel}</span>
                                                                 </span>
                                                             </div>
                                                         </li>
@@ -396,14 +390,11 @@
                                                 </div>
                                             </template>
                                             <template if:false={selectedLieu}>
-                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher un site..." oninput={handleLookupSearch} data-lookup="lieu" />
-                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
-                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
-                                                </span>
+                                                <lightning-input type="search" variant="label-hidden" placeholder="Rechercher un site..." onkeyup={handleLookupSearch} data-lookup="lieu" autocomplete="off"></lightning-input>
                                             </template>
                                         </div>
                                         <template if:true={lookupSuggestions.lieu.length}>
-                                            <div id="listbox-lieu-mobile" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid">
+                                            <div id="listbox-lieu-mobile" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown mntc-dropdown_fluid">
                                                 <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                                                     <template for:each={lookupSuggestions.lieu} for:item="item">
                                                         <li key={item.value} role="presentation" class="slds-listbox__item">
@@ -412,8 +403,8 @@
                                                                     <lightning-icon icon-name="standard:location" size="small"></lightning-icon>
                                                                 </span>
                                                                 <span class="slds-media__body">
-                                                                    <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
-                                                                    <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                    <span class="slds-listbox__option-text">{item.label}</span>
+                                                                    <span class="slds-listbox__option-meta">{item.sublabel}</span>
                                                                 </span>
                                                             </div>
                                                         </li>
@@ -445,14 +436,11 @@
                                                 </div>
                                             </template>
                                             <template if:false={selectedAdresseLivraison}>
-                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher une adresse..." oninput={handleLookupSearch} data-lookup="adresseLivraison" />
-                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
-                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
-                                                </span>
+                                                <lightning-input type="search" variant="label-hidden" placeholder="Rechercher une adresse..." onkeyup={handleLookupSearch} data-lookup="adresseLivraison" autocomplete="off"></lightning-input>
                                             </template>
                                         </div>
                                         <template if:true={lookupSuggestions.adresseLivraison.length}>
-                                            <div id="listbox-adresseLivraison-mobile" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown slds-dropdown_fluid">
+                                            <div id="listbox-adresseLivraison-mobile" role="listbox" class="slds-listbox slds-listbox_vertical slds-dropdown mntc-dropdown_fluid">
                                                 <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                                                     <template for:each={lookupSuggestions.adresseLivraison} for:item="item">
                                                         <li key={item.value} role="presentation" class="slds-listbox__item">
@@ -461,8 +449,8 @@
                                                                     <lightning-icon icon-name="standard:address" size="small"></lightning-icon>
                                                                 </span>
                                                                 <span class="slds-media__body">
-                                                                    <span class="slds-listbox__option-text slds-listbox__option-text_entity">{item.label}</span>
-                                                                    <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">{item.sublabel}</span>
+                                                                    <span class="slds-listbox__option-text">{item.label}</span>
+                                                                    <span class="slds-listbox__option-meta">{item.sublabel}</span>
                                                                 </span>
                                                             </div>
                                                         </li>

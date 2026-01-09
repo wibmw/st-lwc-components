@@ -1,0 +1,44 @@
+<template>
+    <div class="mobile-list-container">
+        <template if:true={listViewLabel}>
+            <div class="list-view-header slds-p-bottom_small">
+                <h2 class="slds-text-heading_small">{listViewLabel}</h2>
+            </div>
+        </template>
+
+        <template if:true={loading}>
+            <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+        </template>
+
+        <template if:true={error}>
+            <div class="slds-text-color_error slds-p-around_medium">
+                An error occurred while loading the list view.
+            </div>
+        </template>
+
+        <template if:true={hasRecords}>
+            <template for:each={records} for:item="record">
+                <div key={record.id} class="slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small custom-card">
+                    <!-- Line 1: Top Left - Top Right -->
+                    <div class="slds-grid slds-grid_align-spread">
+                        <span class="slds-text-title_bold slds-truncate">{record.topLeft}</span>
+                        <span class="slds-text-body_small slds-truncate">{record.topRight}</span>
+                    </div>
+                    <!-- Line 2: Bottom Left - Bottom Right -->
+                    <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
+                        <span class="slds-text-body_small slds-text-color_weak slds-truncate">{record.bottomLeft}</span>
+                        <span class="slds-text-body_small slds-truncate">{record.bottomRight}</span>
+                    </div>
+                </div>
+            </template>
+        </template>
+        
+        <template if:false={hasRecords}>
+            <template if:false={loading}>
+                <div class="slds-text-align_center slds-p-around_medium">
+                    No records found to display.
+                </div>
+            </template>
+        </template>
+    </div>
+</template>

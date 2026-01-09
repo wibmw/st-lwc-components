@@ -12,6 +12,7 @@ import searchRecords from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.search
 import updateLineStatus from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.updateLineStatus';
 import TrackingModal from 'c/trackingModal';
 import { getRecord, getFieldValue, getRecordNotifyChange } from 'lightning/uiRecordApi';
+import FORM_FACTOR from '@salesforce/client/formFactor';
 
 const COMMANDE_FIELD = 'Envoi_Logistique__c.Commande_Pi_ces__c';
 
@@ -78,6 +79,21 @@ const COMMANDE_DETAILS_COLS = [
 
 export default class MntGestionEnvoiLogistique extends NavigationMixin(LightningElement) {
     @track linkedCommandeId;
+
+    get isDesktop() {
+        // Robust Mobile Detection
+        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+        const isMobileDevice = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(userAgent);
+        const isSalesforceMobile = /SalesforceMobileSDK/i.test(userAgent);
+        const isSmallScreen = window.innerWidth < 700;
+
+        // If any mobile indicator is true, return false (Mobile Mode)
+        if (isMobileDevice || isSalesforceMobile || isSmallScreen) {
+            return false;
+        }
+
+        return FORM_FACTOR === 'Large';
+    }
 
     get canValidateOrder() {
         // Actif si on a des lignes ET que tout est "Disponible" (ou Validée)
@@ -214,6 +230,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     set recordId(value) { this._recordId = value; }
     @api get objectApiName() { return this._objectApiName; }
     set objectApiName(value) { this._objectApiName = value; }
+    @api ticketCorrectifID;
     @api isSaveComplete = false;
 
     @track isLoading = true; @track isSearching = false; @track cardTitle = 'Traiter la Commande'; @track saveButtonLabel = 'Traiter la Commande';
@@ -300,6 +317,15 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             this.handleCommandeContext();
         } else if (this._objectApiName === 'Envoi_Logistique__c') {
             this.loadEnvoiData(this._recordId);
+        } else if (this._objectApiName === 'Correctif__c') {
+            this.ticketCorrectifID = this._recordId;
+            this.handleTicketContext();
+        } else if (this._objectApiName === 'sitetracker__Job__c') {
+            // Handle Job context: fetch ticket from Job
+            this.handleTicketContext();
+        } else if (this.ticketCorrectifID) {
+            // Auto-populate from Ticket ID input
+            this.handleTicketContext();
         } else {
             this.isLoading = false;
         }
@@ -503,8 +529,71 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     }
     handleCommentChange(event) { this.commentaire = event.target.value; }
     // handleDateChange(event) { this.dateEnvoi = event.target.value; }
-    handleLookupSearch(event) { const lookupType = event.target.dataset.lookup; const searchTerm = event.target.value; window.clearTimeout(this.delayTimeout); this.delayTimeout = setTimeout(() => { if (searchTerm.length >= 3) this.fetchLookupSuggestions(searchTerm, lookupType); }, 300); }
-    async fetchLookupSuggestions(searchTerm, lookupType) { this.lookupLoading[lookupType] = true; const sObjectTypeMap = { ticket: 'Correctif__c', destinataire: 'Contact', stock: 'sitetracker__Site__c' }; try { this.lookupSuggestions[lookupType] = await searchRecords({ searchTerm: searchTerm, sObjectType: sObjectTypeMap[lookupType] }); } catch (error) { this.showToast('Erreur', 'Recherche impossible', 'error'); } finally { this.lookupLoading[lookupType] = false; } }
+    handleLookupSearch(event) {
+        const lookupType = event.target.dataset.lookup;
+        const searchTerm = event.target.value;
+        window.clearTimeout(this.delayTimeout);
+        this.delayTimeout = setTimeout(() => {
+            if (searchTerm.length >= 3) {
+                this.isLookupOpen[lookupType] = true; // Ouvrir le dropdown
+                this.fetchLookupSuggestions(searchTerm, lookupType);
+            } else {
+                this.isLookupOpen[lookupType] = false; // Fermer si moins de 3 caractères
+                this.lookupSuggestions[lookupType] = [];
+            }
+        }, 300);
+    }
+    async fetchLookupSuggestions(searchTerm, lookupType) {
+        this.lookupLoading[lookupType] = true;
+        const sObjectTypeMap = {
+            ticket: 'Correctif__c',
+            destinataire: 'Contact',
+            stock: 'sitetracker__Site__c'
+        };
+        try {
+            this.lookupSuggestions[lookupType] = await searchRecords({
+                searchTerm: searchTerm,
+                sObjectType: sObjectTypeMap[lookupType]
+            });
+        } catch (error) {
+            console.error('Search error:', error);
+            this.showToast('Erreur', 'Recherche impossible: ' + (error.body ? error.body.message : error.message), 'error');
+        } finally {
+            this.lookupLoading[lookupType] = false;
+        }
+    }
+
+    async handleTicketContext() {
+        this.isLoading = true;
+        try {
+            this.cardTitle = 'Créer un Envoi'; 
+            this.saveButtonLabel = 'Créer l\'Envoi';
+            this.typeEnvoi = 'Autre Stock';
+            
+            let params = {};
+            if (this._objectApiName === 'sitetracker__Job__c') {
+                params = { recordId: this._recordId, sObjectType: 'sitetracker__Job__c' };
+            } else if (this.ticketCorrectifID) {
+                params = { recordId: this.ticketCorrectifID, sObjectType: 'Correctif__c' };
+            }
+
+            const initialData = await getInitialData(params);
+            
+            if(initialData.nTicketCorrectifId) {
+                this.nTicketCorrectifId = initialData.nTicketCorrectifId;
+                const label = initialData.nTicketName || '';
+                const sublabel = initialData.nTicketSubLabel || '';
+                this.selectedNTicket = { value: initialData.nTicketCorrectifId, label: label , sublabel: sublabel, pillLabel: label }; 
+                this.g2r = initialData.g2r || '';
+                this.siteName = initialData.siteName || '';
+            }
+        } catch (error) {
+            console.error('Erreur chargement contexte ticket', error);
+            this.showToast('Erreur', 'Impossible de charger les données du ticket', 'error');
+        } finally {
+            this.isLoading = false;
+        }
+    }
     handleLookupSelect(event) { 
         const { value, label, sublabel, pillLabel, lookup, address, g2r, sitename, compteprojet } = event.currentTarget.dataset; 
         switch (lookup) { 

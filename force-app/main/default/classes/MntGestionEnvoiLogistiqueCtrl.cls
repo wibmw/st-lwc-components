@@ -264,7 +264,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             query = 'SELECT Id, Name, Nom_du_site__c FROM sitetracker__Site__c WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) ORDER BY Name LIMIT 10';
         } 
         else if (sObjectType == 'Correctif__c') {
-            query = 'SELECT Id, ID_ticket_client__c, Code_site__c, Nom_du_site__c, Compte_Projet__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
+            query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
         }
         // Cas par défaut pour tout autre objet
         else {
@@ -300,7 +300,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                 il.sublabel = (g2r != null ? g2r : '') + (String.isNotBlank(g2r) && String.isNotBlank(siteName) ? ' - ' : '') + siteName;
                 il.g2r = g2r;
                 il.siteName = siteName;
-                il.compteProjet = (String)record.get('Compte_Projet__c');
+                // il.compteProjet = (String)record.get('Compte_Projet__c');
             }
             else {
                 il.label = (String)record.get('Name');
@@ -352,6 +352,42 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                     if (String.isNotBlank(cmd.Adresse_de_Livraison__r.MailingPostalCode)) addressParts.add(cmd.Adresse_de_Livraison__r.MailingPostalCode + ' ' + cmd.Adresse_de_Livraison__r.MailingCity);
                     data.destinataireAddress = String.join(addressParts, '\n');
                 }
+            }
+        }
+        else if (sObjectType == 'Correctif__c' && recordId != null) {
+            List<Correctif__c> tickets = [
+                SELECT Id, ID_ticket_client__c, Code_site__c, Nom_du_site__c
+                FROM Correctif__c
+                WHERE Id = :recordId
+                LIMIT 1
+            ];
+            if (!tickets.isEmpty()) {
+                Correctif__c t = tickets[0];
+                data.nTicketCorrectifId = t.Id;
+                data.nTicketName = t.ID_ticket_client__c;
+                data.g2r = t.Code_site__c;
+                data.siteName = t.Nom_du_site__c;
+                String g2r = t.Code_site__c != null ? t.Code_site__c : '';
+                String siteName = (t.Nom_du_site__c != null) ? t.Nom_du_site__c : '';
+                data.nTicketSubLabel = g2r + (String.isNotBlank(g2r) && String.isNotBlank(siteName) ? ' - ' : '') + siteName;
+            }
+        }
+        else if (sObjectType == 'sitetracker__Job__c' && recordId != null) {
+            List<sitetracker__Job__c> jobs = [
+                SELECT Correctif__c, Correctif__r.ID_ticket_client__c, Correctif__r.Code_site__c, Correctif__r.Nom_du_site__c
+                FROM sitetracker__Job__c
+                WHERE Id = :recordId
+                LIMIT 1
+            ];
+            if (!jobs.isEmpty() && jobs[0].Correctif__c != null) {
+                sitetracker__Job__c job = jobs[0];
+                data.nTicketCorrectifId = job.Correctif__c;
+                data.nTicketName = job.Correctif__r.ID_ticket_client__c;
+                data.g2r = job.Correctif__r.Code_site__c;
+                data.siteName = job.Correctif__r.Nom_du_site__c;
+                String g2r = job.Correctif__r.Code_site__c != null ? job.Correctif__r.Code_site__c : '';
+                String siteName = (job.Correctif__r.Nom_du_site__c != null) ? job.Correctif__r.Nom_du_site__c : '';
+                data.nTicketSubLabel = g2r + (String.isNotBlank(g2r) && String.isNotBlank(siteName) ? ' - ' : '') + siteName;
             }
         }
         return data;

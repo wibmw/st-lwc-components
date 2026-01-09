@@ -2,6 +2,11 @@
     margin-top: 0;
 }
 
+.mntc-dropdown_fluid {
+    min-width: 100%;
+    z-index: 9000;
+}
+
 @media (max-width: 1023px) {
     .mobile-top-spacing {
         margin-top: 1rem;
