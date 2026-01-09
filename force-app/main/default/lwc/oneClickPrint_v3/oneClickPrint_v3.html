@@ -6,4 +6,42 @@
             <p class="slds-m-left_small">Préparation des documents...</p>
         </div>
     </template>
+    <!-- Section Succès / Ouverture Manuelle -->
+    <template if:true={generatedPdfUrl}>
+        <div class="slds-box slds-theme_default slds-text-align_center slds-m-bottom_medium">
+            <h2 class="slds-text-heading_medium slds-text-color_success slds-m-bottom_small">Document Prêt !</h2>
+            <p class="slds-m-bottom_medium">Si le document ne s'est pas ouvert automatiquement, cliquez ci-dessous :</p>
+            <a href={generatedPdfUrl} target="_blank" class="slds-button slds-button_brand">
+                Ouvrir le Document
+            </a>
+            <div class="slds-m-top_medium">
+                <lightning-button label="Terminer" variant="base" onclick={completeFlow}></lightning-button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Section Erreur / Fallback -->
+    <template if:true={errorMessage}>
+        <div class="slds-notify slds-notify_alert slds-alert_error slds-m-bottom_medium" role="alert">
+            <span class="slds-assistive-text">error</span>
+            <h2>{errorMessage}</h2>
+        </div>
+    </template>
+
+    <template if:true={showManualLinks}>
+        <div class="slds-box slds-theme_default">
+            <h3 class="slds-text-heading_small slds-m-bottom_small">Documents Trouvés ({printableFiles.length})</h3>
+            <p class="slds-m-bottom_medium">Le traitement automatique a échoué. Vous pouvez télécharger les fichiers manuellement :</p>
+            <ul class="slds-list_dotted">
+                <template for:each={printableFiles} for:item="file">
+                    <li key={file.id}>
+                        <a href={file.url} target="_blank">{file.title}</a>
+                    </li>
+                </template>
+            </ul>
+            <div class="slds-m-top_medium slds-text-align_right">
+                <lightning-button label="Continuer" onclick={completeFlow}></lightning-button>
+            </div>
+        </div>
+    </template>
 </template>

@@ -10,6 +10,10 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
     @track _recordIds = [];
     @track _recordId;
     @track debugLog = [];
+    @track errorMessage;
+    @track showManualLinks = false;
+    @track generatedPdfUrl; // URL of the generated blob
+    @track generatedPdfName = 'Document_Fusionne.pdf';
 
     @api 
     get recordIds() { return this._recordIds; }
@@ -30,8 +34,6 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
     @api isSaveComplete = false;
     @api isProcessingComplete = false; // Conservé pour compatibilité avec les flows existants
     @api sourcePageUrl = "";
-    // Fenêtre ouverte avant les opérations async pour éviter le blocage popup
-    pdfWindow = null;
     
     log(msg) {
         this.debugLog.push(msg);
@@ -63,12 +65,8 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
     get hasRecords() { return this.effectiveRecordIds.length > 0; }
 
     connectedCallback() {
-        // Ouvrir la fenêtre PDF IMMÉDIATEMENT (dans le contexte utilisateur synchrone)
-        // Ceci évite le blocage par le bloqueur de popups
-        this.pdfWindow = window.open('about:blank', '_blank');
-        if (this.pdfWindow) {
-            this.pdfWindow.document.write('<html><head><title>Chargement...</title></head><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><p>Préparation du document PDF...</p></body></html>');
-        }
+        // We do NOT open a window here anymore to avoid popup blockers and LWS issues.
+        // We rely on the spinner in the UI.
         
         // Démarrer le processus automatiquement
         this.processAndComplete();
@@ -79,7 +77,6 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
         if (!this.hasRecords) {
             this.log('Aucun enregistrement fourni');
             this.showToast('Aucun Fichier', 'Aucun enregistrement sélectionné.', 'warning');
-            if (this.pdfWindow) this.pdfWindow.close();
             this.completeFlow();
             return;
         }
@@ -103,60 +100,45 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
 
             if (this.printableFiles.length === 0) {
                 this.showToast('Aucun Fichier', 'Aucun document PDF trouvé pour les enregistrements sélectionnés.', 'warning');
-                if (this.pdfWindow) this.pdfWindow.close();
+                // No window to close
                 this.completeFlow();
                 return;
             }
 
-            // 2. Si un seul fichier, récupérer son contenu et l'afficher en blob URL
-            if (this.printableFiles.length === 1) {
-                this.log('1 fichier - récupération du contenu');
-                
-                // Récupérer le contenu du PDF via Apex pour éviter le téléchargement
-                const pdfContents = await getPdfContentsForMerge({ contentVersionIds: [this.printableFiles[0].id] });
-                
-                if (pdfContents && pdfContents.length > 0 && pdfContents[0].base64Content) {
-                    const pdfBytes = this.base64ToUint8Array(pdfContents[0].base64Content);
-                    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-                    const blobUrl = URL.createObjectURL(blob);
-                    
-                    if (this.pdfWindow) {
-                        this.pdfWindow.location.href = blobUrl;
-                    } else {
-                        window.open(blobUrl, '_blank');
-                    }
-                } else {
-                    // Fallback: utiliser l'URL de téléchargement
-                    if (this.pdfWindow) {
-                        this.pdfWindow.location.href = this.printableFiles[0].url;
-                    } else {
-                        window.open(this.printableFiles[0].url, '_blank');
-                    }
-                }
-                
-                this.showToast('Document ouvert', `Le document "${this.printableFiles[0].title}" a été ouvert dans un nouvel onglet.`, 'success');
-                this.completeFlow();
-                return;
-            }
-
-            // 3. Si plusieurs fichiers, fusionner et ouvrir
-            this.log(`${this.printableFiles.length} fichiers - fusion en cours`);
+            // 3. Fusionner et ouvrir
+            this.log(`${this.printableFiles.length} fichier(s) - traitement en cours`);
             await this.mergeAndOpen();
             this.completeFlow();
 
         } catch (error) {
-            this.log('ERREUR: ' + (error.body?.message || error.message));
-            this.showToast('Erreur', error.body?.message || error.message, 'error');
-            if (this.pdfWindow) this.pdfWindow.close();
-            this.completeFlow();
+            const msg = error.body?.message || error.message;
+            this.log('ERREUR: ' + msg);
+            this.showToast('Erreur', msg, 'error');
+            this.errorMessage = msg;
+            this.isLoading = false;
+            this.showManualLinks = true;
+            
+            // Do not try to write error to popup anymore
         }
     }
 
     // Fusionner tous les PDFs et ouvrir le résultat
-    async mergeAndOpen() {
+    async mergeAndOpen() {  
         try {
             // 1. Charger pdf-lib
-            const PDFLib = await this.loadPdfLib();
+            let PDFLib;
+            try {
+                PDFLib = await this.loadPdfLib();
+            } catch (libError) {
+                // FALLBACK : Si erreur de chargement librairie (ex: CSP) et 1 seul fichier, on l'ouvre directement
+                if (this.printableFiles.length === 1) {
+                    this.log('Echec chargement pdf-lib, fallback sur ouverture directe');
+                    await this.openSingleFileDirectly();
+                    return; // Stop here, handled by fallback
+                }
+                throw libError; // Re-throw if multiple files
+            }
+
             const { PDFDocument } = PDFLib;
 
             // 2. Récupérer les contenus PDF depuis Apex (en base64)
@@ -195,23 +177,26 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
             // 5. Sauvegarder le PDF fusionné
             const mergedPdfBytes = await mergedPdf.save();
             
-            // 6. Créer un blob URL et rediriger la fenêtre déjà ouverte
+            // 6. Créer un blob URL
             const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);
+            this.generatedPdfUrl = url;
+            this.isLoading = false;
             
-            // 7. Rediriger la fenêtre pré-ouverte vers le PDF fusionné
-            if (this.pdfWindow) {
-                this.pdfWindow.location.href = url;
-            } else {
-                window.open(url, '_blank');
+            this.log(`Fusion réussie: ${mergedPdf.getPageCount()} page(s). Tentative d'ouverture...`);
+
+            // 7. Ouvrir
+            try {
+                 window.open(url, '_blank');
+            } catch (e) {
+                this.log('Navigation auto bloquée: ' + e.message);
             }
 
-            this.log(`Fusion réussie: ${mergedPdf.getPageCount()} page(s)`);
-            this.showToast('Fusion réussie', `${this.printableFiles.length} documents fusionnés (${mergedPdf.getPageCount()} pages).`, 'success');
+            this.showToast('Terminé', `Document prêt (${mergedPdf.getPageCount()} pages). Si l'ouverture est bloquée, utilisez le bouton ci-dessous.`, 'success');
 
         } catch (error) {
             console.error('Erreur lors de la fusion:', error);
-            if (this.pdfWindow) this.pdfWindow.close();
+            // No window to close anymore
             throw error;
         }
     }
@@ -221,8 +206,6 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
         this.isLoading = false;
         this.isSaveComplete = true;
         this.isProcessingComplete = true; // Compatibilité avec les flows existants
-        this.log('Flow terminé - isSaveComplete = true');
-        
         this.dispatchEvent(new FlowNavigationNextEvent());
     }
 
@@ -238,8 +221,19 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
             script.async = true;
             script.defer = true;
             script.crossOrigin = 'anonymous';
-            script.onload = () => resolve(window.PDFLib);
-            script.onerror = () => reject(new Error('Impossible de charger pdf-lib'));
+            
+            const timeoutId = setTimeout(() => {
+                reject(new Error('Délai d\'attente dépassé pour le chargement de la librairie PDF (CDN). Vérifiez votre connexion.'));
+            }, 10000); // 10 seconds timeout
+
+            script.onload = () => {
+                clearTimeout(timeoutId);
+                resolve(window.PDFLib);
+            };
+            script.onerror = () => {
+                clearTimeout(timeoutId);
+                reject(new Error('Impossible de charger pdf-lib (Erreur réseau/CDN).'));
+            };
             document.head.appendChild(script);
         });
     }
@@ -257,5 +251,34 @@ export default class OneClickPrintV3 extends NavigationMixin(LightningElement) {
 
     showToast(title, message, variant) {
         this.dispatchEvent(new ShowToastEvent({ title, message, variant }));
+    }
+
+    // Fallback method: Open single file directly without merging
+    async openSingleFileDirectly() {
+        this.log('1 fichier - récupération du contenu (mode direct)');
+        
+        // Récupérer le contenu du PDF via Apex
+        const pdfContents = await getPdfContentsForMerge({ contentVersionIds: [this.printableFiles[0].id] });
+        
+        let targetUrl = this.printableFiles[0].url;
+        let blob = null;
+
+        if (pdfContents && pdfContents.length > 0 && pdfContents[0].base64Content) {
+            const pdfBytes = this.base64ToUint8Array(pdfContents[0].base64Content);
+            blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            targetUrl = URL.createObjectURL(blob);
+        }
+        
+        // Show button and try to open
+        this.generatedPdfUrl = targetUrl;
+        this.isLoading = false;
+
+        try {
+            window.open(targetUrl, '_blank');
+        } catch(e) {
+            this.log('Ouverture auto bloquée: ' + e.message);
+        }
+        
+        this.showToast('Document ouvert', `Le document "${this.printableFiles[0].title}" est prêt.`, 'success');
     }
 }
