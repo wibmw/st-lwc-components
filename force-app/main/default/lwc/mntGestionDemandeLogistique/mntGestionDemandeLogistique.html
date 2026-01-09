@@ -308,7 +308,10 @@
                                                 </div>
                                             </template>
                                             <template if:false={selectedNTicket}>
-                                                <lightning-input type="search" variant="label-hidden" placeholder="Rechercher un ticket..." oninput={handleLookupSearch} data-lookup="ticket" autocomplete="off"></lightning-input>
+                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher un ticket..." oninput={handleLookupSearch} data-lookup="ticket" />
+                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                </span>
                                             </template>
                                         </div>
                                         <template if:true={lookupSuggestions.ticket.length}>
@@ -349,7 +352,10 @@
                                                 </div>
                                             </template>
                                             <template if:false={selectedDemandeur}>
-                                                <lightning-input type="search" variant="label-hidden" placeholder="Rechercher un demandeur..." onkeyup={handleLookupSearch} data-lookup="demandeur" autocomplete="off"></lightning-input>
+                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher un demandeur..." oninput={handleLookupSearch} data-lookup="demandeur" />
+                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                </span>
                                             </template>
                                         </div>
                                         <template if:true={lookupSuggestions.demandeur.length}>
@@ -390,7 +396,10 @@
                                                 </div>
                                             </template>
                                             <template if:false={selectedLieu}>
-                                                <lightning-input type="search" variant="label-hidden" placeholder="Rechercher un site..." onkeyup={handleLookupSearch} data-lookup="lieu" autocomplete="off"></lightning-input>
+                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher un site..." oninput={handleLookupSearch} data-lookup="lieu" />
+                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                </span>
                                             </template>
                                         </div>
                                         <template if:true={lookupSuggestions.lieu.length}>
@@ -436,7 +445,10 @@
                                                 </div>
                                             </template>
                                             <template if:false={selectedAdresseLivraison}>
-                                                <lightning-input type="search" variant="label-hidden" placeholder="Rechercher une adresse..." onkeyup={handleLookupSearch} data-lookup="adresseLivraison" autocomplete="off"></lightning-input>
+                                                <input type="text" class="slds-input slds-combobox__input" placeholder="Rechercher une adresse..." oninput={handleLookupSearch} data-lookup="adresseLivraison" />
+                                                <span class="slds-icon_container slds-icon-utility-search slds-input__icon slds-input__icon_right">
+                                                    <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                                                </span>
                                             </template>
                                         </div>
                                         <template if:true={lookupSuggestions.adresseLivraison.length}>
