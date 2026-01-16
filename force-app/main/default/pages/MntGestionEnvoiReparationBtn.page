@@ -1,0 +1,26 @@
+<apex:page standardController="Pi_ce_Unitaire__c" recordSetVar="pieces" lightningStylesheets="true">
+    <apex:includeLightning />
+    <div id="lightning" />
+
+    <script>
+        var recordIds = [];
+        <apex:repeat value="{!selected}" var="p">
+            recordIds.push('{!p.Id}');
+        </apex:repeat>
+        var idString = recordIds.join(',');
+
+        if(!idString) {
+             alert('Veuillez sélectionner au moins une pièce.');
+             window.history.back();
+        } else {
+            $Lightning.use("c:mntGestionEnvoiReparationApp", function() {
+                $Lightning.createComponent("c:mntGestionEnvoiReparationLogistique",
+                { inputPieceIds: idString },
+                "lightning",
+                function(cmp) {
+                    console.log("Component created with IDs: " + idString);
+                });
+            });
+        }
+    </script>
+</apex:page>

@@ -1,18 +1,80 @@
-:host { display:block; }
+:host {
+    display: block;
+    --btn-bg: linear-gradient(135deg, #0176d3 0%, #0b5cab 100%);
+    --btn-text: #ffffff;
+    --btn-shadow: 0 4px 20px rgba(1, 118, 211, 0.25);
+    --btn-shadow-hover: 0 8px 25px rgba(1, 118, 211, 0.35);
+    --icon-bg: #ffffff;
+    --radius: 16px;
+}
+
 .stack {
-  display: flex;
-  flex-direction: column;   /* 💡 Toujours vertical */
-  gap: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px; /* Safe padding for shadows */
 }
 
-/* Bouton plein écran, accessible (min 44px), coins arrondis */
 .menu-btn {
-  width: 100%;
-  justify-content: flex-start;
-  border-radius: 12px;
-  padding: 14px 16px;
+    appearance: none;
+    background: var(--btn-bg);
+    border: none;
+    border-radius: var(--radius);
+    padding: 16px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: var(--btn-shadow);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    touch-action: manipulation;
 }
 
-/* Icône + label */
-.icon { margin-right: 10px; }
-.label { font-size: 16px; }
+.menu-btn:hover, .menu-btn:focus {
+    transform: translateY(-2px);
+    box-shadow: var(--btn-shadow-hover);
+    outline: none;
+}
+
+.menu-btn:active {
+    transform: scale(0.98);
+}
+
+/* Container de l'icône */
+.icon-container {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    background: var(--icon-bg);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* L'icône elle-même (Lightning Icon) */
+.icon-svg {
+    --slds-c-icon-color-foreground: #0176d3; /* Blue icon on white bg */
+}
+
+.label {
+    flex-grow: 1;
+    text-align: left;
+    font-size: 16px;
+    font-weight: 700; /* Bold as requested */
+    color: var(--btn-text);
+    letter-spacing: 0.3px;
+    line-height: 1.2;
+}
+
+/* Chevron */
+.chevron {
+    --slds-c-icon-color-foreground: #ffffff;
+    opacity: 0.9;
+    margin-left: 8px;
+}

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Gestion Envoi Réparation Logistique (MNT)</masterLabel>
+    <description>Composant pour la gestion des envois logistiques de réparation (Cloné de mntGestionEnvoiLogistique)</description>
+    <targets>
+        <target>lightning__FlowScreen</target>
+        <target>lightning__RecordPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowScreen">
+            <property name="recordId" type="String" label="Record Id" description="ID of the record (Commande or Envoi)" />
+            <property name="objectApiName" type="String" label="Object API Name" description="API Name of the object (Commande_Pi_ces__c or Envoi_Logistique__c)" />
+            <property name="componentLabel" type="String" label="Titre du Composant" default="Gestion Envoi Réparation" />
+            <property name="inputPieceIds" type="String[]" label="IDs des Pièces (Liste)" description="Liste des IDs des pièces unitaires à charger" />
+            <property name="outputPieceIds" type="String[]" label="OUT: IDs des Pièces" description="Liste des IDs des pièces traitées dans l'envoi" role="outputOnly"/>
+            
+            <property name="isSaveComplete" type="Boolean" label="Sauvegarde Terminée" role="outputOnly" description="Indique si l'enregistrement a été sauvegardé avec succès/validé" />
+        </targetConfig>
+        <targetConfig targets="lightning__RecordPage">
+            <objects>
+                <object>Envoi_Logistique__c</object>
+                <object>Commande_Pi_ces__c</object>
+            </objects>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

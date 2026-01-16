@@ -10,9 +10,16 @@
         <target>lightning__FlowScreen</target>
     </targets>
     <targetConfigs>
-        <targetConfig targets="lightning__AppPage,lightning__HomePage,lightning__RecordPage,lightning__FlowScreen">
+        <targetConfig targets="lightning__AppPage,lightning__HomePage,lightning__RecordPage">
             <property name="objectApiName" type="String" label="Object API Name" required="true" />
             <property name="listViewApiName" type="String" label="List View API Name" required="true" />
+            <property name="sectionName" type="String" label="Accordion Section Name" required="false" />
+        </targetConfig>
+        <targetConfig targets="lightning__FlowScreen">
+            <property name="objectApiName" type="String" label="Object API Name" required="true" />
+            <property name="listViewApiName" type="String" label="List View API Name" required="true" />
+            <property name="sectionName" type="String" label="Accordion Section Name" required="false" />
+            <property name="selectedRecordId" type="String" label="Selected Record ID" description="Output: The ID of the record clicked by the user" role="outputOnly" />
         </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>

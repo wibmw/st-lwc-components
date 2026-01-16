@@ -1,9 +1,15 @@
 import { LightningElement, api, wire } from 'lwc';
 import { getListInfoByName, getListRecordsByName } from 'lightning/uiListsApi';
+import { NavigationMixin } from 'lightning/navigation';
+import { FlowAttributeChangeEvent } from 'lightning/flowSupport';
 
-export default class MobileListView extends LightningElement {
+export default class MobileListView extends NavigationMixin(LightningElement) {
     @api objectApiName;
     @api listViewApiName;
+    @api sectionName;
+    
+    // Output property for Flow to capture theclicked record
+    @api selectedRecordId = '';
 
     listViewLabel;
     displayColumns = [];
@@ -123,5 +129,27 @@ export default class MobileListView extends LightningElement {
 
     get hasRecords() {
         return this.records && this.records.length > 0;
+    }
+
+    handleRecordClick(event) {
+        const recordId = event.currentTarget.dataset.id;
+        if (recordId) {
+            // Notify Flow of the selected record
+            this.selectedRecordId = recordId;
+            const attributeChangeEvent = new FlowAttributeChangeEvent('selectedRecordId', recordId);
+            this.dispatchEvent(attributeChangeEvent);
+            
+            console.log('MobileListView: Selected Record ID', recordId);
+            
+            // Also attempt direct navigation for non-Flow contexts
+            this[NavigationMixin.Navigate]({
+                type: 'standard__recordPage',
+                attributes: {
+                    recordId: recordId,
+                    objectApiName: this.objectApiName,
+                    actionName: 'view'
+                }
+            });
+        }
     }
 }

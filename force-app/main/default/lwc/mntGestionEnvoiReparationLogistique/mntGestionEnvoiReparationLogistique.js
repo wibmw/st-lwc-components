@@ -10,11 +10,18 @@ import searchPiecesUnitaires from '@salesforce/apex/MntGestionEnvoiLogistiqueCtr
 import saveEnvoi from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.saveEnvoi';
 import searchRecords from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.searchRecords';
 import updateLineStatus from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.updateLineStatus';
+import getPiecesByIds from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getPiecesByIds';
+import getInitialRepairPieces from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getInitialRepairPieces';
+import LightningConfirm from 'lightning/confirm';
+import { FlowAttributeChangeEvent } from 'lightning/flowSupport';
 import TrackingModal from 'c/trackingModal';
 import { getRecord, getFieldValue, getRecordNotifyChange } from 'lightning/uiRecordApi';
 import FORM_FACTOR from '@salesforce/client/formFactor';
 import USER_ID from '@salesforce/user/Id';
 import USER_NAME_FIELD from '@salesforce/schema/User.Name';
+import getContactAddressBySiteName from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getContactAddressBySiteName'; // Keep for existing logic if any
+import getContactBySiteName from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getContactBySiteName'; // NEW
+import getAvailableRepairPieces from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getAvailableRepairPieces'; // NEW
 
 const COMMANDE_FIELD = 'Envoi_Logistique__c.Commande_Pi_ces__c';
 
@@ -79,7 +86,7 @@ const COMMANDE_DETAILS_COLS = [
     { type: 'action', typeAttributes: { rowActions: getRowActions } }
 ];
 
-export default class MntGestionEnvoiLogistique extends NavigationMixin(LightningElement) {
+export default class MntGestionEnvoiReparationLogistique extends NavigationMixin(LightningElement) {
     @track linkedCommandeId;
 
     get isDesktop() {
@@ -131,47 +138,9 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         return this.searchResults.filter(item => !cartIds.has(item.id));
     }
 
-    async handleSearch(event) {
-        const searchTerm = event.target.value;
-        if (searchTerm && searchTerm.length >= 3) {
-            this.isSearching = true;
-            try {
-                const results = await searchPiecesUnitaires({ searchTerm: searchTerm });
-                this.searchResults = results.map(r => ({
-                    id: r.Id,
-                    name: r.Name,
-                    cleEquipement: r.Cle_Equipement__c,
-                    rma: r.RMA__c,
-                    sousLieu: r.Sous_Lieu__c,
-                    mnemonique: r.mnemonique, 
-                    description: r.description   
-                }));
-            } catch (error) {
-                console.error('Erreur recherche', error);
-            } finally {
-                this.isSearching = false;
-            }
-        } else {
-            this.searchResults = [];
-        }
-    }
 
-    handleAddToCart(event) {
-        const itemId = event.target.dataset.id;
-        const item = this.searchResults.find(r => r.id === itemId);
-        if (item) {
-            this.cart = [...this.cart, {
-                pieceUnitaireId: item.id,
-                name: item.name,
-                cleEquipement: item.cleEquipement,
-                numBonLivraison: '',
-                statutChronopost: 'En préparation chez l\'expéditeur',
-                sousLieu: item.sousLieu,
-                mnemonique: item.mnemonique
-            }];
 
-        }
-    }
+
 
     handleRowAction(event) {
         const actionName = event.detail.action.name;
@@ -233,12 +202,15 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     @api get objectApiName() { return this._objectApiName; }
     set objectApiName(value) { this._objectApiName = value; }
     @api ticketCorrectifID;
+    @api inputPieceIds; // NOUVEAU: IDs en entrée depuis le Flow
+    @api outputPieceIds = [];
     @api isSaveComplete = false;
 
     @track isLoading = true; @track isSearching = false; @track cardTitle = 'Traiter la Commande'; @track saveButtonLabel = 'Traiter la Commande';
-    @track nTicketCorrectifId; @track selectedNTicket = null; @track statutEnvoi = 'Commande à Traiter'; @track dateCreationEnvoi; @track typeEnvoi = 'Autre Stock'; @track envoiName = '';
+    @track nTicketCorrectifId; @track selectedNTicket = null; @track statutEnvoi = 'Livraison en Cours'; @track dateCreationEnvoi; @track typeEnvoi = 'Autre Stock'; @track envoiName = '';
     @track destinataireId; @track selectedDestinataire = null; @track stockId; @track selectedStock = null; @track commentaire = ''; @track createdBy = '';
-    @track lookupSuggestions = { ticket: [], destinataire: [], stock: [] }; @track lookupLoading = { ticket: false, destinataire: false, stock: false }; @track isLookupOpen = { ticket: false, destinataire: false, stock: false };
+    @track demandeurId; @track selectedDemandeur = null;
+    @track lookupSuggestions = { ticket: [], destinataire: [], stock: [], user: [] }; @track lookupLoading = { ticket: false, destinataire: false, stock: false, user: false }; @track isLookupOpen = { ticket: false, destinataire: false, stock: false, user: false };
     @track searchResults = []; @track cart = []; @track piecesMap = new Map(); @track draftValues = []; @track commandeDetails = []; @track initialContextIsCommande = false; delayTimeout;
     @track isDestinationLocked = false; @track isContextCommande = false; @track envoiDataFromServer = null;
     @track g2r = ''; @track siteName = ''; @track compteProjet = ''; @track typeReception = 'Livraison'; @track dateEnvoi; @track contactAddress = '';@track typeTransporteur = 'CHRONOPOST';
@@ -250,22 +222,13 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         if (!this.cart) return [];
         return this.cart.map(item => {
             const hasTrackingNumber = !!item.numBonLivraison;
-            
-            // Calcul des variantes pour les boutons Chronopost ici (pas dans le HTML)
-            const isLivre = item.statutChronopost === 'Livré';
-            const isPerdu = item.statutChronopost === 'Perdu';
-
             return {
                 ...item,
                 isTrackingDisabled: !hasTrackingNumber,
                 trackingButtonClass: hasTrackingNumber ? '' : 'slds-hidden',
                 trackingUrl: hasTrackingNumber 
                     ? `https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLT=${item.numBonLivraison}` 
-                    : null,
-                
-                // NOUVEAUX CHAMPS CALCULÉS POUR LE HTML
-                variantLivre: isLivre ? 'brand' : 'border-filled',
-                variantPerdu: isPerdu ? 'destructive' : 'border-filled'
+                    : null
             };
         });
     }
@@ -273,7 +236,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     get isFromCommande() { return this.linkedCommandeId ? true : false; }
     get typeOptions() { return [{ label: 'Vers Réparateur', value: 'Réparateur' }, { label: 'Vers Autre Stock', value: 'Autre Stock' }]; }
     get typeReceptionOptions() { return [{ label: 'Livraison', value: 'Livraison' }, { label: 'Remise en main propre', value: 'Remise en main propre' }]; }
-    get typeTransporteurOptions() { return [{ label: 'CHRONOPOST', value: 'CHRONOPOST' }, { label: 'DHL', value: 'DHL' }, { label: 'TNT', value: 'TNT' }, { label: 'COLISSIMO', value: 'COLISSIMO' }]; }
+    get typeTransporteurOptions() { return [{ label: 'CHRONOPOST', value: 'CHRONOPOST' }, { label: 'DHL', value: 'DHL' }, { label: 'TNT', value: 'TNT' }, { label: 'COLISSIMO', value: 'COLISSIMO' }, { label: 'UPS', value: 'UPS' }, { label: 'Palette', value: 'Palette' }]; }
     get isReparateurType() { return this.typeEnvoi === 'Réparateur'; }
     get isAutreStockType() { return this.typeEnvoi === 'Autre Stock'; }
     get showDestinationPlaceholder() { return !this.isReparateurType && !this.isAutreStockType; }
@@ -282,18 +245,24 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         const ticket = this.selectedNTicket ? this.selectedNTicket.label : '';
         return (this.compteProjet && ticket) ? `${this.compteProjet} - ${ticket}` : ''; 
     }
-    get isSaveDisabled() {
+    get isSaveDisabled() {  
         const isInEditMode = (this._objectApiName === 'Envoi_Logistique__c');
         if (isInEditMode) return false; // En édition, on peut toujours sauvegarder (sauf règles métier)
         return this.cart.length === 0; // En création, il faut au moins une pièce
     }
     get datatableColumns() { return this.isFromCommande ? this.commandeDetailsCols : this.cartCols; }
+    get datatableColumns() { return this.isFromCommande ? this.commandeDetailsCols : this.cartCols; }
     get nTicketComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.ticket ? 'slds-is-open' : ''}`; }
     get destinataireComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.destinataire ? 'slds-is-open' : ''}`; }
     get stockComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.stock ? 'slds-is-open' : ''}`; }
+    get userComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.user ? 'slds-is-open' : ''}`; }
 
     get isReadOnly() {
         return this.statutEnvoi === 'Clôturer NOK' || this.statutEnvoi === 'Clôturer OK';
+    }
+
+    get isChronopost() {
+        return this.typeTransporteur === 'CHRONOPOST';
     }
 
 
@@ -302,7 +271,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     }
 
     get validateButtonLabel() {
-        return this.dateEnvoi ? 'Mettre à jour la Commande' : 'Valider la Commande';
+        return this.dateEnvoi ? 'Enregistrer les modifications' : 'Valider la Commande';
     }
 
     get validateButtonVariant() {
@@ -311,7 +280,16 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
 
 
     connectedCallback() {
-        if (this._objectApiName === 'Commande_Pi_ces__c') {
+        // Mode Spécial : Input Piece Ids (depuis Flow) ou Chargement par défaut (Repair)
+        if (this.inputPieceIds && (Array.isArray(this.inputPieceIds) ? this.inputPieceIds.length > 0 : this.inputPieceIds)) {
+            this.handleInputPiecesContext();
+        } 
+        else if (!this._recordId && this._objectApiName !== 'Envoi_Logistique__c' && this._objectApiName !== 'Commande_Pi_ces__c') {
+            // Si pas d'input mais qu'on est en création sans contexte spécifique, on charge le stock
+            console.log('No input IDs, loading initial repair pieces');
+            this.handleInitialRepairContext();
+        }
+        else if (this._objectApiName === 'Commande_Pi_ces__c') {
             this.linkedCommandeId = this._recordId; // Fix: Set linkedCommandeId to the current recordId
             this.initialContextIsCommande = true;
             // this.isDestinationLocked = true;
@@ -332,70 +310,156 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             this.isLoading = false;
         }
     }
-    
-    async handleCommandeContext() {
-        this.isLoading = true;
-        try {
-            // En création depuis une commande, on ne filtre pas par envoi (envoiId = null)
-            const allDetails = await getCommandeDetails({ commandeId: this.linkedCommandeId, envoiId: null });
-            this.commandeDetails = allDetails.filter(d => d.typeLigne === 'Cockpit');
-            // const envoiId = await getEnvoiByCommandeId({ commandeId: this.linkedCommandeId });
-            this.typeEnvoi = this.linkedCommandeId ? 'Autre Stock' : 'Réparateur';
-            if (this._objectApiName == 'Envoi_Logistique__c') {
-                await this.loadEnvoiData(this._recordId);
-            } else {
-                this.cardTitle = 'Créer la commande'; this.saveButtonLabel = 'Créer la Commande';
-                this.typeEnvoi = 'Autre Stock';
-                // this.cart = allDetails.map(d => ({ ...d, key: d.pieceUnitaireId }));
-                const initialData = await getInitialData({ recordId: this._recordId, sObjectType: 'Commande_Pi_ces__c' });
-                // Préchargement des champs
-                if(initialData.nTicketCorrectifId) {
-                    this.nTicketCorrectifId = initialData.nTicketCorrectifId;
-                    const label = initialData.nTicketName || '';
-                    const sublabel = initialData.nTicketSubLabel || '';
-                    this.selectedNTicket = { value: initialData.nTicketCorrectifId, label: label , sublabel: sublabel, pillLabel: label }; // sublabel ? `${label} - ${sublabel}` : label };
-                    this.g2r = initialData.g2r || '';
-                    this.siteName = initialData.siteName || '';
-                }
-                this.compteProjet = initialData.compteProjet || '';
 
-                console.log('Initial Data from Apex:', JSON.stringify(initialData));
-                if(initialData.lieuId) {
-                    this.stockId = initialData.lieuId;
-                    console.log('Setting stockId to:', this.stockId);
-                    const label = initialData.lieuName || '';
-                    const sublabel = initialData.lieuSubLabel || '';
-                    this.selectedStock = { value: initialData.lieuId, label: label, sublabel: sublabel, pillLabel: sublabel ? `${label} - ${sublabel}` : label };
-                } else {
-                    console.warn('No lieuId found in initialData');
-                }
-                if(initialData.destinataireId) {
-                    this.destinataireId = initialData.destinataireId;
-                    this.selectedDestinataire = { value: initialData.destinataireId, label: initialData.destinataireName };
-                this.contactAddress = initialData.destinataireAddress || '';
-                }
-                // this.cart = initialData.lines.map(line => ({ ...line, key: line.pieceUnitaireId }));
-            }
-        } catch(error) { this.showToast('Erreur', this.reduceErrors(error)[0], 'error'); } 
-        finally { this.isLoading = false; }
-    }
     
-    @wire(getRecord, { recordId: USER_ID, fields: [USER_NAME_FIELD] })
-    wiredUser({ error, data }) {
-        if (data) {
-            this.currentUserName = getFieldValue(data, USER_NAME_FIELD);
-            // Si pas d'enregistrement (création) et champ vide, on préremplit
-            if (!this._recordId && !this.demandeurCommande) {
-                this.demandeurCommande = this.currentUserName;
-            }
+    async handleInitialRepairContext() {
+        this.isLoading = true;
+        this.cardTitle = "Envoi en Réparation";
+        this.saveButtonLabel = "Envoyer en Réparation";
+        this.typeReception = 'Livraison'; 
+        
+        try {
+            const pieces = await getInitialRepairPieces();
+            await this.processLoadedPieces(pieces);
+        } catch (error) {
+            console.error(error);
+            this.showToast('Erreur', 'Erreur lors du chargement initial : ' + error.body?.message, 'error');
+        } finally {
+            this.isLoading = false;
         }
     }
-    
-    currentUserName;
 
-    // ... (rest of methods)
+    async handleInputPiecesContext() {
+        this.isLoading = true;
+        this.cardTitle = "Envoi en Réparation";
+        this.saveButtonLabel = "Valider l'Envoi";
+        this.typeReception = 'Livraison';
+        
+        try {
+            // Parsing safe si c'est une string délimitée
+            let idsToLoad = this.inputPieceIds;
+            if (typeof idsToLoad === 'string') {
+                idsToLoad = idsToLoad.split(/[ ,;]+/).filter(id => id.length >= 15);
+            }
 
-    // Modification inside connectedCallback or context handlers to checking mobile for typeEnvoi
+            const pieces = await getPiecesByIds({ pieceIds: idsToLoad });
+            await this.processLoadedPieces(pieces);
+
+        } catch (error) {
+            console.error(error);
+            this.showToast('Erreur', 'Erreur lors du chargement des pièces : ' + error.body?.message, 'error');
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    async processLoadedPieces(pieces) {
+        if (!pieces || pieces.length === 0) {
+            this.showToast('Info', 'Aucune pièce à traiter trouvée.', 'info');
+            return;
+        }
+
+        // Validation Réparateur Unique
+        const firstReparateurId = pieces[0].reparateurId;
+        const firstReparateurName = pieces[0].reparateurName;
+        
+        // On vérifie si toutes les pièces ont le MEME réparateur
+        const allSameRepairer = pieces.every(p => p.reparateurId === firstReparateurId);
+
+        if (!allSameRepairer) {
+            this.showToast('Alerte', 'Les pièces sélectionnées n\'appartiennent pas toutes au même réparateur !', 'error');
+        }
+
+        // Chargement du Panier
+        this.cart = pieces.map(item => ({
+            pieceUnitaireId: item.id,
+            name: item.name,
+            cleEquipement: item.cleEquipement,
+            rma: item.rma, 
+            sousLieu: item.sousLieu,
+            mnemonique: item.mnemonique,
+            nSerie: item.nSerie,
+            description: item.description, // Added for preservation
+            numBonLivraison: '',
+            statutChronopost: 'En préparation chez l\'expéditeur'
+        }));
+
+        // --- AUTO-LOAD OTHER PIECES ---
+        try {
+            let availablePieces = await getAvailableRepairPieces({ reparateurId: firstReparateurId });
+            
+            // Filter out items already in cart
+            const cartIds = new Set(this.cart.map(c => c.pieceUnitaireId));
+            this.searchResults = availablePieces.filter(p => !cartIds.has(p.id));
+        } catch (e) {
+             console.error('Error fetching available pieces', e);
+        }
+
+        // Préchargement Destination (Lieu de destination = Reparateur)
+        if (firstReparateurId) {
+            this.stockId = firstReparateurId;
+            this.selectedStock = { 
+                value: firstReparateurId, 
+                label: firstReparateurName, 
+                pillLabel: firstReparateurName 
+            };
+            this.typeEnvoi = 'Réparateur';
+            
+            // --- NOUVEAU: Pré-remplissage du Contact (Adresse de Livraison) ---
+            try {
+                const contact = await getContactBySiteName({ siteName: firstReparateurName });
+                if (contact) {
+                    this.destinataireId = contact.Id;
+                    this.selectedDestinataire = { value: contact.Id, label: contact.Name };
+                    
+                    const addressParts = [];
+                    if (contact.MailingStreet) addressParts.push(contact.MailingStreet);
+                    if (contact.MailingPostalCode) addressParts.push(`${contact.MailingPostalCode} ${contact.MailingCity || ''}`);
+                    
+                    this.contactAddress = addressParts.join('\n');
+                }
+            } catch (err) {
+                 console.warn('Could not auto-fetch contact for repairer:', err);
+            }
+            // -------------------------------------------------------------
+        } else {
+             this.showToast('Attention', 'Aucun réparateur n\'est associé à la première pièce.', 'warning');
+        }
+    }
+
+    handleCartAction(event){
+        // Handle actions from the removed button or other actions
+    }
+
+     handleRemoveFromCart(event) {
+        const pieceId = event.target.dataset.id;
+        // Find the item to remove
+        const itemToRemove = this.cart.find(item => item.pieceUnitaireId === pieceId);
+        
+        if (itemToRemove) {
+             // Remove from cart
+            this.cart = this.cart.filter(item => item.pieceUnitaireId !== pieceId);
+            
+            // Add back to searchResults (reconstruct original structure if needed, or simple object)
+            // searchResults expects: { id, name, mnemonique, cleEquipement, sousLieu, rma, nSerie, ... }
+            // itemToRemove has these fields (mapped in cart)
+            
+            const restoredItem = {
+                id: itemToRemove.pieceUnitaireId,
+                name: itemToRemove.name,
+                mnemonique: itemToRemove.mnemonique,
+                cleEquipement: itemToRemove.cleEquipement,
+                sousLieu: itemToRemove.sousLieu,
+                rma: itemToRemove.rma,
+                nSerie: itemToRemove.nSerie,
+                description: itemToRemove.description,
+                reparateurId: this.stockId, // Assumed from context
+                reparateurName: this.selectedStock ? this.selectedStock.label : ''
+            };
+
+            this.searchResults = [...this.searchResults, restoredItem];
+        }
+    }
     
     async handleCommandeContext() {
         this.isLoading = true;
@@ -458,26 +522,32 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         finally { this.isLoading = false; }
     }
     
-    // ...
-
-    async loadCommandeDetails(commandeId) {
-        try {
-            const allDetails = await getCommandeDetails({ commandeId: commandeId, envoiId: this._recordId });
-            this.commandeDetails = allDetails.filter(d => d.typeLigne === 'Cockpit');
-            // Logic specific to Commande Context loading if needed
-        } catch (error) {
-            console.error('Error loading commande details:', error);
-            throw error;
+    @wire(getRecord, { recordId: USER_ID, fields: [USER_NAME_FIELD] })
+    wiredUser({ error, data }) {
+        if (data) {
+            this.currentUserName = getFieldValue(data, USER_NAME_FIELD);
+            // Si pas d'enregistrement (création) et champ vide, on préremplit
+            if (!this._recordId && !this.demandeurCommande) {
+                this.demandeurCommande = this.currentUserName;
+                this.demandeurId = USER_ID;
+                this.selectedDemandeur = { value: USER_ID, label: this.currentUserName };
+            }
         }
     }
+    
+    currentUserName;
 
     async loadEnvoiData(envoiIdToLoad) {
-        this.isLoading = true; this.cardTitle = "Traiter la Commande"; this.saveButtonLabel = "Valider la Commande";
+        this.isLoading = true; this.cardTitle = "Traiter la Commande"; this.saveButtonLabel = "Enregistrer les modifications";
         try {
             const envoiData = await getEnvoiDetails({ envoiId: envoiIdToLoad });
             this.isDestinationLocked = envoiData.isLinkedToCommande;
             this.envoiName = envoiData.envoiName || ''; this.createdBy = envoiData.createdByName;
-            this.demandeurCommande = envoiData.demandeurCommande; // Fix: Map demandeur fallback
+            this.demandeurCommande = envoiData.demandeurCommande; 
+            this.demandeurId = envoiData.demandeurId;
+            if (this.demandeurId) {
+                this.selectedDemandeur = { value: this.demandeurId, label: this.demandeurCommande };
+            }
             
             this.nTicketCorrectifId = envoiData.nTicketCorrectifId; 
             if (this.nTicketCorrectifId) {
@@ -500,23 +570,20 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             this.cart = envoiData.lines.map(line => ({ ...line, pieceUnitaireId: line.pieceUnitaireId, key: line.pieceUnitaireId }));
 
             // --- AUTO-LOAD COMMANDE DETAILS ---
+            // --- COMMANDE DETAILS (IGNORED IN REPAIR CONTEXT) ---
             if (envoiData.commandeId) {
-                this.linkedCommandeId = envoiData.commandeId;
-                this.initialContextIsCommande = true; 
-                this.isContextCommande = true; 
-                this.typeEnvoi = 'Autre Stock';
-                await this.loadCommandeDetails(envoiData.commandeId);
-            } else if (envoiData.isLinkedToCommande) {
-                console.warn('L\'Id de la commande n\'a pas pu être retrouvé');
+                // Warning only - Repair logic does not need full command details
+                console.warn('Envoi is linked to a Commande, but Repair component does not load full command details.');
             }
+            // ----------------------------------
             // ----------------------------------
 
         } catch (error) { this.showToast('Erreur de chargement', this.reduceErrors(error)[0], 'error'); } 
         finally { this.isLoading = false; }
     }
     
-    handleDemandeurChange(event) {
-        this.demandeurCommande = event.target.value;
+    handleAddressChange(event) {
+         this.contactAddress = event.target.value;
     }
 
     handleTypeChange(event) { 
@@ -596,7 +663,8 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         const sObjectTypeMap = {
             ticket: 'Correctif__c',
             destinataire: 'Contact',
-            stock: 'sitetracker__Site__c'
+            stock: 'sitetracker__Site__c',
+            user: 'User'
         };
         try {
             this.lookupSuggestions[lookupType] = await searchRecords({
@@ -662,7 +730,20 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             case 'stock': 
                 this.stockId = value; 
                 this.selectedStock = { value, label, sublabel, pillLabel: sublabel ? `${label} - ${sublabel}` : label }; 
+                
+                // Fetch Address from Contact matching Site Name
+                if (label) {
+                    getContactAddressBySiteName({ siteName: label })
+                        .then(addr => {
+                            if (addr) this.contactAddress = addr;
+                        })
+                        .catch(err => console.error('Error fetching address', err));
+                }
                 break; 
+            case 'user':
+                this.demandeurId = value;
+                this.selectedDemandeur = { value, label };
+                break;
         } 
         this.lookupSuggestions[lookup] = []; 
         const input = this.template.querySelector(`lightning-input[data-lookup="${lookup}"]`); 
@@ -686,11 +767,16 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             case 'stock': 
                 this.stockId = null; 
                 this.selectedStock = null; 
+                // this.contactAddress = ''; // Keep editable
+                break; 
+            case 'user':
+                this.demandeurId = null;
+                this.selectedDemandeur = null;
                 break; 
         } 
     }
     handleLookupFocus(event) { this.isLookupOpen[event.target.dataset.lookup] = true; }
-    handleLookupBlur(event) { const inputElement = event.target; const lookupType = inputElement.dataset.lookup; setTimeout(() => { let selectedId; switch (lookupType) { case 'ticket': selectedId = this.nTicketCorrectifId; break; case 'destinataire': selectedId = this.destinataireId; break; case 'stock': selectedId = this.stockId; break; } if (inputElement.value && !selectedId) { this.showToast('Erreur', `"${inputElement.value}" n'est pas une valeur valide.`, 'error'); inputElement.value = ''; } this.isLookupOpen[lookupType] = false; }, 250); }
+    handleLookupBlur(event) { const inputElement = event.target; const lookupType = inputElement.dataset.lookup; setTimeout(() => { let selectedId; switch (lookupType) { case 'ticket': selectedId = this.nTicketCorrectifId; break; case 'destinataire': selectedId = this.destinataireId; break; case 'stock': selectedId = this.stockId; break; case 'user': selectedId = this.demandeurId; break; } if (inputElement.value && !selectedId) { this.showToast('Erreur', `"${inputElement.value}" n'est pas une valeur valide.`, 'error'); inputElement.value = ''; } this.isLookupOpen[lookupType] = false; }, 250); }
     handleSearch(event) { 
         const searchTerm = event.target.value; 
         clearTimeout(this.delayTimeout); 
@@ -699,7 +785,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         }, 300); 
     }
     get isBlReadOnly() {
-        return this.isReadOnly || this.typeReception !== 'Livraison';
+        return this.isReadOnly || this.typeReception !== 'Livraison'; // Devrait toujours être Livraison ici
     }
 
     handleAddToCart(event) {
@@ -725,6 +811,8 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
                 mnemonique: piece.mnemonique,
                 cleEquipement: piece.cleEquipement,
                 sousLieu: piece.sousLieu,
+                rma: piece.rma,
+                nSerie: piece.nSerie,
                 numBonLivraison: '',
                 statutChronopost: defaultStatus,
                 trackingUrl: '', // À définir si dispo
@@ -850,7 +938,43 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         this.draftValues = [];
     }
     
-    handleSave(event) {
+    async handleSave(event) {
+        console.log('handleSave called');
+        
+        // Validation : Le BL est obligatoire pour chaque ligne du panier
+        // Appeler reportValidity() sur tous les champs pour afficher l'erreur native Lightning
+        const blInputs = this.template.querySelectorAll('lightning-input[data-field="numBonLivraison"]');
+        let allValid = true;
+        blInputs.forEach(input => {
+            if (!input.reportValidity()) {
+                allValid = false;
+            }
+        });
+        
+        const missingBl = this.cart.some(item => !item.numBonLivraison || item.numBonLivraison.trim() === '');
+        if (!allValid || missingBl) {
+            this.showToast('Erreur', 'Le N° de Bon de Livraison est obligatoire pour toutes les pièces.', 'error');
+            return;
+        } 
+        
+        console.log('Validation passed, proceeding to confirmation');
+        
+        // Confirmation Popup pour la création
+        const isCreationContext = !this._recordId || this._objectApiName !== 'Envoi_Logistique__c';
+        if (isCreationContext) {
+            console.log('Opening confirmation dialog...');
+            const confirmed = await LightningConfirm.open({
+                message: 'Confirmez-vous la création de cet envoi ?',
+                variant: 'header',
+                label: 'Confirmation',
+                theme: 'warning',
+            });
+            console.log('Confirmation result:', confirmed);
+            if (!confirmed) {
+                return; 
+            }
+        }
+
         const actionGlobale = event.target.dataset.globalAction || null;
         this.isLoading = true;
         // Préparation des lignes de détail pour l'envoi
@@ -870,8 +994,10 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             transporteur: this.typeTransporteur,
             typeReception: this.typeReception,
             dateEnvoi: this.dateEnvoi,
-            destinataireId: this.destinataireId, 
-            lieuId: this.stockId, 
+            destinataireId: this.destinataireId,
+            demandeurId: this.demandeurId,
+            lieuId: this.stockId,
+            stockId: this.stockId, // AJOUT: Sauvegarder aussi dans le champ Stock__c
             commentaire: this.commentaire, 
             cart: this.cart,
             actionGlobale: actionGlobale,
@@ -879,14 +1005,20 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             orderLines: orderLinesToSend 
         };
 
+
+
         // Si on a déjà une date d'envoi et qu'on demande à VALIDER, on change en UPDATE simple
         if (this.dateEnvoi && actionGlobale === 'VALIDER') {
             input.actionGlobale = 'UPDATE';
         }
 
+
+
         saveEnvoi({ inputJSON: JSON.stringify(input) })
             .then(envoiId => {
                 let successMsg = "L'envoi a été sauvegardé.";
+                const isCreationContext = !this._recordId || this._objectApiName !== 'Envoi_Logistique__c';
+                
                 if (actionGlobale === 'VALIDER' && !this.dateEnvoi) successMsg = "Commande Validée. Envoi passé à 'Livraison en Cours'.";
                 if (actionGlobale === 'REFUSER') successMsg = "Commande Refusée. Envoi passé à 'Clôturé NOK'.";
 
@@ -910,15 +1042,19 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
                 }
 
                 if (actionGlobale) {
+                    // --- LOGIQUE OUTPUT FLOW ---
+                    const pieceIds = this.cart.map(item => item.pieceUnitaireId);
+                    this.outputPieceIds = pieceIds;
+                    this.dispatchEvent(new FlowAttributeChangeEvent('outputPieceIds', pieceIds));
+                    // ---------------------------
+
                     // ... On met à jour la propriété de sortie pour le Flow
                     this.isSaveComplete = true;
                     this.isLoading = false; 
-                    this.dispatchEvent(new FlowNavigationNextEvent());
+                    window.open('/lightning/r/Envoi_Logistique__c/' + envoiId + '/view', '_self');
                 } else if (!this._recordId) {
-                    this._recordId = envoiId;
-                    this._objectApiName = 'Envoi_Logistique__c';
-                    this.loadEnvoiData(envoiId);
-
+                    // Cas Création : Redirection vers la fiche de l'envoi créé
+                    window.open('/lightning/r/Envoi_Logistique__c/' + envoiId + '/view', '_self');
                 } else {
                     this.loadEnvoiData(this._recordId);
                 }

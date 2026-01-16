@@ -1,0 +1,5 @@
+<design:component>
+    <design:attribute name="options" label="Options JSON" />
+    <design:attribute name="selected" label="Output Selection" />
+    <design:attribute name="autoNext" label="Auto Next" />
+</design:component>

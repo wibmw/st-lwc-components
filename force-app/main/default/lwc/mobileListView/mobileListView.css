@@ -1,4 +1,36 @@
 .custom-card {
     border-left: 3px solid #0176d3;
     padding: 0.4rem 0.75rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+    position: relative;
+}
+
+.custom-card:hover {
+    background-color: #f3f3f3;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.custom-card:active {
+    transform: scale(0.98);
+    background-color: #e5e5e5;
+}
+
+/* Style pour l'icône de navigation (flèche) */
+.nav-arrow {
+    color: #706e6b;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+}
+
+.card-content {
+    flex: 1;
+    min-width: 0; /* Pour permettre le truncate */
+}
+
+.card-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }

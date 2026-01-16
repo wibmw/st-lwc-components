@@ -4,6 +4,9 @@
   <isExposed>true</isExposed>
   <targets>
     <target>lightning__FlowScreen</target>
+    <target>lightning__RecordAction</target>
+    <target>lightning__RecordPage</target>
+    <target>lightning__AppPage</target>
   </targets>
   <targetConfigs>
     <targetConfig targets="lightning__FlowScreen">

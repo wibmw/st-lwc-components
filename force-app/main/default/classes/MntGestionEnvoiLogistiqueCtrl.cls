@@ -74,6 +74,9 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         @AuraEnabled public String rma; 
         @AuraEnabled public String mnemonique;
         @AuraEnabled public String description;
+        @AuraEnabled public Id reparateurId; // Ajout
+        @AuraEnabled public String reparateurName; // Ajout
+        @AuraEnabled public String nSerie; // Ajout
     }
     
     public class CartLine {
@@ -266,6 +269,9 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         else if (sObjectType == 'Correctif__c') {
             query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
         }
+        else if (sObjectType == 'User') {
+            query = 'SELECT Id, Name FROM User WHERE Name LIKE :queryTerm ORDER BY Name LIMIT 10';
+        }
         // Cas par défaut pour tout autre objet
         else {
             query = 'SELECT Id, Name FROM ' + sObjectName + ' WHERE Name LIKE :queryTerm ORDER BY Name LIMIT 10';
@@ -310,6 +316,36 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         }
         
         return results;
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static String getContactAddressBySiteName(String siteName) {
+        Contact c = getContactBySiteName(siteName);
+        if (c != null) {
+            List<String> addressParts = new List<String>();
+            if (String.isNotBlank(c.MailingStreet)) addressParts.add(c.MailingStreet);
+            if (String.isNotBlank(c.MailingPostalCode)) addressParts.add(c.MailingPostalCode + ' ' + c.MailingCity);
+            return String.join(addressParts, '\n');
+        }
+        return '';
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static Contact getContactBySiteName(String siteName) {
+        if (String.isBlank(siteName)) return null;
+        
+        // Recherche d'un contact dont le nom de famille correspond exactement au Nom du site
+        List<Contact> contacts = [
+            SELECT Id, Name, MailingStreet, MailingCity, MailingPostalCode, MailingCountry 
+            FROM Contact 
+            WHERE LastName = :siteName 
+            LIMIT 1
+        ];
+
+        if (!contacts.isEmpty()) {
+            return contacts[0];
+        }
+        return null;
     }
     
     @AuraEnabled
@@ -393,6 +429,92 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         return data;
     }
 
+    @AuraEnabled
+    public static List<PieceUnitaireResult> getPiecesByIds(List<String> pieceIds) {
+        List<PieceUnitaireResult> results = new List<PieceUnitaireResult>();
+        if (pieceIds == null || pieceIds.isEmpty()) return results;
+        
+        // On récupère les pièces avec leur réparateur
+        // ASSUMPTION: Reparateur__c exists on Pi_ce_Unitaire__c
+        for(Pi_ce_Unitaire__c piece : [
+            SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c, Code_Article__r.Mnemonique__c, Code_Article__r.Description__c,
+                   Reparateur__c, Reparateur__r.Name, Pi_ce_Install_e__r.N_Serie__c
+            FROM Pi_ce_Unitaire__c
+            WHERE Id IN :pieceIds
+        ]) {
+            PieceUnitaireResult res = new PieceUnitaireResult();
+            res.id = piece.Id;
+            res.name = piece.Name;
+            res.cleEquipement = piece.Cl_quipement__c;
+            res.sousLieu = piece.Sous_Lieux__c;
+            res.rma = piece.RMA__c; 
+            res.mnemonique = piece.Code_Article__r != null ? piece.Code_Article__r.Mnemonique__c : '';
+            res.description = piece.Code_Article__r != null ? piece.Code_Article__r.Description__c : '';
+            res.reparateurId = piece.Reparateur__c;
+            res.reparateurName = piece.Reparateur__r != null ? piece.Reparateur__r.Name : '';
+            res.nSerie = piece.Pi_ce_Install_e__r != null ? piece.Pi_ce_Install_e__r.N_Serie__c : '';
+            results.add(res);
+        }
+        return results;
+    }
+
+    @AuraEnabled
+    public static List<PieceUnitaireResult> getInitialRepairPieces() {
+        Id currentUserId = UserInfo.getUserId();
+        List<PieceUnitaireResult> results = new List<PieceUnitaireResult>();
+        
+        // On récupère les pièces "A Envoyer en REP" dans le stock du logisticien connecté
+        for(Pi_ce_Unitaire__c piece : [
+            SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c, Code_Article__r.Mnemonique__c, Code_Article__r.Description__c,
+                   Reparateur__c, Reparateur__r.Name, Pi_ce_Install_e__r.N_Serie__c
+            FROM Pi_ce_Unitaire__c
+            WHERE Statut__c = 'A Envoyer en REP'
+              AND Lieu__r.Logisticien__c = :currentUserId
+        ]) {
+            PieceUnitaireResult res = new PieceUnitaireResult();
+            res.id = piece.Id;
+            res.name = piece.Name;
+            res.cleEquipement = piece.Cl_quipement__c;
+            res.sousLieu = piece.Sous_Lieux__c;
+            res.rma = piece.RMA__c; 
+            res.mnemonique = piece.Code_Article__r != null ? piece.Code_Article__r.Mnemonique__c : '';
+            res.description = piece.Code_Article__r != null ? piece.Code_Article__r.Description__c : '';
+            res.reparateurId = piece.Reparateur__c;
+            res.reparateurName = piece.Reparateur__r != null ? piece.Reparateur__r.Name : '';
+            res.nSerie = piece.Pi_ce_Install_e__r != null ? piece.Pi_ce_Install_e__r.N_Serie__c : '';
+            results.add(res);
+        }
+        return results;
+    }
+
+    @AuraEnabled
+    public static List<PieceUnitaireResult> getAvailableRepairPieces(String reparateurId) {
+        List<PieceUnitaireResult> results = new List<PieceUnitaireResult>();
+        if (String.isBlank(reparateurId)) return results;
+
+        for(Pi_ce_Unitaire__c piece : [
+            SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c, Code_Article__r.Mnemonique__c, Code_Article__r.Description__c,
+                   Reparateur__c, Reparateur__r.Name, Pi_ce_Install_e__r.N_Serie__c
+            FROM Pi_ce_Unitaire__c
+            WHERE Statut__c = 'A Envoyer en REP'
+              AND Reparateur__c = :reparateurId
+        ]) {
+            PieceUnitaireResult res = new PieceUnitaireResult();
+            res.id = piece.Id;
+            res.name = piece.Name;
+            res.cleEquipement = piece.Cl_quipement__c;
+            res.sousLieu = piece.Sous_Lieux__c;
+            res.rma = piece.RMA__c; 
+            res.mnemonique = piece.Code_Article__r != null ? piece.Code_Article__r.Mnemonique__c : '';
+            res.description = piece.Code_Article__r != null ? piece.Code_Article__r.Description__c : '';
+            res.reparateurId = piece.Reparateur__c;
+            res.reparateurName = piece.Reparateur__r != null ? piece.Reparateur__r.Name : '';
+            res.nSerie = piece.Pi_ce_Install_e__r != null ? piece.Pi_ce_Install_e__r.N_Serie__c : '';
+            results.add(res);
+        }
+        return results;
+    }
+
     @AuraEnabled(cacheable=true)
     public static List<PieceUnitaireResult> searchPiecesUnitaires(String searchTerm, String typeEnvoi) {
         String queryTerm = '%' + searchTerm + '%';
@@ -404,7 +526,8 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         
         // La requête inclut maintenant RMA__c et filtre sur le statut dynamique
         for(Pi_ce_Unitaire__c piece : [
-            SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c, Code_Article__r.Mnemonique__c, Code_Article__r.Description__c
+            SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c, Code_Article__r.Mnemonique__c, Code_Article__r.Description__c,
+                   Pi_ce_Install_e__r.N_Serie__c
             FROM Pi_ce_Unitaire__c
             WHERE (Name LIKE :queryTerm OR Cl_quipement__c LIKE :queryTerm OR Code_Article__r.Mnemonique__c LIKE :queryTerm)
               AND Statut__c = :statutAFiltrer
@@ -419,6 +542,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             res.rma = piece.RMA__c; 
             res.mnemonique = piece.Code_Article__r != null ? piece.Code_Article__r.Mnemonique__c : '';
             res.description = piece.Code_Article__r != null ? piece.Code_Article__r.Description__c : '';
+            res.nSerie = piece.Pi_ce_Install_e__r != null ? piece.Pi_ce_Install_e__r.N_Serie__c : '';
             results.add(res);
         }
         return results;
@@ -442,7 +566,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             }
             envoi.N_Ticket_Correctif__c = input.nTicketCorrectifId;
             if (isCreation) {
-                envoi.Statut__c = 'Commande à Traiter';
+                envoi.Statut__c = ('Réparateur'.equals(input.typeEnvoi)) ? 'Livraison en Cours' : 'Commande à Traiter';
             }
             envoi.Type__c = input.typeEnvoi; envoi.Destinataire__c = input.destinataireId; envoi.Stock__c = input.stockId; envoi.Commentaire__c = input.commentaire;
             envoi.Demandeur__c = input.demandeurId;
@@ -487,7 +611,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                 }
             } 
             else if (isCreation) {
-                envoi.Statut__c = 'Commande à Traiter';
+                envoi.Statut__c = ('Réparateur'.equals(input.typeEnvoi)) ? 'Livraison en Cours' : 'Commande à Traiter';
             }
 
             if (envoi.Id != null) {
@@ -603,7 +727,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             }
             
             // Logique de CRÉATION & MISE A JOUR
-            String newStatusForSentPieces = 'Réparateur'.equals(input.typeEnvoi) ? 'En réparation' : 'A réceptionner';
+            String newStatusForSentPieces = 'Réparateur'.equals(input.typeEnvoi) ? 'En Réparation' : 'A réceptionner';
             Map<Id, Pi_ce_Unitaire__c> piecesDataMap = new Map<Id, Pi_ce_Unitaire__c>([SELECT Id, Name, Lieu__c, Lieu__r.Name, RMA__c  FROM Pi_ce_Unitaire__c WHERE Id IN :currentPieceIdsInCart]);
     
             for (Id currentPieceId : currentPieceIdsInCart) {
@@ -633,7 +757,8 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                     if ('Réparateur'.equals(input.typeEnvoi)) {
                         // La trame est maintenant une chaîne de caractères littérale.
                         histPU.TRAME__c = '[TRIGRAMME][PANNE][EQT_MIS_SUR_SITE_(SN) = N° de série de la pièce INSTALLE][RMA=N° RMA][CONTRAT PROMA FIXE/MOBILE]';
-                        histPU.Remarques__c = 'Envois le [' + today + '] RMA N° [' + (pieceActuelle.RMA__c != null ? pieceActuelle.RMA__c : '') + '] N° de BL [' + line.numBonLivraison + ']';
+                        // Update Remarque pour inclure "Vers Réparateur" (mention générique ou spécifique si on avait le nom)
+                        histPU.Remarques__c = 'Envoi vers Réparateur le [' + today + '] RMA N° [' + (pieceActuelle.RMA__c != null ? pieceActuelle.RMA__c : '') + '] N° de BL [' + (line.numBonLivraison != null ? line.numBonLivraison : '') + ']';
                         histPU.BT_RPMAT__c = true;
                     } 
                     // Logique conditionnelle pour Autre Stock
@@ -667,7 +792,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
 
                     if (existingHist.N_Bon_Livraison__c != line.numBonLivraison) {
                         existingHist.N_Bon_Livraison__c = line.numBonLivraison;
-                        historiesToUpdate.add(existingHist);
+                        needsUpdate = true;
                     }
                     if (existingHist.Statut_Chronopost__c != line.statutChronopost) {
                         existingHist.Statut_Chronopost__c = line.statutChronopost;

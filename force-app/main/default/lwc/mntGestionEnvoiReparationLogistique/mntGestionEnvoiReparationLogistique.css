@@ -1,0 +1,82 @@
+.main-container {
+    background-color: white; /* ou var(--lwc-colorBackgroundAlt) */
+    border-radius: var(--lwc-borderRadiusMedium);
+}
+
+.header-container {
+    border-bottom: 1px solid var(--lwc-colorBorderSeparator);
+    padding-bottom: var(--lwc-spacingMedium);
+}
+
+.actions-container {
+    /* Alignement vertical des boutons avec le titre/icon */
+    align-self: center; 
+}
+
+/* SEARCH RESULTS & DROPDOWN */
+.search-results-container {
+    border: 1px solid var(--lwc-colorBorderInput);
+    border-radius: 0.25rem;
+    background-color: white;
+}
+
+/* MOBILE CARD STYLES */
+.mobile-card {
+    border: 1px solid var(--lwc-colorBorder);
+    border-radius: var(--lwc-borderRadiusMedium);
+    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+    background-color: white; /* Assure un fond blanc sur mobile */
+}
+
+/* Force visibility of disabled inputs to look clearer on some mobile screens */
+.slds-input[disabled], .slds-textarea[disabled] {
+    background-color: var(--lwc-colorBackgroundInputDisabled);
+    color: var(--lwc-colorTextDefault); /* Garder le texte lisible */
+    border-color: var(--lwc-colorBorderInputDisabled);
+}
+
+
+/* Scrollbar customisation (optional) */
+.slds-scrollable_y::-webkit-scrollbar {
+    width: 6px;
+}
+.slds-scrollable_y::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+}
+.slds-scrollable_y::-webkit-scrollbar-thumb {
+    background: #ccc; 
+    border-radius: 3px;
+}
+.slds-scrollable_y::-webkit-scrollbar-thumb:hover {
+    background: #bbb; 
+}
+
+
+/* Custom Button Colors for Mobile States */
+.action-btn-success {
+    --slds-c-button-color-text-hover: #027e46;
+    --slds-c-button-icon-color-foreground: #027e46;
+}
+
+.action-btn-destructive {
+    --slds-c-button-color-text-hover: #ea001e;
+    --slds-c-button-icon-color-foreground: #ea001e;
+}
+
+/* BORDER LEFT COLORS */
+.border-left-blue {
+    border-left: 3px solid #0176d3;
+}
+
+.border-left-blue-thick {
+    border-left: 4px solid #0176d3;
+}
+
+.h-100 {
+    height: 100%;
+}
+
+.text-true-royal {
+    color: royalblue; /* ou #4169E1 */
+    font-weight: bold;
+}
