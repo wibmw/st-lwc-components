@@ -27,6 +27,7 @@
                 <div class="slds-box slds-box_small slds-theme_shade h-100">
                     <div class="responsive-padding slds-p-bottom_medium">                      
                              <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_small">
+                                <!-- Demandeur -->
                                 <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
                                     <div class="slds-form-element">
                                         <label class="slds-form-element__label" for="user-combobox">Demandeur</label>
@@ -62,16 +63,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
-                                    <lightning-input type="text" label="Créé par" value={createdBy} disabled variant="label-stacked"></lightning-input>
-                                </div>
-                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
-                                    <lightning-combobox label="Type de Réception" value={typeReception} options={typeReceptionOptions} onchange={handleTypeReceptionChange} variant="label-stacked" disabled></lightning-combobox>
-                                </div>
-                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
-                                    <lightning-combobox label="Transporteur" value={typeTransporteur} options={typeTransporteurOptions} onchange={handleTypeTransporteurChange} variant="label-stacked" disabled={isReadOnly}></lightning-combobox>
-                                </div>
-
+                                <!-- Réparateur -->
                                 <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
                                      <div class="slds-form-element">
                                         <label class="slds-form-element__label" for="stock-combobox">Réparateur</label>
@@ -108,10 +100,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
-                                    <lightning-combobox label="Type d'envoi" value={typeEnvoi} options={typeOptions} onchange={handleTypeChange} variant="label-stacked" disabled></lightning-combobox>
-                                </div>
-                                
+                                <!-- Contact du Réparateur -->
                                 <template if:false={isMainPropre}>
                                     <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
                                         <div class="slds-form-element">
@@ -153,6 +142,29 @@
                                         <lightning-textarea label="Adresse de Livraison" value={contactAddress} readonly class="address-textarea"></lightning-textarea>
                                     </div>
                                 </template>
+                                <!-- Type d'envoi -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
+                                    <lightning-combobox label="Type d'envoi" value={typeEnvoi} options={typeOptions} onchange={handleTypeChange} variant="label-stacked" disabled></lightning-combobox>
+                                </div>
+                                <!-- Type de Réception -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
+                                    <lightning-combobox label="Type de Réception" value={typeReception} options={typeReceptionOptions} onchange={handleTypeReceptionChange} variant="label-stacked" disabled></lightning-combobox>
+                                </div>
+                                <!-- Transporteur -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
+                                    <lightning-combobox label="Transporteur" value={typeTransporteur} options={typeTransporteurOptions} onchange={handleTypeTransporteurChange} variant="label-stacked" disabled={isReadOnly}></lightning-combobox>
+                                </div>
+                                <!-- Créé par et Créé le -->
+                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
+                                    <div class="slds-grid slds-gutters_small">
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input type="text" label="Créé par" value={createdBy} disabled variant="label-stacked"></lightning-input>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-input type="text" label="Envoyé le" value={formattedDateEnvoi} disabled variant="label-stacked"></lightning-input>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                     </div>
                 </div>
@@ -231,13 +243,13 @@
                                     <div class="slds-grid">
                                         <div class="slds-col" style="border-right: 1px solid #dddbda; padding-right: 10px;">
                                             <div class="slds-grid slds-grid_align-spread slds-m-bottom_x-small">
-                                                <div class="slds-col slds-truncate slds-text-align_left" title={item.name} style="max-width: 40%; padding-left:0;"><strong>{item.name}-{item.cleEquipement}</strong></div>
-                                                <div class="slds-col slds-truncate slds-text-align_center slds-text-body_small slds-text-color_weak" style="max-width: 30%;">{item.mnemonique}</div>
-                                                <div class="slds-col slds-truncate slds-text-align_right slds-text-body_small text-true-royal" style="max-width: 30%; padding-right:10px;">{item.nSerie}</div>
+                                                <div class="slds-col slds-truncate slds-text-align_left" title={item.name} style="width: 40%; padding-left:0;"><strong>{item.name}-{item.cleEquipement}</strong></div>
+                                                <div class="slds-col slds-truncate slds-text-align_center slds-text-body_small slds-text-color_weak" style="width: 30%;">{item.mnemonique}</div>
+                                                <div class="slds-col slds-truncate slds-text-align_right slds-text-body_small text-true-royal" style="width: 30%; padding-right:10px;">{item.nSerie}</div>
                                             </div>
 
                                             <div class="slds-grid slds-grid_align-spread">
-                                                <div class="slds-col slds-text-align_left" style="max-width: 40%; padding-left:0;">
+                                                <div class="slds-col slds-text-align_left" style="width: 40%; padding-left:0;">
                                                     <div class="slds-grid slds-grid_vertical-align-center slds-gutters_xx-small">
                                                         <div class="slds-grow">
                                                             <lightning-input 
@@ -249,9 +261,9 @@
                                                                 data-id={item.pieceUnitaireId}
                                                                 data-field="numBonLivraison"
                                                                 onchange={handleCartInputChange}
-                                                                disabled={isBlReadOnly}
+                                                                disabled={isReadOnly}
                                                                 required
-                                                                message-when-value-missing="Le N° Bon Livraison est obligatoire">
+                                                                message-when-value-missing="Le N° de BL est obligatoire">
                                                             </lightning-input>
                                                         </div>
                                                         <div class="slds-col slds-shrink-none">
@@ -269,8 +281,8 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="slds-col slds-truncate slds-text-align_center slds-text-body_small slds-text-color_weak" style="max-width: 30%;"><template if:true={isChronopost}>{item.statutChronopost}</template></div>
-                                                <div class="slds-col slds-truncate slds-text-align_right slds-text-body_small text-true-royal" style="max-width: 30%; padding-right:10px;">{item.rma}</div>
+                                                <div class="slds-col slds-truncate slds-text-align_center slds-text-body_small slds-text-color_weak" style="width: 30%;"><template if:true={isChronopost}>{item.statutChronopost}</template></div>
+                                                <div class="slds-col slds-truncate slds-text-align_right slds-text-body_small text-true-royal" style="width: 30%; padding-right:10px;">{item.rma}</div>
                                             </div>
                                         </div>
 
@@ -294,28 +306,8 @@
         </div>
 
         <div class="sticky-footer slds-text-align_right">
-             <template if:true={hasCommandeDetails}>
-                <div class="slds-button-group" role="group">
-                    <lightning-button 
-                        label="Refuser la Commande" 
-                        variant="destructive" 
-                        onclick={handleSave} 
-                        data-global-action="REFUSER"
-                        disabled={isRefuseDisabled} 
-                        class="slds-m-right_x-small">
-                    </lightning-button>
-                    
-                    <lightning-button 
-                        label={validateButtonLabel}
-                        variant={validateButtonVariant}
-                        onclick={handleSave} 
-                        data-global-action="VALIDER"
-                        disabled={isValidateDisabled}>
-                    </lightning-button>
-                </div>
-             </template>
              <template if:false={hasCommandeDetails}>
-                <lightning-button label={saveButtonLabel} variant="brand" onclick={handleSave} disabled={isSaveDisabled}></lightning-button>
+                <lightning-button label={saveButtonLabel} variant="brand" onclick={handleSave} disabled={isReadOnly}></lightning-button>
              </template>
         </div>
     </div>

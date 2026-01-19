@@ -77,6 +77,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         @AuraEnabled public Id reparateurId; // Ajout
         @AuraEnabled public String reparateurName; // Ajout
         @AuraEnabled public String nSerie; // Ajout
+        @AuraEnabled public Id lieuId; // Ajout
     }
     
     public class CartLine {
@@ -438,7 +439,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         // ASSUMPTION: Reparateur__c exists on Pi_ce_Unitaire__c
         for(Pi_ce_Unitaire__c piece : [
             SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c, Code_Article__r.Mnemonique__c, Code_Article__r.Description__c,
-                   Reparateur__c, Reparateur__r.Name, Pi_ce_Install_e__r.N_Serie__c
+                   Reparateur__c, Reparateur__r.Name, Pi_ce_Install_e__r.N_Serie__c, Lieu__c
             FROM Pi_ce_Unitaire__c
             WHERE Id IN :pieceIds
         ]) {
@@ -453,6 +454,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             res.reparateurId = piece.Reparateur__c;
             res.reparateurName = piece.Reparateur__r != null ? piece.Reparateur__r.Name : '';
             res.nSerie = piece.Pi_ce_Install_e__r != null ? piece.Pi_ce_Install_e__r.N_Serie__c : '';
+            res.lieuId = piece.Lieu__c;
             results.add(res);
         }
         return results;
@@ -488,16 +490,17 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
     }
 
     @AuraEnabled
-    public static List<PieceUnitaireResult> getAvailableRepairPieces(String reparateurId) {
+    public static List<PieceUnitaireResult> getAvailableRepairPieces(String reparateurId, String lieuId) {
         List<PieceUnitaireResult> results = new List<PieceUnitaireResult>();
         if (String.isBlank(reparateurId)) return results;
 
         for(Pi_ce_Unitaire__c piece : [
             SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c, Code_Article__r.Mnemonique__c, Code_Article__r.Description__c,
-                   Reparateur__c, Reparateur__r.Name, Pi_ce_Install_e__r.N_Serie__c
+                   Reparateur__c, Reparateur__r.Name, Pi_ce_Install_e__r.N_Serie__c, Lieu__c
             FROM Pi_ce_Unitaire__c
             WHERE Statut__c = 'A Envoyer en REP'
               AND Reparateur__c = :reparateurId
+              AND Lieu__c = :lieuId
         ]) {
             PieceUnitaireResult res = new PieceUnitaireResult();
             res.id = piece.Id;
@@ -510,6 +513,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             res.reparateurId = piece.Reparateur__c;
             res.reparateurName = piece.Reparateur__r != null ? piece.Reparateur__r.Name : '';
             res.nSerie = piece.Pi_ce_Install_e__r != null ? piece.Pi_ce_Install_e__r.N_Serie__c : '';
+            res.lieuId = piece.Lieu__c;
             results.add(res);
         }
         return results;
@@ -549,148 +553,145 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
     }
     @AuraEnabled
     public static Id saveEnvoi(String inputJSON) {
+        System.debug('### START saveEnvoi');
+        System.debug('### Input JSON: ' + inputJSON);
         try {
             SaveInputWrapper input = (SaveInputWrapper) JSON.deserialize(inputJSON, SaveInputWrapper.class);
             
-            // 1. Sauvegarder l'en-tête et récupérer les données
+            // --- 1. INITIALISATION DE L'ENVOI ---
             Envoi_Logistique__c envoi;
-            Boolean isCreation = false;
+            Boolean isCreation = (input.recordId == null);
+            System.debug('### isCreation: ' + isCreation);
+            
             if (input.recordId != null && 'Envoi_Logistique__c'.equals(input.contextObjectType)) {
                 envoi = new Envoi_Logistique__c(Id = input.recordId);
             } else {
                 envoi = new Envoi_Logistique__c();
-                isCreation = true; // On détecte que c'est une création
                 if ('Commande_Pi_ces__c'.equals(input.contextObjectType)) {
                     envoi.Commande_Pi_ces__c = input.recordId;
                 }
             }
+            
             envoi.N_Ticket_Correctif__c = input.nTicketCorrectifId;
+            
             if (isCreation) {
                 envoi.Statut__c = ('Réparateur'.equals(input.typeEnvoi)) ? 'Livraison en Cours' : 'Commande à Traiter';
             }
-            envoi.Type__c = input.typeEnvoi; envoi.Destinataire__c = input.destinataireId; envoi.Stock__c = input.stockId; envoi.Commentaire__c = input.commentaire;
+            
+            envoi.Type__c = input.typeEnvoi; 
+            envoi.Destinataire__c = input.destinataireId; 
+            envoi.Stock__c = input.stockId; 
+            envoi.Commentaire__c = input.commentaire;
             envoi.Demandeur__c = input.demandeurId;
             envoi.Type_de_R_ception__c = input.typeReception;
             envoi.Transporteur__c = input.transporteur;
             envoi.Date_d_Envoi__c = input.dateEnvoi;
+            
+            // Force Date Envoi if Repair Creation
+            if (isCreation && 'Réparateur'.equals(input.typeEnvoi) && envoi.Date_d_Envoi__c == null) {
+                envoi.Date_d_Envoi__c = System.now();
+            }
+    
             envoi.Lieu_de_Destination__c = input.lieuId;
             
-            // --- LOGIQUE STATUTS GLOBAUX DEMANDÉE ---
-            Id commandeId = (envoi.Commande_Pi_ces__c != null) ? envoi.Commande_Pi_ces__c : input.commandeParenteId;
             List<SObject> recordsToUpdate = new List<SObject>();
-
-            // Cas 1 : REFUSER LA COMMANDE
-            if (input.actionGlobale == 'REFUSER') {
+            
+            // --- 2. LOGIQUE ACTION GLOBALE (VALIDER/REFUSER) ---
+            Id commandeId = (envoi.Commande_Pi_ces__c != null) ? envoi.Commande_Pi_ces__c : input.commandeParenteId;
+            
+            if ('REFUSER'.equals(input.actionGlobale)) {
                 envoi.Statut__c = 'Clôturer NOK';
-                
-                // Optionnel : Passer la commande à "À Retraiter" si besoin (comme vu précédemment)
                 if (commandeId != null) {
                     recordsToUpdate.add(new Commande_Pi_ces__c(Id = commandeId, Statut_Commande__c = 'À Retraiter'));
                 }
-            } 
-            // Cas 2 : VALIDER LA COMMANDE
-            else if (input.actionGlobale == 'VALIDER') {
+            } else if ('VALIDER'.equals(input.actionGlobale)) {
                 envoi.Statut__c = 'Livraison en Cours';
-                envoi.Date_d_Envoi__c = System.now(); // Enregistrement de la date et heure d'envoi
+                envoi.Date_d_Envoi__c = System.now();
                 
                 if (commandeId != null) {
-                    // --- LOGIQUE DE STATUT PARTIEL ---
-                    // On vérifie si TOUS les autres envois sont aussi expédiés/terminés
                     Boolean allOthersShipped = true;
                     Set<String> shippedStatuses = new Set<String>{'Commande à Traiter'};
-                    
                     for (Envoi_Logistique__c otherEnvoi : [SELECT Statut__c FROM Envoi_Logistique__c WHERE Commande_Pi_ces__c = :commandeId AND Id != :envoi.Id]) {
                         if (otherEnvoi.Statut__c == null || shippedStatuses.contains(otherEnvoi.Statut__c)) {
                             allOthersShipped = false;
                             break;
                         }
                     }
-
                     String newOrderStatus = allOthersShipped ? 'Livraison en Cours' : 'Livraison Partielle en Cours';
                     recordsToUpdate.add(new Commande_Pi_ces__c(Id = commandeId, Statut_Commande__c = newOrderStatus));
                 }
-            } 
-            else if (isCreation) {
-                envoi.Statut__c = ('Réparateur'.equals(input.typeEnvoi)) ? 'Livraison en Cours' : 'Commande à Traiter';
             }
+            
+            // --- 3. UPSERT ENVOI (BYPASS) ---
+            System.debug('### Upserting Envoi...');
+            envoi.Bypass_ValidationRules__c = true;
+            upsert envoi;
+            System.debug('### Envoi Upserted. ID: ' + envoi.Id);
 
-            if (envoi.Id != null) {
-                // 1. Update Envoi with Bypass = true
-                envoi.Bypass_ValidationRules__c = true;
-                upsert envoi;
+            envoi.Bypass_ValidationRules__c = false;
+            update envoi;
 
-                // 2. Reset Envoi Bypass = false
-                envoi.Bypass_ValidationRules__c = false;
-                update envoi;
-            } else {
-                upsert envoi;
-            }
-
-            // --- MISE A JOUR DE LA COMMANDE PARENTE ---
-            // Exécuter la mise à jour de la commande parente si nécessaire
+            // --- 4. UPDATE RELATED RECORDS (COMMANDES) ---
             if (!recordsToUpdate.isEmpty()) {
-                // 1. Set Bypass = true
-                for (SObject sobj : recordsToUpdate) {
-                    sobj.put('Bypass_ValidationRules__c', true);
-                }
+                for (SObject sobj : recordsToUpdate) sobj.put('Bypass_ValidationRules__c', true);
                 update recordsToUpdate;
-
-                // 2. Reset Bypass = false
-                for (SObject sobj : recordsToUpdate) {
-                    sobj.put('Bypass_ValidationRules__c', false);
-                }
+                for (SObject sobj : recordsToUpdate) sobj.put('Bypass_ValidationRules__c', false);
                 update recordsToUpdate;
             }
-
-            // --- NOTIFICATION SUR REFUS ---
-            if (input.actionGlobale == 'REFUSER' && commandeId != null) {
-                Commande_Pi_ces__c cmdForNotify = [SELECT Nom_PEC_Cockpit__c FROM Commande_Pi_ces__c WHERE Id = :commandeId LIMIT 1];
-                if (cmdForNotify.Nom_PEC_Cockpit__c != null) {
+            
+            // --- 5. NOTIFICATION REFUS ---
+            Id cmdIdForNotify = (envoi.Commande_Pi_ces__c != null) ? envoi.Commande_Pi_ces__c : input.commandeParenteId;
+            if ('REFUSER'.equals(input.actionGlobale) && cmdIdForNotify != null) {
+                 Commande_Pi_ces__c cmdForNotify = [SELECT Nom_PEC_Cockpit__c FROM Commande_Pi_ces__c WHERE Id = :cmdIdForNotify LIMIT 1];
+                 if (cmdForNotify.Nom_PEC_Cockpit__c != null) {
                     CustomNotificationType notificationType = [SELECT Id FROM CustomNotificationType WHERE DeveloperName = 'Logistique_Commande' LIMIT 1];
-                    
                     Messaging.CustomNotification notification = new Messaging.CustomNotification();
                     notification.setTitle('Commande Refusée');
                     notification.setBody('La commande a été refusée par le logisticien.');
                     notification.setNotificationTypeId(notificationType.Id);
-                    notification.setTargetId(commandeId);
-                    
+                    notification.setTargetId(cmdIdForNotify);
                     try {
                         notification.send(new Set<String>{cmdForNotify.Nom_PEC_Cockpit__c});
                     } catch (Exception e) {
                         System.debug('Erreur envoi notification: ' + e.getMessage());
                     }
-                }
+                 }
             }
 
-             // --- MISE À JOUR DES LIGNES DE DÉTAIL COMMANDE ---
-            // On sauvegarde les statuts modifiés par l'utilisateur (Validée/Refusée/A traiter)
+            // --- 6. UPDATE ORDER LINES ---
             if (input.orderLines != null && !input.orderLines.isEmpty()) {
                 List<Commande_Pi_ces_D_tails__c> detailsToUpdate = new List<Commande_Pi_ces_D_tails__c>();
                 for (CommandeDetailLine lineWrapper : input.orderLines) {
                     if (lineWrapper.id != null) {
-                        detailsToUpdate.add(new Commande_Pi_ces_D_tails__c(
-                            Id = lineWrapper.id,
-                            Statut_Commande__c = lineWrapper.statut
-                        ));
+                        detailsToUpdate.add(new Commande_Pi_ces_D_tails__c(Id = lineWrapper.id, Statut_Commande__c = lineWrapper.statut));
                     }
                 }
-                if (!detailsToUpdate.isEmpty()) {
-                    update detailsToUpdate;
-                }
+                if (!detailsToUpdate.isEmpty()) update detailsToUpdate;
             }
-    
-            // 2. Préparer toutes les données en vrac
-            Envoi_Logistique__c fullEnvoi = [SELECT Id, Statut__c, Destinataire__r.Name, Stock__r.Name, N_Ticket_Correctif__c, N_Ticket_Correctif__r.ID_ticket_client__c, N_Ticket_Correctif__r.Code_site__c, N_Ticket_Correctif__r.Nom_du_site__c FROM Envoi_Logistique__c WHERE Id = :envoi.Id];
-            String currentUserName = UserInfo.getName();
-            // Date envoiDate = (input.dateDEnvoi != null) ? input.dateDEnvoi.date() : Date.today(); // Utiliser .date() pour être sûr
             
-            // 3. Logique de Synchronisation
+            // --- 7. GESTION DU PANIER (HISTORIQUES & PIECES) ---
+            System.debug('### Manage Cart Items...');
+            Envoi_Logistique__c fullEnvoi = [
+                SELECT Id, Statut__c, Destinataire__r.Name, Stock__r.Name, 
+                       N_Ticket_Correctif__c, N_Ticket_Correctif__r.ID_ticket_client__c, 
+                       N_Ticket_Correctif__r.Code_site__c, N_Ticket_Correctif__r.Nom_du_site__c 
+                FROM Envoi_Logistique__c 
+                WHERE Id = :envoi.Id
+            ];
+            
             Set<Id> currentPieceIdsInCart = new Set<Id>();
             Map<Id, CartLine> cartLineMap = new Map<Id, CartLine>();
-            for (CartLine line : input.cart) { currentPieceIdsInCart.add(line.pieceUnitaireId); cartLineMap.put(line.pieceUnitaireId, line); }
+            if (input.cart != null) {
+                for (CartLine line : input.cart) { 
+                    currentPieceIdsInCart.add(line.pieceUnitaireId); 
+                    cartLineMap.put(line.pieceUnitaireId, line); 
+                }
+            }
+            System.debug('### Cart Size: ' + currentPieceIdsInCart.size());
             
             Map<Id, Historique_Pi_ces__c> previousHistoriesMap = new Map<Id, Historique_Pi_ces__c>();
-            for (Historique_Pi_ces__c hist : [SELECT Id, Pi_ce_Unitaire__c, N_Bon_Livraison__c, Statut_Chronopost__c FROM Historique_Pi_ces__c WHERE Envoi_Logistique__c = :envoi.Id]) {
+            // FILTRE AJOUTÉ : Type__c = 'ENV' pour ne récupérer que les lignes d'envoi
+            for (Historique_Pi_ces__c hist : [SELECT Id, Pi_ce_Unitaire__c, N_Bon_Livraison__c, Statut_Chronopost__c, Statut__c FROM Historique_Pi_ces__c WHERE Envoi_Logistique__c = :envoi.Id AND Type__c = 'ENV']) {
                 previousHistoriesMap.put(hist.Pi_ce_Unitaire__c, hist);
             }
 
@@ -698,122 +699,94 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             List<Historique_Pi_ces__c> historiesToCreate = new List<Historique_Pi_ces__c>();
             List<Historique_Pi_ces__c> historiesToUpdate = new List<Historique_Pi_ces__c>();
             List<Pi_ce_Unitaire__c> piecesToUpdate = new List<Pi_ce_Unitaire__c>();
-    
-            // Logique de SUPPRESSION
-            // a. Identifier les pièces qui ont été retirées du panier
+
+            // Removals
             Set<Id> removedPieceIds = new Set<Id>(previousHistoriesMap.keySet());
             removedPieceIds.removeAll(currentPieceIdsInCart);
-
             if (!removedPieceIds.isEmpty()) {
-                // b. NOUVEAU : Récupérer les données de ces pièces pour connaître leur Lieu_Pr_c_dent__c
-                Map<Id, Pi_ce_Unitaire__c> removedPiecesData = new Map<Id, Pi_ce_Unitaire__c>([
-                    SELECT Id, Lieu_Pr_c_dent__c FROM Pi_ce_Unitaire__c WHERE Id IN :removedPieceIds
-                ]);
-                
+                Map<Id, Pi_ce_Unitaire__c> removedPiecesData = new Map<Id, Pi_ce_Unitaire__c>([SELECT Id, Lieu_Pr_c_dent__c FROM Pi_ce_Unitaire__c WHERE Id IN :removedPieceIds]);
                 for (Id pieceId : removedPieceIds) {
-                    // c. Marquer l'historique pour suppression
                     historiesToDelete.add(previousHistoriesMap.get(pieceId));
-                    
                     Pi_ce_Unitaire__c pieceToRestore = removedPiecesData.get(pieceId);
-                    
-                    // d. Préparer la mise à jour de la pièce unitaire avec la logique corrigée
-                    piecesToUpdate.add(new Pi_ce_Unitaire__c(
-                        Id = pieceId,
-                        Statut__c = 'En Stock',
-                        Lieu__c = pieceToRestore.Lieu_Pr_c_dent__c, // On utilise la valeur récupérée
-                        Lieu_Pr_c_dent__c = null
-                    ));
+                    if (pieceToRestore != null) {
+                        piecesToUpdate.add(new Pi_ce_Unitaire__c(Id = pieceId, Statut__c = 'En Stock', Lieu__c = pieceToRestore.Lieu_Pr_c_dent__c, Lieu_Pr_c_dent__c = null));
+                    }
                 }
             }
             
-            // Logique de CRÉATION & MISE A JOUR
+            // Upserts / Create
             String newStatusForSentPieces = 'Réparateur'.equals(input.typeEnvoi) ? 'En Réparation' : 'A réceptionner';
-            Map<Id, Pi_ce_Unitaire__c> piecesDataMap = new Map<Id, Pi_ce_Unitaire__c>([SELECT Id, Name, Lieu__c, Lieu__r.Name, RMA__c  FROM Pi_ce_Unitaire__c WHERE Id IN :currentPieceIdsInCart]);
+            
+            if (!currentPieceIdsInCart.isEmpty()) {
+                Map<Id, Pi_ce_Unitaire__c> piecesDataMap = new Map<Id, Pi_ce_Unitaire__c>([SELECT Id, Name, Lieu__c, Lieu__r.Name, RMA__c FROM Pi_ce_Unitaire__c WHERE Id IN :currentPieceIdsInCart]); 
+                String today = Date.today().format();
+                String toLocation = (fullEnvoi.Stock__r != null ? fullEnvoi.Stock__r.Name : '');
     
-            for (Id currentPieceId : currentPieceIdsInCart) {
-                CartLine line = cartLineMap.get(currentPieceId);
-                Pi_ce_Unitaire__c pieceActuelle = piecesDataMap.get(currentPieceId);
-                
-                // On ne crée un historique que pour les NOUVELLES pièces
-                if (!previousHistoriesMap.containsKey(currentPieceId)) {
-                    Historique_Pi_ces__c hist = new Historique_Pi_ces__c();
-
-                    // Champs à sauvegarder systématiquement
-                    hist.Envoi_Logistique__c = envoi.Id;
-                    hist.Pi_ce_Unitaire__c = pieceActuelle.Id;
-                    hist.N_Bon_Livraison__c = line.numBonLivraison;
-                    hist.Statut__c = newStatusForSentPieces;
-                    hist.Type__c = 'ENV';
-                    hist.Lieu__c = input.lieuId;
-                    hist.Statut_Chronopost__c = line.statutChronopost;
-                    String toLocation = (fullEnvoi.Stock__r != null ? fullEnvoi.Stock__r.Name : '');
-                    String today = Date.today().format();
-                    historiesToCreate.add(hist);
-
-                    // Créer une copie pour l'historique de pièce (Type = PU)
-                    Historique_Pi_ces__c histPU = hist.clone(false, true, false, false);
-                    histPU.Type__c = 'PU';
-                    // Logique conditionnelle pour Réparateur
-                    if ('Réparateur'.equals(input.typeEnvoi)) {
-                        // La trame est maintenant une chaîne de caractères littérale.
-                        histPU.TRAME__c = '[TRIGRAMME][PANNE][EQT_MIS_SUR_SITE_(SN) = N° de série de la pièce INSTALLE][RMA=N° RMA][CONTRAT PROMA FIXE/MOBILE]';
-                        // Update Remarque pour inclure "Vers Réparateur" (mention générique ou spécifique si on avait le nom)
-                        histPU.Remarques__c = 'Envoi vers Réparateur le [' + today + '] RMA N° [' + (pieceActuelle.RMA__c != null ? pieceActuelle.RMA__c : '') + '] N° de BL [' + (line.numBonLivraison != null ? line.numBonLivraison : '') + ']';
-                        histPU.BT_RPMAT__c = true;
-                    } 
-                    // Logique conditionnelle pour Autre Stock
-                    else {
-                        histPU.INVENTAI__c = true;
-
-                        // Si pas de TT Correctif
-                        if (fullEnvoi.N_Ticket_Correctif__c == null) {
-                            histPU.Remarques__c = 'Envois le [' + today + '] vers [' + toLocation + '] N° de BL [' + line.numBonLivraison + ']';
-                        } 
-                        // Si un TT Correctif est renseigné
-                        else {
-                            String fromLocation = (pieceActuelle.Lieu__r != null ? pieceActuelle.Lieu__r.Name : '');
-                            String ticketNum = (fullEnvoi.N_Ticket_Correctif__r != null ? fullEnvoi.N_Ticket_Correctif__r.ID_ticket_client__c : '');
-                            String siteCode = (fullEnvoi.N_Ticket_Correctif__r != null ? fullEnvoi.N_Ticket_Correctif__r.Code_site__c : '');
-                            
-                            histPU.Remarques__c = 'Envois depuis [' + fromLocation + '] vers [' + toLocation + '] N° de BL [' + line.numBonLivraison + '] N° Ticket [' + ticketNum + '] Site Code [' + siteCode + '] le [' + today + ']';
+                for (Id currentPieceId : currentPieceIdsInCart) {
+                    CartLine line = cartLineMap.get(currentPieceId);
+                    Pi_ce_Unitaire__c pieceActuelle = piecesDataMap.get(currentPieceId);
+                    if (pieceActuelle == null) continue;
+    
+                    if (!previousHistoriesMap.containsKey(currentPieceId)) {
+                        // CREATE
+                        Historique_Pi_ces__c hist = new Historique_Pi_ces__c();
+                        hist.Envoi_Logistique__c = envoi.Id;
+                        hist.Pi_ce_Unitaire__c = pieceActuelle.Id;
+                        hist.N_Bon_Livraison__c = line.numBonLivraison;
+                        hist.Statut__c = newStatusForSentPieces;
+                        hist.Type__c = 'ENV';
+                        hist.Lieu__c = input.lieuId;
+                        hist.Statut_Chronopost__c = line.statutChronopost;
+                        
+                        historiesToCreate.add(hist);
+    
+                        Historique_Pi_ces__c histPU = hist.clone(false, true, false, false);
+                        histPU.Type__c = 'PU';
+                        
+                        if ('Réparateur'.equals(input.typeEnvoi)) {
+                            histPU.TRAME__c = '[TRIGRAMME][PANNE][EQT_MIS_SUR_SITE_(SN) = N° de série de la pièce INSTALLE][RMA=N° RMA][CONTRAT PROMA FIXE/MOBILE]';
+                            histPU.Remarques__c = 'Envoi vers Réparateur le [' + today + '] RMA N° [' + (pieceActuelle.RMA__c != null ? pieceActuelle.RMA__c : '') + '] N° de BL [' + (line.numBonLivraison != null ? line.numBonLivraison : '') + ']';
+                            histPU.BT_RPMAT__c = true;
+                        } else {
+                            histPU.INVENTAI__c = true;
+                            if (fullEnvoi.N_Ticket_Correctif__c == null) {
+                                histPU.Remarques__c = 'Envois le [' + today + '] vers [' + toLocation + '] N° de BL [' + line.numBonLivraison + ']';
+                            } else {
+                                String fromLocation = (pieceActuelle.Lieu__r != null ? pieceActuelle.Lieu__r.Name : '');
+                                String ticketNum = (fullEnvoi.N_Ticket_Correctif__r != null ? fullEnvoi.N_Ticket_Correctif__r.ID_ticket_client__c : '');
+                                String siteCode = (fullEnvoi.N_Ticket_Correctif__r != null ? fullEnvoi.N_Ticket_Correctif__r.Code_site__c : '');
+                                histPU.Remarques__c = 'Envois depuis [' + fromLocation + '] vers [' + toLocation + '] N° de BL [' + line.numBonLivraison + '] N° Ticket [' + ticketNum + '] Site Code [' + siteCode + '] le [' + today + ']';
+                            }
+                        }
+                        historiesToCreate.add(histPU);
+    
+                        Pi_ce_Unitaire__c pieceToUpdate = new Pi_ce_Unitaire__c(Id = pieceActuelle.Id, Statut__c = newStatusForSentPieces, Lieu_Pr_c_dent__c = pieceActuelle.Lieu__c, Lieu__c = input.lieuId);
+                        piecesToUpdate.add(pieceToUpdate);
+                    } else {
+                        // UPDATE
+                        Historique_Pi_ces__c existingHist = previousHistoriesMap.get(currentPieceId);
+                        Boolean needsUpdate = false;
+                        
+                        if (existingHist.N_Bon_Livraison__c != line.numBonLivraison) { existingHist.N_Bon_Livraison__c = line.numBonLivraison; needsUpdate = true; }
+                        if (existingHist.Statut_Chronopost__c != line.statutChronopost) { existingHist.Statut_Chronopost__c = line.statutChronopost; needsUpdate = true; }
+                        
+                        if(needsUpdate) {
+                            historiesToUpdate.add(existingHist);
                         }
                     }
-                    historiesToCreate.add(histPU);
-
-                    // Mise à jour de la pièce
-                    Pi_ce_Unitaire__c pieceToUpdate = new Pi_ce_Unitaire__c(Id = pieceActuelle.Id, Statut__c = newStatusForSentPieces);
-                    pieceToUpdate.Lieu_Pr_c_dent__c = pieceActuelle.Lieu__c;
-                    pieceToUpdate.Lieu__c = input.lieuId;
-                    piecesToUpdate.add(pieceToUpdate);
-
-                } else {// Si la pièce existait déjà, on vérifie si son BL a changé
-                    Historique_Pi_ces__c existingHist = previousHistoriesMap.get(currentPieceId);
-                    Boolean needsUpdate = false;
-
-                    if (existingHist.N_Bon_Livraison__c != line.numBonLivraison) {
-                        existingHist.N_Bon_Livraison__c = line.numBonLivraison;
-                        needsUpdate = true;
-                    }
-                    if (existingHist.Statut_Chronopost__c != line.statutChronopost) {
-                        existingHist.Statut_Chronopost__c = line.statutChronopost;
-                        needsUpdate = true;
-                    }
-
-                    if(needsUpdate) {
-                        historiesToUpdate.add(existingHist);
-                    }
                 }
             }
-    
-            // 4. Exécuter les opérations DML
-            if (!historiesToDelete.isEmpty()) { delete historiesToDelete; }
-            if (!historiesToCreate.isEmpty()) { insert historiesToCreate; }
-            if (!historiesToUpdate.isEmpty()) { update historiesToUpdate; }
-            if (!piecesToUpdate.isEmpty()) { update piecesToUpdate; }
+
+            if (!historiesToDelete.isEmpty()) delete historiesToDelete;
+            if (!historiesToCreate.isEmpty()) insert historiesToCreate;
+            if (!historiesToUpdate.isEmpty()) update historiesToUpdate;
+            if (!piecesToUpdate.isEmpty()) update piecesToUpdate;
             
+            System.debug('### END saveEnvoi. Returning ID: ' + envoi.Id);
             return envoi.Id;
     
         } catch (Exception e) {
+            System.debug('### EXCEPTION in saveEnvoi: ' + e.getMessage() + ' - Stack: ' + e.getStackTraceString());
             throw new AuraHandledException(e.getMessage() + ' at line ' + e.getLineNumber());
         }
     }
@@ -841,6 +814,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
 
     // Classe wrapper utilitaire pour la méthode searchRecords
     public class IdLabel {
+
         @AuraEnabled public String value;
         @AuraEnabled public String label;
         @AuraEnabled public String sublabel;
