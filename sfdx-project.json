@@ -8,5 +8,21 @@
   "name": "st-lwc-components",
   "namespace": "",
   "sfdcLoginUrl": "https://login.salesforce.com",
-  "sourceApiVersion": "59.0"
+  "sourceApiVersion": "59.0",
+  "type": "salesforce",
+  "framework": "lwc",
+  "rules": [
+    ".agent/rules/lwc-rules.md"
+  ],
+  "workflows": [
+    ".agent/workflows/lwc-create.md",
+    ".agent/workflows/lwc-modify.md"
+  ],
+  "context": {
+    "targets": ["desktop", "mobile"],
+    "sharedModules": [
+      "force-app/main/default/lwc/utils",
+      "force-app/main/default/lwc/services"
+    ]
+  }
 }

@@ -1,0 +1,24 @@
+{
+  "name": "st-lwc-components",
+  "type": "salesforce",
+  "framework": "lwc",
+
+  "autoLoad": [
+    ".agent/context.md",
+    ".agent/glossary.md",
+    ".agent/constraints.md"
+  ],
+
+  "rules": [
+    ".agent/rules/lwc-rules.md"
+  ],
+
+  "workflows": [
+    ".agent/workflows/lwc-create.md",
+    ".agent/workflows/lwc-create-apex-controller.md",
+    ".agent/workflows/lwc-debug-error.md",
+    ".agent/workflows/lwc-modify.md"
+  ],
+
+  "errorCatalog": ".agent/errors/common-errors.md"
+}
