@@ -29,114 +29,43 @@
                              <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_small">
                                 <!-- Demandeur -->
                                 <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
-                                    <div class="slds-form-element">
-                                        <label class="slds-form-element__label" for="user-combobox">Demandeur</label>
-                                        <div class="slds-form-element__control">
-                                            <div class={userComboboxClass} aria-expanded={isLookupOpen.user} aria-haspopup="listbox" role="combobox">
-                                                <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
-                                                    <template if:true={selectedDemandeur}>
-                                                        <lightning-pill label={selectedDemandeur.label} onremove={handleLookupPillRemove} data-lookup="user" class="slds-size_1-of-1">
-                                                            <lightning-icon icon-name="standard:user" alternative-text="User"></lightning-icon>
-                                                        </lightning-pill>
-                                                    </template>
-                                                    <template if:false={selectedDemandeur}>
-                                                        <lightning-input type="search" variant="label-hidden" label="Recherche Demandeur" placeholder="Rechercher..." onchange={handleLookupSearch} onfocus={handleLookupFocus} onblur={handleLookupBlur} data-lookup="user" disabled={isReadOnly}></lightning-input>
-                                                    </template>
-                                                </div>
-                                                <div class="slds-dropdown slds-dropdown_fluid" role="listbox">
-                                                    <ul class="slds-listbox slds-listbox_vertical" role="presentation">
-                                                        <template for:each={lookupSuggestions.user} for:item="suggestion">
-                                                            <li key={suggestion.value} role="presentation" class="slds-listbox__item">
-                                                                <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option" onclick={handleLookupSelect} data-value={suggestion.value} data-label={suggestion.label} data-lookup="user">
-                                                                    <span class="slds-media__figure slds-listbox__option-icon">
-                                                                        <lightning-icon icon-name="standard:user" size="small"></lightning-icon>
-                                                                    </span>
-                                                                    <span class="slds-media__body">
-                                                                        <span class="slds-listbox__option-text">{suggestion.label}</span>
-                                                                    </span>
-                                                                </div>
-                                                            </li>
-                                                        </template>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <c-lookup-pill
+                                        label="Demandeur"
+                                        icon-name="standard:user"
+                                        s-object-type="User"
+                                        selected-value={selectedDemandeur}
+                                        disabled={isReadOnly}
+                                        onselect={handleLookupSelect}
+                                        onremove={handleLookupRemove}
+                                        data-lookup="user"
+                                    ></c-lookup-pill>
                                 </div>
                                 <!-- Réparateur -->
                                 <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
-                                     <div class="slds-form-element">
-                                        <label class="slds-form-element__label" for="stock-combobox">Réparateur</label>
-                                        <div class="slds-form-element__control">
-                                                 <div class={stockComboboxClass} aria-expanded={isLookupOpen.stock} aria-haspopup="listbox" role="combobox">
-                                                    <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
-                                                        <template if:true={selectedStock}>
-                                                            <lightning-pill label={selectedStock.label} onremove={handleLookupPillRemove} data-lookup="stock" class="slds-size_1-of-1">
-                                                                <lightning-icon icon-name="standard:location" alternative-text="Site"></lightning-icon>
-                                                            </lightning-pill>
-                                                        </template>
-                                                         <template if:false={selectedStock}>
-                                                            <lightning-input type="search" variant="label-hidden" label="Recherche Site" placeholder="Rechercher..." onchange={handleLookupSearch} onfocus={handleLookupFocus} onblur={handleLookupBlur} data-lookup="stock" disabled={isReadOnly}></lightning-input>
-                                                        </template>
-                                                    </div>
-                                                     <div class="slds-dropdown slds-dropdown_fluid" role="listbox">
-                                                        <ul class="slds-listbox slds-listbox_vertical" role="presentation">
-                                                            <template for:each={lookupSuggestions.stock} for:item="suggestion">
-                                                                <li key={suggestion.value} role="presentation" class="slds-listbox__item">
-                                                                    <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option" onclick={handleLookupSelect} data-value={suggestion.value} data-label={suggestion.label} data-sublabel={suggestion.subLabel} data-lookup="stock">
-                                                                        <span class="slds-media__figure slds-listbox__option-icon">
-                                                                            <lightning-icon icon-name="standard:location" size="small"></lightning-icon>
-                                                                        </span>
-                                                                        <span class="slds-media__body">
-                                                                            <span class="slds-listbox__option-text">{suggestion.label}</span>
-                                                                             <span class="slds-listbox__option-meta">{suggestion.subLabel}</span>
-                                                                        </span>
-                                                                    </div>
-                                                                </li>
-                                                            </template>
-                                                        </ul>
-                                                    </div>
-                                                 </div>
-                                        </div>
-                                    </div>
+                                    <c-lookup-pill
+                                        label="Réparateur"
+                                        icon-name="standard:location"
+                                        s-object-type="sitetracker__Site__c"
+                                        selected-value={selectedStock}
+                                        disabled={isReadOnly}
+                                        onselect={handleLookupSelect}
+                                        onremove={handleLookupRemove}
+                                        data-lookup="stock"
+                                    ></c-lookup-pill>
                                 </div>
                                 <!-- Contact du Réparateur -->
                                 <template if:false={isMainPropre}>
                                     <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
-                                        <div class="slds-form-element">
-                                            <label class="slds-form-element__label" for="destinataire-combobox">Contact du Réparateur</label>
-                                            <div class="slds-form-element__control">
-                                                <div id="destinataire-combobox" class={destinataireComboboxClass} aria-expanded={isLookupOpen.destinataire} aria-haspopup="listbox" role="combobox">
-                                                    <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
-                                                        <template if:true={selectedDestinataire}>
-                                                            <lightning-pill label={selectedDestinataire.label} onremove={handleLookupPillRemove} data-lookup="destinataire" class="slds-size_1-of-1">
-                                                                <lightning-icon icon-name="standard:contact" alternative-text="Contact"></lightning-icon>
-                                                            </lightning-pill>
-                                                        </template>
-                                                        <template if:false={selectedDestinataire}>
-                                                            <lightning-input type="search" variant="label-hidden" placeholder="Rechercher..." onchange={handleLookupSearch} onfocus={handleLookupFocus} onblur={handleLookupBlur} data-lookup="destinataire" disabled={isReadOnly}></lightning-input>
-                                                        </template>
-                                                    </div>
-                                                    <div class="slds-dropdown slds-dropdown_fluid" role="listbox">
-                                                        <ul class="slds-listbox slds-listbox_vertical" role="presentation">
-                                                            <template for:each={lookupSuggestions.destinataire} for:item="suggestion">
-                                                                <li key={suggestion.value} role="presentation" class="slds-listbox__item">
-                                                                    <div class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" role="option" onclick={handleLookupSelect} data-value={suggestion.value} data-label={suggestion.label} data-sublabel={suggestion.sublabel} data-lookup="destinataire" data-address={suggestion.address}>
-                                                                        <span class="slds-media__figure slds-listbox__option-icon">
-                                                                            <lightning-icon icon-name="standard:contact" size="small"></lightning-icon>
-                                                                        </span>
-                                                                        <span class="slds-media__body">
-                                                                            <span class="slds-listbox__option-text">{suggestion.label}</span>
-                                                                            <span class="slds-listbox__option-meta">{suggestion.sublabel}</span>
-                                                                        </span>
-                                                                    </div>
-                                                                </li>
-                                                            </template>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <c-lookup-pill
+                                            label="Contact du Réparateur"
+                                            icon-name="standard:contact"
+                                            s-object-type="Contact"
+                                            selected-value={selectedDestinataire}
+                                            disabled={isReadOnly}
+                                            onselect={handleLookupSelect}
+                                            onremove={handleLookupRemove}
+                                            data-lookup="destinataire"
+                                        ></c-lookup-pill>
                                     </div>
                                     <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12 slds-m-bottom_small">
                                         <lightning-textarea label="Adresse de Livraison" value={contactAddress} readonly class="address-textarea"></lightning-textarea>

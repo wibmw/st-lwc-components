@@ -1,72 +1,34 @@
 /* ==========================================================================
-   1. UTILITAIRES GÉNÉRAUX & DROPDOWNS
+   SHARED LOGISTICS STYLES (Embedded)
+   Common styles for logistics modules
    ========================================================================== */
 
-/* Force le menu déroulant (Lookup) à prendre toute la largeur disponible */
+/* Dropdown utilities */
 .mntc-dropdown_fluid {
     min-width: 100%;
-    z-index: 9000; /* Ensure it appears above other elements */
+    z-index: 9000;
 }
 
-/* Limite de hauteur pour les listes déroulantes personnalisées */
-.mntc-maxheight {
-    max-height: 16rem;
-    overflow-y: auto;
-}
-
-/* Personnalisation de la barre de défilement pour les zones scrollables (Panier Desktop) */
-.slds-scrollable_y {
-    scrollbar-width: thin;
-    scrollbar-color: #dddbda transparent;
-}
-
-/* ==========================================================================
-   2. MISE EN PAGE & POSITIONNEMENT (DESKTOP)
-   ========================================================================== */
-
-/* Rend la colonne du panier "collante" (Sticky) en mode Desktop */
-.sticky-panel {
-    position: sticky;       /* L'élément suit le scroll */
-    top: 1rem;              /* Marge par rapport au haut de l'écran */
-    align-self: flex-start; /* Empêche l'étirement vertical inutile */
-    z-index: 5;             /* S'assure qu'il passe au-dessus des autres éléments si besoin */
-}
-
-/* ==========================================================================
-   3. GESTION RESPONSIVE (MOBILE VS DESKTOP)
-   ========================================================================== */
-
-/* MOBILE : Écrans < 768px */
+/* Responsive visibility (767px breakpoint) */
 @media (max-width: 767px) {
     .desktop-only {
         display: none !important;
     }
-    
     .mobile-only {
         display: block !important;
     }
-
-    /* Sur mobile, on désactive l'effet sticky car les colonnes s'empilent */
-    .sticky-panel {
-        position: static; 
-    }
 }
 
-/* DESKTOP/TABLETTE : Écrans >= 768px */
 @media (min-width: 768px) {
     .desktop-only {
         display: block !important;
     }
-    
     .mobile-only {
         display: none !important;
     }
 }
 
-/* ==========================================================================
-   4. STYLES DES CARTES (VUE MOBILE)
-   ========================================================================== */
-
+/* Mobile card components */
 .mobile-card {
     background-color: white;
     border: 1px solid #dddbda;
@@ -109,11 +71,207 @@
     flex-wrap: wrap;
 }
 
+/* Scrollbar customization */
+.slds-scrollable_y {
+    scrollbar-width: thin;
+    scrollbar-color: #dddbda transparent;
+}
+
+.slds-scrollable_y::-webkit-scrollbar {
+    width: 6px;
+}
+
+.slds-scrollable_y::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+}
+
+.slds-scrollable_y::-webkit-scrollbar-thumb {
+    background: #ccc; 
+    border-radius: 3px;
+}
+
+.slds-scrollable_y::-webkit-scrollbar-thumb:hover {
+    background: #bbb; 
+}
+
+/* Border utilities */
+.border-left-blue {
+    border-left: 3px solid #0176d3;
+}
+
+.border-left-blue-thick {
+    border-left: 4px solid #0176d3;
+}
+
+.border-right-separator {
+    border-right: 1px solid #dddbda;
+    padding-right: 10px;
+}
+
+/* Width utilities */
+.w-5 {
+    width: 5%;
+}
+
+.w-20 {
+    width: 20%;
+}
+
+.w-30 {
+    width: 30%;
+}
+
+.w-40 {
+    width: 40%;
+}
+
+.w-70 {
+    width: 70px;
+}
+
+/* Max-width utilities */
+.max-w-35 {
+    max-width: 35%;
+}
+
+.max-w-65 {
+    max-width: 65%;
+}
+
+.max-w-80 {
+    max-width: 80%;
+}
+
+.max-w-100 {
+    max-width: 100%;
+}
+
+/* Padding utilities */
+.p-left-0 {
+    padding-left: 0;
+}
+
+.p-right-10 {
+    padding-right: 10px;
+}
+
+.card-padding {
+    padding: 0.4rem 0.75rem;
+}
+
+/* Height/Scroll utilities */
+.h-100 {
+    height: 100%;
+}
+
+.max-h-400 {
+    max-height: 400px;
+}
+
+.max-h-500 {
+    max-height: 500px;
+}
+
+/* Position utilities */
+.pos-relative {
+    position: relative;
+}
+
+.pos-absolute-top-right {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    z-index: 10;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* Image utilities */
+.img-thumbnail {
+    max-height: 50px;
+    max-width: 100%;
+}
+
+.img-preview {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+    display: block;
+    cursor: pointer;
+}
+
+/* Badge utilities */
+.badge-small {
+    font-size: 0.65rem;
+}
+
+/* Combined card/column utilities */
+.card-item {
+    border-left: 3px solid #0176d3;
+    padding: 0.4rem 0.75rem;
+}
+
+.col-left-40 {
+    width: 40%;
+    padding-left: 0;
+}
+
+.col-center-30 {
+    width: 30%;
+}
+
+.col-center-40 {
+    width: 40%;
+}
+
+.col-right-20 {
+    width: 20%;
+    padding-right: 10px;
+}
+
+.col-right-30 {
+    width: 30%;
+    padding-right: 10px;
+}
+
+.col-actions-5 {
+    width: 5%;
+    max-width: 5%;
+    padding-left: 0;
+    padding-right: 0;
+}
+
 /* ==========================================================================
-   5. STYLES SPECIFIQUES PHOTOS / FICHIERS
+   MODULE-SPECIFIC STYLES - mntGestionDemandeLogistique
    ========================================================================== */
 
-/* Bouton de suppression sur les vignettes photos */
+/* Sticky panel for cart (Desktop) */
+.sticky-panel {
+    position: sticky;
+    top: 1rem;
+    align-self: flex-start;
+    z-index: 5;
+}
+
+@media (max-width: 767px) {
+    .sticky-panel {
+        position: static; 
+    }
+}
+
+/* Dropdown max height */
+.mntc-maxheight {
+    max-height: 16rem;
+    overflow-y: auto;
+}
+
+/* Delete button on photo thumbnails */
 .delete-btn {
     background-color: rgba(255, 255, 255, 0.9) !important;
     border: 1px solid #dddbda !important;
@@ -125,10 +283,7 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* ==========================================================================
-   6. DATATABLE (OPTIONNEL - SI UTILISÉ DANS D'AUTRES CONTEXTES)
-   ========================================================================== */
-
+/* Datatable styles */
 .datatable-with-scroll {
     height: 400px;
     overflow-y: auto;
@@ -139,9 +294,7 @@
     --slds-c-table-color-border: #dddbda;
 }
 
-/* ==========================================================================
-   7. ACCORDION STYLING
-   ========================================================================== */
+/* Accordion styling */
 .accordion-themed {
     --sds-c-accordion-summary-color-background: #f3f2f2;
     --sds-c-accordion-summary-color-background-hover: #ecebea;

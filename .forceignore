@@ -15,3 +15,6 @@ package.xml
 **/*Copie*
 **/*.cls.txt
 **/*.js.txt
+**/*.7z
+**/*.zip
+**/*.rar

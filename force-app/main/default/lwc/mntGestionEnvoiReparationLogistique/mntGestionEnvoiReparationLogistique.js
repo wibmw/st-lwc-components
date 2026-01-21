@@ -1,46 +1,28 @@
 import { LightningElement, api, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { NavigationMixin } from 'lightning/navigation';
-import { FlowNavigationNextEvent } from 'lightning/flowSupport';
-import getCommandeDetails from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getCommandeDetails';
-import getEnvoiByCommandeId from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getEnvoiByCommandeId';
-import getEnvoiDetails from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getEnvoiDetails';
-import getInitialData from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getInitialData';
-import searchPiecesUnitaires from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.searchPiecesUnitaires';
-import saveEnvoi from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.saveEnvoi';
-import searchRecords from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.searchRecords';
-import updateLineStatus from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.updateLineStatus';
-import getPiecesByIds from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getPiecesByIds';
-import getInitialRepairPieces from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getInitialRepairPieces';
-import LightningConfirm from 'lightning/confirm';
-import LightningAlert from 'lightning/alert';
-import { FlowAttributeChangeEvent } from 'lightning/flowSupport';
-import TrackingModal from 'c/trackingModal';
+import { FlowNavigationNextEvent, FlowAttributeChangeEvent } from 'lightning/flowSupport';
 import { getRecord, getFieldValue, getRecordNotifyChange } from 'lightning/uiRecordApi';
-import FORM_FACTOR from '@salesforce/client/formFactor';
 import USER_ID from '@salesforce/user/Id';
 import USER_NAME_FIELD from '@salesforce/schema/User.Name';
-import getContactAddressBySiteName from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getContactAddressBySiteName'; // Keep for existing logic if any
-import getContactBySiteName from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getContactBySiteName'; // NEW
-import getAvailableRepairPieces from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getAvailableRepairPieces'; // NEW
+import LightningConfirm from 'lightning/confirm';
+import LightningAlert from 'lightning/alert';
 
-const COMMANDE_FIELD = 'Envoi_Logistique__c.Commande_Pi_ces__c';
+import { isDesktopDevice, STATUS_DEFINITIONS_BY_KEY, STATUS_DEFINITIONS_BY_APIVALUE, reduceErrors, normalizeStatus } from 'c/logisticsUtils';
 
-// --- GESTION CENTRALISÉE DES STATUTS (COPIÉ DE COMMAND COCKPIT) ---
-const STATUS_DEFINITIONS_BY_KEY = {
-    'Disponible':   { key: 'Disponible',   apiValue: 'Disponible',   displayValue: '🟢 Disponible',   label: '🟢Disponible' },
-    'Non Disponible':   { key: 'Non Disponible',   apiValue: 'Non Disponible',   displayValue: '🔴 Non Disponible',   label: '🔴Non Disponible' }
-};
-const STATUS_DEFINITIONS_BY_APIVALUE = {
-    'Disponible':   STATUS_DEFINITIONS_BY_KEY['Disponible'],
-    'Non Disponible':   STATUS_DEFINITIONS_BY_KEY['Non Disponible']
-};
+import getEnvoiDetails from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getEnvoiDetails';
+import getInitialData from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getInitialData';
+import saveEnvoi from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.saveEnvoi';
+import getPiecesByIds from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getPiecesByIds';
+import getContactBySiteName from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getContactBySiteName';
+import getAvailableRepairPieces from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getAvailableRepairPieces';
+import TrackingModal from 'c/trackingModal';
+import searchRecords from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.searchRecords';
 
 const getRowActions = (row, doneCallback) => {
     const actions = [];
-    // On vérifie une propriété 'isReadOnly' qu'on injectera dans la row
     if (!row.isReadOnly) {
-        if (row.statut !== 'Disponible') actions.push({ label: 'Valider la Demande', name: 'set_validated', iconName: 'utility:check' });
+        if (row.statut !== 'Disponible') actions.push({ label: 'Valider la Demande', name: 'set_validated', iconName: 'utility:check'});
         if (row.statut !== 'Non Disponible') actions.push({ label: 'Refuser la Demande', name: 'set_refused', iconName: 'utility:close' });
     }
     doneCallback(actions);
@@ -103,18 +85,7 @@ export default class MntGestionEnvoiReparationLogistique extends NavigationMixin
     }
 
     get isDesktop() {
-        // Robust Mobile Detection
-        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-        const isMobileDevice = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobile/i.test(userAgent);
-        const isSalesforceMobile = /SalesforceMobileSDK/i.test(userAgent);
-        const isSmallScreen = window.innerWidth < 700;
-
-        // If any mobile indicator is true, return false (Mobile Mode)
-        if (isMobileDevice || isSalesforceMobile || isSmallScreen) {
-            return false;
-        }
-
-        return FORM_FACTOR === 'Large';
+        return isDesktopDevice();
     }
 
     get canValidateOrder() {
@@ -223,7 +194,6 @@ export default class MntGestionEnvoiReparationLogistique extends NavigationMixin
     @track nTicketCorrectifId; @track selectedNTicket = null; @track statutEnvoi = 'Livraison en Cours'; @track dateCreationEnvoi; @track typeEnvoi = 'Autre Stock'; @track envoiName = '';
     @track destinataireId; @track selectedDestinataire = null; @track stockId; @track selectedStock = null; @track commentaire = ''; @track createdBy = '';
     @track demandeurId; @track selectedDemandeur = null;
-    @track lookupSuggestions = { ticket: [], destinataire: [], stock: [], user: [] }; @track lookupLoading = { ticket: false, destinataire: false, stock: false, user: false }; @track isLookupOpen = { ticket: false, destinataire: false, stock: false, user: false };
     @track searchResults = []; @track allAvailablePieces = []; @track cart = []; @track piecesMap = new Map(); @track draftValues = []; @track commandeDetails = []; @track initialContextIsCommande = false; delayTimeout;
     @track isContextCommande = false; @track envoiDataFromServer = null;
     @track g2r = ''; @track siteName = ''; @track compteProjet = ''; @track typeReception = 'Livraison'; @track dateEnvoi; @track contactAddress = '';@track typeTransporteur = 'CHRONOPOST';
@@ -266,11 +236,6 @@ export default class MntGestionEnvoiReparationLogistique extends NavigationMixin
     }
     get datatableColumns() { return this.isFromCommande ? this.commandeDetailsCols : this.cartCols; }
 
-    get nTicketComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.ticket ? 'slds-is-open' : ''}`; }
-    get destinataireComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.destinataire ? 'slds-is-open' : ''}`; }
-    get stockComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.stock ? 'slds-is-open' : ''}`; }
-    get userComboboxClass() { return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isLookupOpen.user ? 'slds-is-open' : ''}`; }
-
     get isReadOnly() {
         return this.statutEnvoi === 'Clôturer NOK' || this.statutEnvoi === 'Clôturer OK';
     }
@@ -292,15 +257,31 @@ export default class MntGestionEnvoiReparationLogistique extends NavigationMixin
         return this.dateEnvoi ? 'brand' : 'success';
     }
 
+    currentUserName;
+
+    @wire(getRecord, { recordId: USER_ID, fields: [USER_NAME_FIELD] })
+    wiredUser({ error, data }) {
+        if (data) {
+            this.currentUserName = getFieldValue(data, USER_NAME_FIELD);
+            // Si pas d'enregistrement (création) et champ vide, on préremplit
+            if (!this._recordId && !this.demandeurId) {
+                this.demandeurCommande = this.currentUserName;
+                this.demandeurId = USER_ID;
+                this.selectedDemandeur = { value: USER_ID, label: this.currentUserName };
+            }
+        }
+    }
 
     connectedCallback() {
+        // La logique d'auto-chargement est maintenant gérée par le @wire ci-dessus
+        
         // Mode Spécial : Input Piece Ids (depuis Flow) ou Chargement par défaut (Repair)
         if (this.inputPieceIds && (Array.isArray(this.inputPieceIds) ? this.inputPieceIds.length > 0 : this.inputPieceIds)) {
             this.handleInputPiecesContext();
         } 
         else if (!this._recordId && this._objectApiName !== 'Envoi_Logistique__c' && this._objectApiName !== 'Commande_Pi_ces__c') {
             // Si pas d'input mais qu'on est en création sans contexte spécifique, on charge le stock
-            console.log('No input IDs, loading initial repair pieces');
+
             this.handleInitialRepairContext();
         }
         else if (this._objectApiName === 'Commande_Pi_ces__c') {
@@ -539,21 +520,7 @@ export default class MntGestionEnvoiReparationLogistique extends NavigationMixin
         finally { this.isLoading = false; }
     }
     
-    @wire(getRecord, { recordId: USER_ID, fields: [USER_NAME_FIELD] })
-    wiredUser({ error, data }) {
-        if (data) {
-            this.currentUserName = getFieldValue(data, USER_NAME_FIELD);
-            // Si pas d'enregistrement (création) et champ vide, on préremplit
-            if (!this._recordId && !this.demandeurCommande) {
-                this.demandeurCommande = this.currentUserName;
-                this.demandeurId = USER_ID;
-                this.selectedDemandeur = { value: USER_ID, label: this.currentUserName };
-            }
-        }
-    }
-    
-    currentUserName;
-    @track isReadOnly = false; // Nouvelle propriété pour le mode lecture seule
+    @track isReadOnly = false;
 
 
     async loadEnvoiData(envoiIdToLoad) {
@@ -682,140 +649,81 @@ export default class MntGestionEnvoiReparationLogistique extends NavigationMixin
     handleTypeReceptionChange(event) { this.typeReception = event.detail.value; }
     handleTypeTransporteurChange(event) { this.typeTransporteur = event.detail.value; }
     // handleDateChange(event) { this.dateEnvoi = event.target.value; }
-    handleLookupSearch(event) {
-        const lookupType = event.target.dataset.lookup;
-        const searchTerm = event.target.value;
-        window.clearTimeout(this.delayTimeout);
-        this.delayTimeout = setTimeout(() => {
-            if (searchTerm.length >= 3) {
-                this.isLookupOpen[lookupType] = true; // Ouvrir le dropdown
-                this.fetchLookupSuggestions(searchTerm, lookupType);
-            } else {
-                this.isLookupOpen[lookupType] = false; // Fermer si moins de 3 caractères
-                this.lookupSuggestions[lookupType] = [];
-            }
-        }, 300);
-    }
-    async fetchLookupSuggestions(searchTerm, lookupType) {
-        this.lookupLoading[lookupType] = true;
-        const sObjectTypeMap = {
-            ticket: 'Correctif__c',
-            destinataire: 'Contact',
-            stock: 'sitetracker__Site__c',
-            user: 'User'
-        };
-        try {
-            this.lookupSuggestions[lookupType] = await searchRecords({
-                searchTerm: searchTerm,
-                sObjectType: sObjectTypeMap[lookupType]
-            });
-        } catch (error) {
-            console.error('Search error:', error);
-            this.showToast('Erreur', 'Recherche impossible: ' + (error.body ? error.body.message : error.message), 'error');
-        } finally {
-            this.lookupLoading[lookupType] = false;
-        }
-    }
 
-    async handleTicketContext() {
-        this.isLoading = true;
-        try {
-            this.cardTitle = 'Créer un Envoi'; 
-            this.saveButtonLabel = 'Créer l\'Envoi';
-            this.typeEnvoi = 'Autre Stock';
-            
-            let params = {};
-            if (this._objectApiName === 'sitetracker__Job__c') {
-                params = { recordId: this._recordId, sObjectType: 'sitetracker__Job__c' };
-            } else if (this.ticketCorrectifID) {
-                params = { recordId: this.ticketCorrectifID, sObjectType: 'Correctif__c' };
-            }
-
-            const initialData = await getInitialData(params);
-            
-            if(initialData.nTicketCorrectifId) {
-                this.nTicketCorrectifId = initialData.nTicketCorrectifId;
-                const label = initialData.nTicketName || '';
-                const sublabel = initialData.nTicketSubLabel || '';
-                this.selectedNTicket = { value: initialData.nTicketCorrectifId, label: label , sublabel: sublabel, pillLabel: label }; 
-                this.g2r = initialData.g2r || '';
-                this.siteName = initialData.siteName || '';
-            }
-        } catch (error) {
-            console.error('Erreur chargement contexte ticket', error);
-            this.showToast('Erreur', 'Impossible de charger les données du ticket', 'error');
-        } finally {
-            this.isLoading = false;
-        }
-    }
+    /**
+     * Handle selection from lookupPill component
+     * The event.detail contains the selected value object from the pill
+     */
     handleLookupSelect(event) { 
-        const { value, label, sublabel, pillLabel, lookup, address, g2r, sitename, compteprojet } = event.currentTarget.dataset; 
-        switch (lookup) { 
-            case 'ticket': 
-                this.nTicketCorrectifId = value; 
-                this.selectedNTicket = { value, label, sublabel, pillLabel: sublabel ? `${label} - ${sublabel}` : label }; 
-                this.g2r = g2r || '';
-                this.siteName = sitename || '';
-                if (compteprojet) {
-                    this.compteProjet = compteprojet;
-                }
-                break; 
-            case 'destinataire': 
-                this.destinataireId = value; 
-                this.selectedDestinataire = { value, label }; 
-                if (address) this.contactAddress = address;
-                break; 
+        const lookupType = event.currentTarget.dataset.lookup;
+        const selectedValue = event.detail;
+        
+        switch (lookupType) { 
+            case 'user': 
+                this.demandeurId = selectedValue.value;
+                this.selectedDemandeur = selectedValue;
+                break;
             case 'stock': 
-                this.stockId = value; 
-                this.selectedStock = { value, label, sublabel, pillLabel: sublabel ? `${label} - ${sublabel}` : label }; 
+                // For Repair context: stock = Repairer (Destination)
+                this.lieuId = selectedValue.value; // Destination (Repairer)
+                this.selectedStock = selectedValue;
                 
-                // Fetch Address from Contact matching Site Name
-                if (label) {
-                    getContactAddressBySiteName({ siteName: label })
-                        .then(addr => {
-                            if (addr) this.contactAddress = addr;
+                // Auto-fetch contact address if available
+                if (selectedValue.label) {
+                    getContactBySiteName({ siteName: selectedValue.label })
+                        .then(contact => {
+                            if (contact) {
+                                this.destinataireId = contact.Id;
+                                this.selectedDestinataire = { 
+                                    value: contact.Id, 
+                                    label: contact.Name,
+                                    pillLabel: contact.Name
+                                };
+                                
+                                const addressParts = [];
+                                if (contact.MailingStreet) addressParts.push(contact.MailingStreet);
+                                if (contact.MailingPostalCode) addressParts.push(`${contact.MailingPostalCode} ${contact.MailingCity || ''}`);
+                                this.contactAddress = addressParts.join('\n');
+                            }
                         })
-                        .catch(err => console.error('Error fetching address', err));
+                        .catch(err => console.warn('Could not auto-fetch contact:', err));
                 }
-                break; 
-            case 'user':
-                this.demandeurId = value;
-                this.selectedDemandeur = { value, label };
+                break;
+            case 'destinataire': 
+                this.destinataireId = selectedValue.value;
+                this.selectedDestinataire = selectedValue;
+                if (selectedValue.address) {
+                    this.contactAddress = selectedValue.address;
+                }
                 break;
         } 
-        this.lookupSuggestions[lookup] = []; 
-        const input = this.template.querySelector(`lightning-input[data-lookup="${lookup}"]`); 
-        if (input) input.value = ''; 
-        this.isLookupOpen[lookup] = false; 
     }
-    handleLookupPillRemove(event) { 
-        if (this.isReadOnly) return; // Bloquer la suppression en mode lecture seule
-        const lookupType = event.target.dataset.lookup; 
+
+    /**
+     * Handle removal from lookupPill component
+     * The event.detail contains the previousValue
+     */
+    handleLookupRemove(event) { 
+        if (this.isReadOnly) return;
+        
+        const lookupType = event.currentTarget.dataset.lookup;
+        
         switch (lookupType) { 
-            case 'ticket': 
-                this.nTicketCorrectifId = null; 
-                this.selectedNTicket = null; 
-                this.g2r = '';
-                this.siteName = '';
-                break; 
-            case 'destinataire': 
-                this.destinataireId = null; 
-                this.selectedDestinataire = null; 
-                this.contactAddress = '';
-                break; 
-            case 'stock': 
-                this.stockId = null; 
-                this.selectedStock = null; 
-                // this.contactAddress = ''; // Keep editable
-                break; 
             case 'user':
                 this.demandeurId = null;
                 this.selectedDemandeur = null;
-                break; 
+                break;
+            case 'stock': 
+                this.lieuId = null; // Clear destination
+                this.selectedStock = null;
+                break;
+            case 'destinataire': 
+                this.destinataireId = null;
+                this.selectedDestinataire = null;
+                this.contactAddress = '';
+                break;
         } 
     }
-    handleLookupFocus(event) { this.isLookupOpen[event.target.dataset.lookup] = true; }
-    handleLookupBlur(event) { const inputElement = event.target; const lookupType = inputElement.dataset.lookup; setTimeout(() => { let selectedId; switch (lookupType) { case 'ticket': selectedId = this.nTicketCorrectifId; break; case 'destinataire': selectedId = this.destinataireId; break; case 'stock': selectedId = this.stockId; break; case 'user': selectedId = this.demandeurId; break; } if (inputElement.value && !selectedId) { this.showToast('Erreur', `"${inputElement.value}" n'est pas une valeur valide.`, 'error'); inputElement.value = ''; } this.isLookupOpen[lookupType] = false; }, 250); }
     handleSearch(event) { 
         const searchTerm = event.target.value; 
         clearTimeout(this.delayTimeout); 

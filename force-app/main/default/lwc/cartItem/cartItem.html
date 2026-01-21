@@ -1,0 +1,263 @@
+<template>
+    <!-- Card Container -->
+    <div class="slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small cart-item">
+        
+        <!-- DESKTOP VIEW -->
+        <template if:true={isDesktop}>
+            <!-- Header: Name | Statut/Mnemonic | Site -->
+            <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                <span class="slds-col slds-size_5-of-12 slds-truncate slds-text-title_bold">{item.name}</span>
+                <span class="slds-col slds-size_3-of-12 slds-text-align_center slds-text-body_small">{statutDisplay}</span>
+                <span class="slds-col slds-size_4-of-12 slds-text-align_right slds-truncate slds-text-body_small">
+                    {item.siteName}
+                </span>
+            </div>
+
+            <!-- Body: Mode-specific controls -->
+            <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
+                
+                <!-- DEMANDE MODE: Quantity Input -->
+                <template if:true={isDemandeMode}>
+                    <div class="slds-grid slds-grid_vertical-align-center">
+                        <div style="width: 70px;">
+                            <lightning-input 
+                                type="number" 
+                                variant="label-hidden" 
+                                placeholder="Qté" 
+                                value={item.quantity} 
+                                data-field="quantity"
+                                min="1" 
+                                max={item.stock}
+                                onchange={handleChange}
+                                disabled={isReadOnly}>
+                            </lightning-input>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- ENVOI/REPARATION MODE: BL Input + Tracking -->
+                <template if:true={showBonLivraison}>
+                    <div class="slds-col slds-size_4-of-12">
+                        <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
+                            <div class="slds-col slds-size_10-of-12">
+                                <lightning-input 
+                                    type="text" 
+                                    variant="label-hidden" 
+                                    placeholder="N° BL" 
+                                    value={item.numBonLivraison} 
+                                    data-field="numBonLivraison"
+                                    onchange={handleChange}
+                                    disabled={isReadOnly}>
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_2-of-12">
+                                <template if:true={showTracking}>
+                                    <lightning-button-icon 
+                                        icon-name="utility:new_window" 
+                                        variant="border-filled" 
+                                        alternative-text="Suivre" 
+                                        title="Suivre"
+                                        onclick={handleTrack}
+                                        size="small">
+                                    </lightning-button-icon>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chronopost Status Display -->
+                    <template if:true={showChronopostStatus}>
+                        <div class="slds-col slds-size_6-of-12 slds-text-align_center slds-text-body_small">
+                            {chronopostStatus}
+                        </div>
+                    </template>
+                </template>
+
+                <!-- Actions -->
+                <div class="slds-grid slds-grid_vertical-align-center">
+                    <!-- Demande: Status Buttons -->
+                    <template if:true={isDemandeMode}>
+                        <template if:false={isReadOnly}>
+                            <lightning-button-icon 
+                                icon-name="utility:check" 
+                                variant="border-filled" 
+                                alternative-text="Disponible" 
+                                title="Disponible"
+                                class="slds-icon-text-success slds-m-right_xx-small"
+                                data-status="Disponible"
+                                onclick={handleStatusChange}>
+                            </lightning-button-icon>
+                            <lightning-button-icon 
+                                icon-name="utility:close" 
+                                variant="border-filled" 
+                                alternative-text="Non Disponible" 
+                                title="Non Disponible"
+                                class="slds-icon-text-error slds-m-right_xx-small"
+                                data-status="Non Disponible"
+                                onclick={handleStatusChange}>
+                            </lightning-button-icon>
+                        </template>
+                    </template>
+
+                    <!-- Envoi/Reparation: Chronopost Actions -->
+                    <template if:true={showChronopostActions}>
+                        <lightning-button-icon 
+                            icon-name="utility:success" 
+                            variant="bare" 
+                            alternative-text="Livré" 
+                            title="Livré" 
+                            class="slds-icon-text-success" 
+                            size="large" 
+                            data-action="Livré"
+                            onclick={handleChronopostAction}>
+                        </lightning-button-icon>
+                        <lightning-button-icon 
+                            icon-name="utility:clear" 
+                            variant="bare" 
+                            alternative-text="Perdu" 
+                            title="Perdu" 
+                            class="slds-icon-text-error" 
+                            size="large" 
+                            data-action="Perdu"
+                            onclick={handleChronopostAction}>
+                        </lightning-button-icon>
+                    </template>
+
+                    <!-- Remove Button (All Modes) -->
+                    <lightning-button-icon 
+                        icon-name="utility:delete" 
+                        variant="bare" 
+                        alternative-text="Supprimer" 
+                        title="Supprimer" 
+                        class="slds-icon-text-error slds-m-left_small"
+                        onclick={handleRemove}
+                        disabled={isReadOnly}>
+                    </lightning-button-icon>
+                </div>
+            </div>
+
+            <!-- Comment Input (Demande Mode) -->
+            <template if:true={isDemandeMode}>
+                <div class="slds-m-top_xx-small">
+                    <lightning-input 
+                        type="text" 
+                        variant="label-hidden" 
+                        placeholder="Ajouter un commentaire..." 
+                        value={item.comment} 
+                        data-field="comment"
+                        onchange={handleChange}
+                        disabled={isReadOnly}>
+                    </lightning-input>
+                </div>
+            </template>
+        </template>
+
+        <!-- MOBILE VIEW -->
+        <template if:false={isDesktop}>
+            <div class="mobile-card-header">
+                <div>
+                    <div class="mobile-card-title">{item.name}</div>
+                    <div class="mobile-card-subtitle">{item.mnemonique}</div>
+                </div>
+                <template if:false={isReadOnly}>
+                    <lightning-button-icon 
+                        icon-name="utility:delete" 
+                        variant="bare" 
+                        alternative-text="Supprimer" 
+                        title="Supprimer"
+                        onclick={handleRemove}>
+                    </lightning-button-icon>
+                </template>
+            </div>
+
+            <div class="mobile-card-body">
+                <p class="slds-text-body_small slds-m-bottom_small">{item.siteName}</p>
+                
+                <!-- Demande: Quantity -->
+                <template if:true={showQuantity}>
+                    <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
+                        <label class="slds-col slds-size_1-of-3 slds-text-body_regular">Quantité</label>
+                        <div class="slds-col slds-size_2-of-3">
+                            <lightning-input 
+                                type="number" 
+                                variant="label-hidden" 
+                                value={item.quantity} 
+                                data-field="quantity"
+                                onchange={handleChange} 
+                                min="1"
+                                disabled={isReadOnly}>
+                            </lightning-input>
+                        </div>
+                    </div>
+                    <template if:true={item.comment}>
+                        <lightning-textarea 
+                            label="Commentaire" 
+                            value={item.comment} 
+                            data-field="comment"
+                            onchange={handleChange}
+                            disabled={isReadOnly}>
+                        </lightning-textarea>
+                    </template>
+                </template>
+
+                <!-- Envoi/Reparation: BL -->
+                <template if:true={showBonLivraison}>
+                    <lightning-input 
+                        type="text" 
+                        label="N° BL" 
+                        value={item.numBonLivraison} 
+                        data-field="numBonLivraison"
+                        onchange={handleChange}
+                        disabled={isReadOnly}>
+                    </lightning-input>
+                    <p class="slds-text-body_small slds-m-top_small">
+                        <strong>Statut:</strong> {chronopostStatus}
+                    </p>
+                </template>
+            </div>
+
+            <!-- Mobile Footer: Action Buttons -->
+            <template if:false={isReadOnly}>
+                <div class="mobile-card-footer">
+                    <!-- Demande: Status Buttons -->
+                    <template if:true={isDemandeMode}>
+                        <lightning-button-icon 
+                            icon-name="utility:check" 
+                            variant="border-filled" 
+                            alternative-text="Disponible" 
+                            title="Disponible" 
+                            class="slds-icon-text-success"
+                            data-status="Disponible"
+                            onclick={handleStatusChange}>
+                        </lightning-button-icon>
+                        <lightning-button-icon 
+                            icon-name="utility:close" 
+                            variant="border-filled" 
+                            alternative-text="Non Disponible" 
+                            title="Non Disponible" 
+                            class="slds-icon-text-error"
+                            data-status="Non Disponible"
+                            onclick={handleStatusChange}>
+                        </lightning-button-icon>
+                    </template>
+
+                    <!-- Chronopost Actions -->
+                    <template if:true={showChronopostActions}>
+                        <lightning-button 
+                            label="Livré" 
+                            variant="brand" 
+                            data-action="Livré"
+                            onclick={handleChronopostAction}>
+                        </lightning-button>
+                        <lightning-button 
+                            label="Perdu" 
+                            variant="destructive" 
+                            data-action="Perdu"
+                            onclick={handleChronopostAction}>
+                        </lightning-button>
+                    </template>
+                </div>
+            </template>
+        </template>
+    </div>
+</template>

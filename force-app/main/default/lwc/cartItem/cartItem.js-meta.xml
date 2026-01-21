@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>60.0</apiVersion>
+    <isExposed>false</isExposed>
+    <description>Cart item component with 3 modes: demande (quantity management), envoi (shipment tracking), reparation (repair shipment with Chronopost).</description>
+    <masterLabel>Cart Item</masterLabel>
+</LightningComponentBundle>

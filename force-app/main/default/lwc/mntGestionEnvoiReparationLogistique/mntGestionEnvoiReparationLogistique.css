@@ -1,5 +1,188 @@
+/* ==========================================================================
+   SHARED LOGISTICS STYLES (Embedded)
+   Common styles for logistics modules
+   ========================================================================== */
+
+/* Dropdown utilities */
+.mntc-dropdown_fluid {
+    min-width: 100%;
+    z-index: 9000;
+}
+
+/* Mobile card components */
+.mobile-card {
+    background-color: white;
+    border: 1px solid var(--lwc-colorBorder, #dddbda);
+    border-radius: var(--lwc-borderRadiusMedium, 0.25rem);
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Scrollbar customization */
+.slds-scrollable_y {
+    scrollbar-width: thin;
+    scrollbar-color: #dddbda transparent;
+}
+
+.slds-scrollable_y::-webkit-scrollbar {
+    width: 6px;
+}
+
+.slds-scrollable_y::-webkit-scrollbar-track {
+    background: #f1f1f1; 
+}
+
+.slds-scrollable_y::-webkit-scrollbar-thumb {
+    background: #ccc; 
+    border-radius: 3px;
+}
+
+.slds-scrollable_y::-webkit-scrollbar-thumb:hover {
+    background: #bbb; 
+}
+
+/* Border utilities */
+.border-left-blue {
+    border-left: 3px solid #0176d3;
+}
+
+.border-left-blue-thick {
+    border-left: 4px solid #0176d3;
+}
+
+/* Color utilities */
+.text-true-royal {
+    color: royalblue;
+    font-weight: bold;
+}
+
+/* Layout utilities */
+.h-100 {
+    height: 100%;
+}
+
+/* Width utilities */
+.w-5 {
+    width: 5%;
+}
+
+.w-20 {
+    width: 20%;
+}
+
+.w-30 {
+    width: 30%;
+}
+
+.w-40 {
+    width: 40%;
+}
+
+.w-70 {
+    width: 70px;
+}
+
+/* Max-width utilities */
+.max-w-35 {
+    max-width: 35%;
+}
+
+.max-w-65 {
+    max-width: 65%;
+}
+
+.max-w-80 {
+    max-width: 80%;
+}
+
+.max-w-100 {
+    max-width: 100%;
+}
+
+/* Padding utilities */
+.p-left-0 {
+    padding-left: 0;
+}
+
+.p-right-10 {
+    padding-right: 10px;
+}
+
+.card-padding {
+    padding: 0.4rem 0.75rem;
+}
+
+/* Height/Scroll utilities */
+.max-h-400 {
+    max-height: 400px;
+}
+
+.max-h-500 {
+    max-height: 500px;
+}
+
+/* Position utilities */
+.pos-relative {
+    position: relative;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* Border utilities */
+.border-right-separator {
+    border-right: 1px solid #dddbda;
+    padding-right: 10px;
+}
+
+/* Combined card/column utilities */
+.card-item {
+    border-left: 3px solid #0176d3;
+    padding: 0.4rem 0.75rem;
+}
+
+.col-left-40 {
+    width: 40%;
+    padding-left: 0;
+}
+
+.col-center-30 {
+    width: 30%;
+}
+
+.col-center-40 {
+    width: 40%;
+}
+
+.col-right-20 {
+    width: 20%;
+    padding-right: 10px;
+}
+
+.col-right-30 {
+    width: 30%;
+    padding-right: 10px;
+}
+
+.col-actions-5 {
+    width: 5%;
+    max-width: 5%;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+/* ==========================================================================
+   MODULE-SPECIFIC STYLES - mntGestionEnvoiReparationLogistique
+   ========================================================================== */
+
 .main-container {
-    background-color: white; /* ou var(--lwc-colorBackgroundAlt) */
+    background-color: white;
     border-radius: var(--lwc-borderRadiusMedium);
 }
 
@@ -9,50 +192,21 @@
 }
 
 .actions-container {
-    /* Alignement vertical des boutons avec le titre/icon */
     align-self: center; 
 }
 
-/* SEARCH RESULTS & DROPDOWN */
 .search-results-container {
     border: 1px solid var(--lwc-colorBorderInput);
     border-radius: 0.25rem;
     background-color: white;
 }
 
-/* MOBILE CARD STYLES */
-.mobile-card {
-    border: 1px solid var(--lwc-colorBorder);
-    border-radius: var(--lwc-borderRadiusMedium);
-    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
-    background-color: white; /* Assure un fond blanc sur mobile */
-}
-
-/* Force visibility of disabled inputs to look clearer on some mobile screens */
 .slds-input[disabled], .slds-textarea[disabled] {
     background-color: var(--lwc-colorBackgroundInputDisabled);
-    color: var(--lwc-colorTextDefault); /* Garder le texte lisible */
+    color: var(--lwc-colorTextDefault);
     border-color: var(--lwc-colorBorderInputDisabled);
 }
 
-
-/* Scrollbar customisation (optional) */
-.slds-scrollable_y::-webkit-scrollbar {
-    width: 6px;
-}
-.slds-scrollable_y::-webkit-scrollbar-track {
-    background: #f1f1f1; 
-}
-.slds-scrollable_y::-webkit-scrollbar-thumb {
-    background: #ccc; 
-    border-radius: 3px;
-}
-.slds-scrollable_y::-webkit-scrollbar-thumb:hover {
-    background: #bbb; 
-}
-
-
-/* Custom Button Colors for Mobile States */
 .action-btn-success {
     --slds-c-button-color-text-hover: #027e46;
     --slds-c-button-icon-color-foreground: #027e46;
@@ -63,20 +217,11 @@
     --slds-c-button-icon-color-foreground: #ea001e;
 }
 
-/* BORDER LEFT COLORS */
-.border-left-blue {
-    border-left: 3px solid #0176d3;
+/* Scrollbar fine pour la liste des cartes */
+.scroll-container {
+    max-height: 400px;
 }
 
-.border-left-blue-thick {
-    border-left: 4px solid #0176d3;
-}
-
-.h-100 {
-    height: 100%;
-}
-
-.text-true-royal {
-    color: royalblue; /* ou #4169E1 */
-    font-weight: bold;
+.scroll-container-large {
+    max-height: 500px;
 }

@@ -7,6 +7,10 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         @AuraEnabled public String label;
         @AuraEnabled public String sublabel;
         @AuraEnabled public String description;
+        @AuraEnabled public String address;
+        @AuraEnabled public String g2r;
+        @AuraEnabled public String siteName;
+        @AuraEnabled public String compteProjet;
     }
 
     public class AggregationRow {
@@ -166,7 +170,7 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         } else if (sObjectName == 'sitetracker__Site__c') {
             query = 'SELECT Id, Name, Nom_du_site__c FROM ' + sObjectName + ' WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) ORDER BY Name LIMIT 10';
         } else if (sObjectName == 'Correctif__c') {
-            query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
+            query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c, Compte_Projet__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
         }
 
         List<IdLabel> results = new List<IdLabel>();
@@ -179,16 +183,25 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
             } else if (sObjectName == 'Contact') {
                 String street = (String)record.get('MailingStreet');
                 String city = (String)record.get('MailingCity');
-                il.sublabel = formatAddress(street, (String)record.get('MailingPostalCode'), city);
-            }else if (sObjectName == 'sitetracker__Site__c') {
+                String postalCode = (String)record.get('MailingPostalCode');
+                List<String> addressParts = new List<String>();
+                if (String.isNotBlank(street)) addressParts.add(street);
+                if (String.isNotBlank(postalCode) || String.isNotBlank(city)) {
+                    addressParts.add((postalCode != null ? postalCode : '') + ' ' + (city != null ? city : ''));
+                }
+                il.sublabel = String.join(addressParts, ', ');
+                il.address = String.join(addressParts, '\n');
+            } else if (sObjectName == 'sitetracker__Site__c') {
                 il.label = (String)record.get('Name');
                 il.sublabel = (String)record.get('Nom_du_site__c');
-
             } else if (sObjectName == 'Correctif__c') {
                 il.label = (String)record.get('ID_ticket_client__c');
                 String codeSite = (String)record.get('Code_site__c');
                 String nomSite = (String)record.get('Nom_du_site__c');
                 il.sublabel = formatTicketSublabel(codeSite, nomSite);
+                il.g2r = codeSite;
+                il.siteName = nomSite;
+                il.compteProjet = (String)record.get('Compte_Projet__c');
             }
 
             results.add(il);

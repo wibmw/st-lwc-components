@@ -1,0 +1,35 @@
+/* Cart Item Card Styling */
+.cart-item {
+    border-left: 4px solid #0176d3;
+    padding: 0.4rem 0.75rem;
+}
+
+/* Mobile Card Styles */
+.mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.mobile-card-title {
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+.mobile-card-subtitle {
+    color: #706e6b;
+    font-size: 0.75rem;
+}
+
+.mobile-card-body {
+    padding: 0.5rem 0;
+}
+
+.mobile-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #e5e5e5;
+}
