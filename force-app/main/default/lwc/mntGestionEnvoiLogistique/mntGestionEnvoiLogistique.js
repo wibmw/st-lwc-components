@@ -178,6 +178,14 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         return this.dateEnvoi ? 'brand' : 'success';
     }
 
+    get isChronopost() {
+        return this.typeTransporteur === 'CHRONOPOST';
+    }
+
+    get isBlReadOnly() {
+        return !!this.dateEnvoi;
+    }
+
     connectedCallback() {
         if (this._objectApiName === 'Commande_Pi_ces__c') {
             this.linkedCommandeId = this._recordId;
@@ -567,6 +575,41 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         if (this.refDestinataireChronopost) {
             navigator.clipboard.writeText(this.refDestinataireChronopost);
             this.showToast('Succès', 'Référence copiée dans le presse-papier', 'success');
+        }
+    }
+
+    handleCartInputChange(event) {
+        const pieceId = event.target.dataset.id;
+        const value = event.target.value;
+        this.cart = this.cart.map(item =>
+            item.pieceUnitaireId === pieceId 
+                ? { ...item, numBonLivraison: value } 
+                : item
+        );
+    }
+
+    handleSetStatusLivre(event) {
+        const pieceId = event.target.dataset.id;
+        this.cart = this.cart.map(item =>
+            item.pieceUnitaireId === pieceId 
+                ? { ...item, statutChronopost: 'Livré' } 
+                : item
+        );
+    }
+
+    handleSetStatusPerdu(event) {
+        const pieceId = event.target.dataset.id;
+        this.cart = this.cart.map(item =>
+            item.pieceUnitaireId === pieceId 
+                ? { ...item, statutChronopost: 'Perdu' } 
+                : item
+        );
+    }
+
+    handleTrackItem(event) {
+        const url = event.target.dataset.url;
+        if (url) {
+            this.openTrackingModal(url);
         }
     }
 

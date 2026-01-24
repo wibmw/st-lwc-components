@@ -7,6 +7,7 @@ export default class MobileListView extends NavigationMixin(LightningElement) {
     @api objectApiName;
     @api listViewApiName;
     @api sectionName;
+    @api flowUrl; // New input property for Flow URL
     
     // Output property for Flow to capture theclicked record
     @api selectedRecordId = '';
@@ -134,22 +135,14 @@ export default class MobileListView extends NavigationMixin(LightningElement) {
     handleRecordClick(event) {
         const recordId = event.currentTarget.dataset.id;
         if (recordId) {
-            // Notify Flow of the selected record
-            this.selectedRecordId = recordId;
-            const attributeChangeEvent = new FlowAttributeChangeEvent('selectedRecordId', recordId);
-            this.dispatchEvent(attributeChangeEvent);
-            
             console.log('MobileListView: Selected Record ID', recordId);
-            
-            // Also attempt direct navigation for non-Flow contexts
-            this[NavigationMixin.Navigate]({
-                type: 'standard__recordPage',
-                attributes: {
-                    recordId: recordId,
-                    objectApiName: this.objectApiName,
-                    actionName: 'view'
-                }
-            });
+
+            // Check if Flow URL is provided for redirection
+            if (this.flowUrl && this.flowUrl.trim().length > 0) {
+                // Construct absolute URL (same pattern as menuMobile)
+                const finalUrl = this.flowUrl + '?recordId=' + recordId;
+               window.location.assign(finalUrl); //window.open(finalUrl, '_self');
+            } 
         }
     }
 }

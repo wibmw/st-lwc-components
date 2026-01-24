@@ -157,20 +157,20 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         return data;
     }
 
-    @AuraEnabled
+    @AuraEnabled(cacheable=true)
     public static List<IdLabel> searchRecords(String searchTerm, String sObjectType) {
         String queryTerm = '%' + searchTerm + '%';
         String sObjectName = String.escapeSingleQuotes(sObjectType);
         String query;
 
-        if (sObjectName == 'User') {
+        if (sObjectType == 'User') {
             query = 'SELECT Id, Name, Phone FROM User WHERE Name LIKE :queryTerm AND IsActive = true ORDER BY Name LIMIT 10';
-        } else if (sObjectName == 'Contact') {
+        } else if (sObjectType == 'Contact') {
             query = 'SELECT Id, Name, MailingStreet, MailingCity, MailingPostalCode, MailingState, MailingCountry FROM Contact WHERE Name LIKE :queryTerm ORDER BY Name LIMIT 10';
-        } else if (sObjectName == 'sitetracker__Site__c') {
-            query = 'SELECT Id, Name, Nom_du_site__c FROM ' + sObjectName + ' WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) ORDER BY Name LIMIT 10';
-        } else if (sObjectName == 'Correctif__c') {
-            query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c, Compte_Projet__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
+        } else if (sObjectType == 'sitetracker__Site__c') {
+            query = 'SELECT Id, Name, Nom_du_site__c FROM sitetracker__Site__c WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) ORDER BY Name LIMIT 10';
+        } else if (sObjectType == 'Correctif__c') {
+            query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
         }
 
         List<IdLabel> results = new List<IdLabel>();
@@ -178,9 +178,9 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
             IdLabel il = new IdLabel();
             il.value = (Id)record.get('Id');
             il.label = (String)record.get('Name');
-            if (sObjectName == 'User') {
+            if (sObjectType == 'User') {
                 il.sublabel = (String)record.get('Phone');
-            } else if (sObjectName == 'Contact') {
+            } else if (sObjectType == 'Contact') {
                 String street = (String)record.get('MailingStreet');
                 String city = (String)record.get('MailingCity');
                 String postalCode = (String)record.get('MailingPostalCode');
@@ -191,17 +191,16 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
                 }
                 il.sublabel = String.join(addressParts, ', ');
                 il.address = String.join(addressParts, '\n');
-            } else if (sObjectName == 'sitetracker__Site__c') {
+            } else if (sObjectType == 'sitetracker__Site__c') {
                 il.label = (String)record.get('Name');
                 il.sublabel = (String)record.get('Nom_du_site__c');
-            } else if (sObjectName == 'Correctif__c') {
+            } else if (sObjectType == 'Correctif__c') {
                 il.label = (String)record.get('ID_ticket_client__c');
                 String codeSite = (String)record.get('Code_site__c');
                 String nomSite = (String)record.get('Nom_du_site__c');
                 il.sublabel = formatTicketSublabel(codeSite, nomSite);
                 il.g2r = codeSite;
                 il.siteName = nomSite;
-                il.compteProjet = (String)record.get('Compte_Projet__c');
             }
 
             results.add(il);

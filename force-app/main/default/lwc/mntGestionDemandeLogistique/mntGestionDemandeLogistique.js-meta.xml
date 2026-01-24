@@ -14,7 +14,8 @@
   <targetConfigs>
     <targetConfig targets="lightning__FlowScreen">
         <property name="componentLabel" type="String" label="Création d'une demande de Pièces"/>
-        <property name="recordId" type="String" label="ID de l'enregistrement"/>
+        <property name="recordId" type="String" label="ID de l'enregistrement (Demande Existant)"/>
+        <property name="ticketCorrectifID" type="String" label="ID du Ticket (Pour Création)"/>
         <property name="viewCommandInfo" type="Boolean" label="Afficher les Informations de la Commande" default="false"/>
         <property name="isSaveComplete" type="Boolean" label="Sauvegarde terminée" role="outputOnly"/>
     </targetConfig>

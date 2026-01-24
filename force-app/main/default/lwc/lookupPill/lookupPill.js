@@ -35,7 +35,7 @@ export default class LookupPill extends LightningElement {
         this._sObjectType = val;
     }
 
-    _objectType;
+    /*_objectType;
     @api 
     get objectType() { return this._objectType; }
     set objectType(val) {
@@ -45,7 +45,7 @@ export default class LookupPill extends LightningElement {
         if (val && this._sObjectType === 'Contact') {
              this._sObjectType = val;
         }
-    }
+    }*/
 
     @api disabled = false;
     @api variant = 'label-stacked';

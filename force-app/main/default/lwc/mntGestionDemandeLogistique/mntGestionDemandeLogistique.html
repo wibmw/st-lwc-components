@@ -1,328 +1,334 @@
 <template>
   <lightning-card title={cardTitle} icon-name="utility:cart">
       <div slot="actions">
-          <div class="desktop-only">
-              <template if:true={isDesktop}>
-                  <lightning-button-group>
-                      <lightning-button label="PEC Cockpit" name="pec_cockpit" onclick={handlePecAction} disabled={isPecCockpitDisabled}></lightning-button>
-                      <lightning-button label="PEC Retraitement" name="pec_retraitement" onclick={handlePecAction} disabled={isPecRetraitementDisabled}></lightning-button>
-                  </lightning-button-group>
-              </template>
-          </div>
+        <template if:true={isDesktop}>
+            <lightning-button-group>
+                <lightning-button label="PEC Cockpit" name="pec_cockpit" onclick={handlePecAction} disabled={isPecCockpitDisabled}></lightning-button>
+                <lightning-button label="PEC Retraitement" name="pec_retraitement" onclick={handlePecAction} disabled={isPecRetraitementDisabled}></lightning-button>
+            </lightning-button-group>
+        </template>
       </div>
 
       <!-- ======================= SECTION D'EN-TÊTE AVEC LES 4 CHAMPS ======================= -->
 
       <!-- ============== DESKTOP ================== -->
        <template if:true={isViewCommandInfo}>
-        <div class="slds-p-horizontal_medium slds-p-bottom_medium slds-border_bottom desktop-only">
-            <div class="slds-grid slds-wrap slds-gutters">
-                <!-- COLONNE GAUCHE : INFORMATIONS COMMANDE -->
-                <div class="slds-col slds-size_1-of-1 slds-large-size_12-of-12">
-                    <h2 class="slds-text-heading_medium slds-m-bottom_medium">Informations de la Demande</h2>
-                    
-                    <lightning-accordion allow-multiple-sections-open active-section-name={activeSections} class="accordion-themed">
+        <template if:true={isDesktop}>
+            <div class="slds-p-horizontal_medium slds-p-bottom_medium slds-border_bottom">
+                <div class="slds-grid slds-wrap slds-gutters">
+                    <!-- COLONNE GAUCHE : INFORMATIONS COMMANDE -->
+                    <div class="slds-col slds-size_1-of-1 slds-large-size_12-of-12">
+                        <h2 class="slds-text-heading_medium slds-m-bottom_medium">Informations de la Demande</h2>
                         
-                        <!-- SECTION 1 : INFORMATION DEMANDE -->
-                        <lightning-accordion-section name="info_demande" label="Information Demande">
-                            <div class="slds-grid slds-wrap slds-gutters">
-                                
-                                <!-- Ligne 1 : N° Ticket Correctif et Compte Projet -->
-                                <div class="slds-col slds-size_1-of-2">
-                                    <c-lookup-pill
-                                        label="N° Ticket Correctif"
-                                        placeholder="Rechercher un ticket..."
-                                        icon-name="standard:case"
-                                        s-object-type="Correctif__c"
-                                        selected-value={selectedNTicket}
-                                        onselect={handleLookupSelect}
-                                        onremove={handleLookupRemove}
-                                        data-lookup="ticket">
-                                    </c-lookup-pill>
-                                </div>
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="Compte Projet" value={compteProjet} onchange={handleCompteProjetChange} placeholder="Saisir compte projet..." variant="label-stacked"></lightning-input>
-                                </div>
+                        <lightning-accordion allow-multiple-sections-open active-section-name={activeSections} class="accordion-themed">
+                            
+                            <!-- SECTION 1 : INFORMATION DEMANDE -->
+                            <lightning-accordion-section name="info_demande" label="Information Demande">
+                                <div class="slds-grid slds-wrap slds-gutters">
+                                    
+                                    <!-- Ligne 1 : N° Ticket Correctif et Compte Projet -->
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <c-lookup-pill
+                                            label="N° Ticket Correctif"
+                                            placeholder="Rechercher un ticket..."
+                                            icon-name="standard:case"
+                                            s-object-type="Correctif__c"
+                                            controller-name="demande"
+                                            selected-value={selectedNTicket}
+                                            onselect={handleLookupSelect}
+                                            onremove={handleLookupRemove}
+                                            data-lookup="ticket">
+                                        </c-lookup-pill>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="text" label="Compte Projet" value={compteProjet} onchange={handleCompteProjetChange} placeholder="Saisir compte projet..." variant="label-stacked"></lightning-input>
+                                    </div>
 
-                                <!-- Ligne 2 : Demandeur et Créé par -->
-                                <div class="slds-col slds-size_1-of-2">
-                                    <c-lookup-pill
-                                        label="Demandeur"
-                                        placeholder="Rechercher un demandeur..."
-                                        icon-name="standard:user"
-                                        s-object-type="User"
-                                        selected-value={selectedDemandeur}
-                                        onselect={handleLookupSelect}
-                                        onremove={handleLookupRemove}
-                                        data-lookup="demandeur">
-                                    </c-lookup-pill>
-                                </div>
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="Créé Par" value={createdByName} readonly variant="label-stacked"></lightning-input>
-                                </div>
+                                    <!-- Ligne 2 : Demandeur et Créé par -->
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <c-lookup-pill
+                                            label="Demandeur"
+                                            placeholder="Rechercher un demandeur..."
+                                            icon-name="standard:user"
+                                            s-object-type="User"
+                                            controller-name="demande"
+                                            selected-value={selectedDemandeur}
+                                            onselect={handleLookupSelect}
+                                            onremove={handleLookupRemove}
+                                            data-lookup="demandeur">
+                                        </c-lookup-pill>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="text" label="Créé Par" value={createdByName} readonly variant="label-stacked"></lightning-input>
+                                    </div>
 
-                                <!-- Ligne 3 : Lieu et Type de Réception -->
-                                <div class="slds-col slds-size_1-of-2">
-                                    <c-lookup-pill
-                                        label="Lieu"
-                                        placeholder="Rechercher un site..."
-                                        icon-name="standard:location"
-                                        s-object-type="sitetracker__Site__c"
-                                        selected-value={selectedLieu}
-                                        onselect={handleLookupSelect}
-                                        onremove={handleLookupRemove}
-                                        data-lookup="lieu">
-                                    </c-lookup-pill>
-                                </div>
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-combobox label="Type de Réception" value={typeReception} options={typeReceptionOptions} onchange={handleTypeReceptionChange} variant="label-stacked"></lightning-combobox>
-                                </div>
+                                    <!-- Ligne 3 : Lieu et Type de Réception -->
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <c-lookup-pill
+                                            label="Lieu"
+                                            placeholder="Rechercher un site..."
+                                            icon-name="standard:location"
+                                            s-object-type="sitetracker__Site__c"
+                                            controller-name="demande"
+                                            selected-value={selectedLieu}
+                                            onselect={handleLookupSelect}
+                                            onremove={handleLookupRemove}
+                                            data-lookup="lieu">
+                                        </c-lookup-pill>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-combobox label="Type de Réception" value={typeReception} options={typeReceptionOptions} onchange={handleTypeReceptionChange} variant="label-stacked"></lightning-combobox>
+                                    </div>
 
-                                <!-- Ligne 4 : Adresse de Livraison et Adresse détaillée -->
-                                <div class="slds-col slds-size_1-of-2">
-                                    <c-lookup-pill
-                                        label="Adresse de Livraison"
-                                        placeholder="Rechercher une adresse..."
-                                        icon-name="standard:address"
-                                        s-object-type="Contact"
-                                        selected-value={selectedAdresseLivraison}
-                                        onselect={handleLookupSelect}
-                                        onremove={handleLookupRemove}
-                                        data-lookup="adresseLivraison">
-                                    </c-lookup-pill>
-                                </div>
-                                <div class="slds-col slds-size_1-of-2">
-                                     <lightning-textarea label="Adresse détaillée" value={contactAddress} readonly variant="label-stacked"></lightning-textarea>
-                                </div>
+                                    <!-- Ligne 4 : Adresse de Livraison et Adresse détaillée -->
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <c-lookup-pill
+                                            label="Adresse de Livraison"
+                                            placeholder="Rechercher une adresse..."
+                                            icon-name="standard:address"
+                                            s-object-type="Contact"
+                                            controller-name="demande"
+                                            selected-value={selectedAdresseLivraison}
+                                            onselect={handleLookupSelect}
+                                            onremove={handleLookupRemove}
+                                            data-lookup="adresseLivraison">
+                                        </c-lookup-pill>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-textarea label="Adresse détaillée" value={contactAddress} readonly variant="label-stacked"></lightning-textarea>
+                                    </div>
 
-                                <!-- Ligne 5 : Commentaire -->
-                                <div class="slds-col slds-size_1-of-1">
-                                    <lightning-textarea label="Commentaire" value={globalComment} onchange={handleGlobalCommentChange} placeholder="Saisir un commentaire..." variant="label-stacked"></lightning-textarea>
+                                    <!-- Ligne 5 : Commentaire -->
+                                    <div class="slds-col slds-size_1-of-1">
+                                        <lightning-textarea label="Commentaire" value={globalComment} onchange={handleGlobalCommentChange} placeholder="Saisir un commentaire..." variant="label-stacked"></lightning-textarea>
+                                    </div>
                                 </div>
-                            </div>
-                        </lightning-accordion-section>
+                            </lightning-accordion-section>
 
-                        <!-- SECTION 2 : INFORMATION DU TICKET -->
-                        <lightning-accordion-section name="info_ticket" label="Information du Ticket">
-                            <div class="slds-grid slds-wrap slds-gutters">
-                                <!-- Ligne 1 : G2R et Nom du site -->
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="G2R" value={g2r} readonly variant="label-stacked"></lightning-input>
+                            <!-- SECTION 2 : INFORMATION DU TICKET -->
+                            <lightning-accordion-section name="info_ticket" label="Information du Ticket">
+                                <div class="slds-grid slds-wrap slds-gutters">
+                                    <!-- Ligne 1 : G2R et Nom du site -->
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="text" label="G2R" value={g2r} readonly variant="label-stacked"></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="text" label="Nom du site" value={siteName} readonly variant="label-stacked"></lightning-input>
+                                    </div>
+                                    <!-- Ligne 2 : Priorité Ticket et Statut Ticket -->
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="text" label="Priorité du Ticket" value={ticketPriority} readonly variant="label-stacked"></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="text" label="Statut du Ticket" value={ticketStatus} readonly variant="label-stacked"></lightning-input>
+                                    </div>
                                 </div>
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="Nom du site" value={siteName} readonly variant="label-stacked"></lightning-input>
-                                </div>
-                                <!-- Ligne 2 : Priorité Ticket et Statut Ticket -->
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="Priorité du Ticket" value={ticketPriority} readonly variant="label-stacked"></lightning-input>
-                                </div>
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="Statut du Ticket" value={ticketStatus} readonly variant="label-stacked"></lightning-input>
-                                </div>
-                            </div>
-                        </lightning-accordion-section>
+                            </lightning-accordion-section>
 
-                        <!-- SECTION 3 : PEC COCKPIT -->
-                        <lightning-accordion-section name="pec_cockpit" label="PEC Cockpit">
-                            <div class="slds-grid slds-wrap slds-gutters">
-                                <!-- Ligne 1 : Date PEC Cockpit et PEC Par -->
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="PEC Par" value={pecCockpitBy} readonly variant="label-stacked"></lightning-input>
+                            <!-- SECTION 3 : PEC COCKPIT -->
+                            <lightning-accordion-section name="pec_cockpit" label="PEC Cockpit">
+                                <div class="slds-grid slds-wrap slds-gutters">
+                                    <!-- Ligne 1 : Date PEC Cockpit et PEC Par -->
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="text" label="PEC Par" value={pecCockpitBy} readonly variant="label-stacked"></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <label class="slds-form-element__label">Date PEC Cockpit</label>
+                                        <lightning-input type="datetime" variant="label-hidden" value={pecCockpitDate} disabled></lightning-input>
+                                    </div>
+                                    <!-- Ligne 2 : Date Retraitement et Retraitement Par -->
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="text" label="Retraitement Par" value={pecRetraitementBy} readonly variant="label-stacked"></lightning-input>
+                                    </div>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <label class="slds-form-element__label">Date Retraitement</label>
+                                        <lightning-input type="datetime" variant="label-hidden" value={pecRetraitementDate} disabled></lightning-input>
+                                    </div>
                                 </div>
-                                <div class="slds-col slds-size_1-of-2">
-                                    <label class="slds-form-element__label">Date PEC Cockpit</label>
-                                    <lightning-input type="datetime" variant="label-hidden" value={pecCockpitDate} disabled></lightning-input>
-                                </div>
-                                <!-- Ligne 2 : Date Retraitement et Retraitement Par -->
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="Retraitement Par" value={pecRetraitementBy} readonly variant="label-stacked"></lightning-input>
-                                </div>
-                                <div class="slds-col slds-size_1-of-2">
-                                    <label class="slds-form-element__label">Date Retraitement</label>
-                                    <lightning-input type="datetime" variant="label-hidden" value={pecRetraitementDate} disabled></lightning-input>
-                                </div>
-                            </div>
-                        </lightning-accordion-section>
-                    </lightning-accordion>
+                            </lightning-accordion-section>
+                        </lightning-accordion>
+                </div>
             </div>
-        </div>
-        </div>
+            </div>
+        </template>
+
       </template>
       <!-- ============== MOBILE ================== -->
-       <div class="slds-p-horizontal_medium slds-p-bottom_medium slds-border_bottom mobile-only">
-           <div class="slds-grid slds-wrap slds-gutters">
-               <!-- COLONNE GAUCHE : INFORMATIONS COMMANDE -->
-               <div class="slds-col slds-size_1-of-1 slds-large-size_12-of-12">
-                   <h2 class="slds-text-heading_medium slds-m-bottom_medium">Informations de la Demande</h2>
-                   <lightning-layout multiple-rows="true">
-              
-                <!-- N° TICKET  -->
-                <lightning-layout-item size="12" padding="around-small">
-                    <c-lookup-pill
-                        label="N° Ticket Correctif"
-                        icon-name="standard:case"
-                        s-object-type="Correctif__c"
-                        object-type="Correctif__c"
-                        controller-name="demande"
-                        selected-value={selectedNTicket}
-                        onselect={handleLookupSelect}
-                        onremove={handleLookupRemove}
-                        data-lookup="ticket"
-                    ></c-lookup-pill>
-                </lightning-layout-item>
+       <template if:false={isDesktop}>
+            <div class="slds-p-horizontal_medium slds-p-bottom_medium slds-border_bottom">
+                <div class="slds-grid slds-wrap slds-gutters">
+                    <!-- COLONNE GAUCHE : INFORMATIONS COMMANDE -->
+                    <div class="slds-col slds-size_1-of-1 slds-large-size_12-of-12">
+                        <h2 class="slds-text-heading_medium slds-m-bottom_medium">Informations de la Demande</h2>
+                        <lightning-layout multiple-rows="true">
+                    
+                        <!-- N° TICKET  -->
+                        <lightning-layout-item size="12" padding="around-small">
+                            <c-lookup-pill
+                                label="N° Ticket Correctif"
+                                placeholder="Rechercher un ticket..."
+                                icon-name="standard:case"
+                                s-object-type="Correctif__c"
+                                controller-name="demande"
+                                selected-value={selectedNTicket}
+                                onselect={handleLookupSelect}
+                                onremove={handleLookupRemove}
+                                data-lookup="ticket">
+                            </c-lookup-pill>
+                            
+                        </lightning-layout-item>
 
-                <!-- DEMANDEUR -->
-                <lightning-layout-item size="12" padding="around-small">
-                    <c-lookup-pill
-                        label="Demandeur"
-                        icon-name="standard:user"
-                        s-object-type="User"
-                        object-type="User"
-                        controller-name="demande"
-                        selected-value={selectedDemandeur}
-                        onselect={handleLookupSelect}
-                        onremove={handleLookupRemove}
-                        data-lookup="demandeur"
-                    ></c-lookup-pill>
-                </lightning-layout-item>
+                        <!-- DEMANDEUR -->
+                        <lightning-layout-item size="12" padding="around-small">
+                            <c-lookup-pill
+                                label="Demandeur"
+                                icon-name="standard:user"
+                                s-object-type="User"
+                                controller-name="demande"
+                                selected-value={selectedDemandeur}
+                                onselect={handleLookupSelect}
+                                onremove={handleLookupRemove}
+                                data-lookup="demandeur"
+                            ></c-lookup-pill>
+                        </lightning-layout-item>
 
-                <!-- LIEU -->
-                <lightning-layout-item size="12" padding="around-small">
-                    <c-lookup-pill
-                        label="Lieu"
-                        icon-name="standard:account"
-                        s-object-type="sitetracker__Site__c"
-                        object-type="sitetracker__Site__c"
-                        controller-name="demande"
-                        selected-value={selectedLieu}
-                        onselect={handleLookupSelect}
-                        onremove={handleLookupRemove}
-                        data-lookup="lieu"
-                    ></c-lookup-pill>
-                </lightning-layout-item>
+                        <!-- LIEU -->
+                        <lightning-layout-item size="12" padding="around-small">
+                            <c-lookup-pill
+                                label="Lieu"
+                                icon-name="standard:account"
+                                s-object-type="sitetracker__Site__c"
+                                controller-name="demande"
+                                selected-value={selectedLieu}
+                                onselect={handleLookupSelect}
+                                onremove={handleLookupRemove}
+                                data-lookup="lieu"
+                            ></c-lookup-pill>
+                        </lightning-layout-item>
 
-                <!-- COMPTE PROJET -->
-                <lightning-layout-item size="12" padding="around-small">
-                    <lightning-input 
-                        type="text" 
-                        label="Compte Projet" 
-                        value={compteProjet} 
-                        onchange={handleCompteProjetChange}
-                        variant="label-stacked">
-                    </lightning-input>
-                </lightning-layout-item>
+                        <!-- COMPTE PROJET -->
+                        <lightning-layout-item size="12" padding="around-small">
+                            <lightning-input 
+                                type="text" 
+                                label="Compte Projet" 
+                                value={compteProjet} 
+                                onchange={handleCompteProjetChange}
+                                variant="label-stacked">
+                            </lightning-input>
+                        </lightning-layout-item>
 
-                <!-- TYPE RECEPTION -->
-                <lightning-layout-item size="12" padding="around-small">
-                    <lightning-combobox 
-                        label="Type de Réception" 
-                        value={typeReception} 
-                        options={typeReceptionOptions} 
-                        onchange={handleTypeReceptionChange}
-                        variant="label-stacked">
-                    </lightning-combobox>
-                </lightning-layout-item>
+                        <!-- TYPE RECEPTION -->
+                        <lightning-layout-item size="12" padding="around-small">
+                            <lightning-combobox 
+                                label="Type de Réception" 
+                                value={typeReception} 
+                                options={typeReceptionOptions} 
+                                onchange={handleTypeReceptionChange}
+                                variant="label-stacked">
+                            </lightning-combobox>
+                        </lightning-layout-item>
 
-                <!-- ADRESSE LIVRAISON -->
-                <lightning-layout-item size="12" padding="around-small">
-                    <c-lookup-pill
-                        label="Adresse de Livraison"
-                        icon-name="standard:contact"
-                        s-object-type="Contact"
-                        object-type="Contact"
-                        controller-name="demande"
-                        selected-value={selectedAdresseLivraison}
-                        onselect={handleLookupSelect}
-                        onremove={handleLookupRemove}
-                        data-lookup="adresseLivraison"
-                    ></c-lookup-pill>
-                </lightning-layout-item>
+                        <!-- ADRESSE LIVRAISON -->
+                        <lightning-layout-item size="12" padding="around-small">
+                            <c-lookup-pill
+                                label="Adresse de Livraison"
+                                icon-name="standard:contact"
+                                s-object-type="Contact"
+                                controller-name="demande"
+                                selected-value={selectedAdresseLivraison}
+                                onselect={handleLookupSelect}
+                                onremove={handleLookupRemove}
+                                data-lookup="adresseLivraison"
+                            ></c-lookup-pill>
+                        </lightning-layout-item>
 
-                <!-- CONTACT ADDRESS -->
-                <lightning-layout-item size="12" padding="around-small">
-                    <lightning-textarea 
-                        value={contactAddress} 
-                        readonly
-                        variant="label-hidden">
-                    </lightning-textarea>
-                </lightning-layout-item>
+                        <!-- CONTACT ADDRESS -->
+                        <lightning-layout-item size="12" padding="around-small">
+                            <lightning-textarea 
+                                value={contactAddress} 
+                                readonly
+                                variant="label-hidden">
+                            </lightning-textarea>
+                        </lightning-layout-item>
 
-                 <!-- COMMENTAIRE -->
-                 <lightning-layout-item size="12" padding="around-small">
-                     <lightning-textarea 
-                         label="Commentaire" 
-                         value={globalComment} 
-                         onchange={handleGlobalCommentChange}
-                         variant="label-stacked">
-                     </lightning-textarea>
-                 </lightning-layout-item>
-            
-                <lightning-layout-item size="12" medium-device-size="12" padding="around-small">
-                <div class="slds-form-element">
-                    <label class="slds-form-element__label">Photos</label>
-                    <div class="slds-form-element__control">
-                        
-                        <!-- MODE CRÉATION -->
-                        <template if:false={isEditMode}>
-                            <div class="slds-grid slds-wrap slds-gutters">
-                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
-                                    <lightning-input type="file" label="Ajouter des photos" variant="label-hidden" multiple accept=".jpg, .jpeg, .png" onchange={handleFileSelect}></lightning-input>
-                                </div>
-                                <div class="slds-col slds-size_1-of-1 slds-medium-size_9-of-12">
-                                    <template if:true={hasFilesToUpload}>
-                                        <div class="slds-grid slds-wrap slds-gutters_x-small">
-                                            <template for:each={filesToUpload} for:item="file" for:index="index">
-                                                <div key={file.key} class="slds-col slds-size_1-of-4 slds-medium-size_1-of-6 slds-large-size_1-of-8 slds-m-bottom_small">
-                                                    <div class="slds-box slds-box_x-small slds-theme_shade slds-text-align_center slds-position_relative">
-                                                        <lightning-button-icon icon-name="utility:close" variant="bare" size="small" class="slds-position_absolute slds-float_right" style="top:0; right:0;" data-index={index} onclick={handleRemoveFileToUpload}></lightning-button-icon>
-                                                        <img src={file.previewUrl} style="max-height: 50px; max-width: 100%;" />
-                                                        <div class="slds-truncate slds-text-body_small" title={file.name}>{file.name}</div>
-                                                    </div>
+                        <!-- COMMENTAIRE -->
+                        <lightning-layout-item size="12" padding="around-small">
+                            <lightning-textarea 
+                                label="Commentaire" 
+                                value={globalComment} 
+                                onchange={handleGlobalCommentChange}
+                                variant="label-stacked">
+                            </lightning-textarea>
+                        </lightning-layout-item>
+                    
+                        <lightning-layout-item size="12" medium-device-size="12" padding="around-small">
+                        <div class="slds-form-element">
+                            <label class="slds-form-element__label">Photos</label>
+                            <div class="slds-form-element__control">
+                                
+                                <!-- MODE CRÉATION -->
+                                <template if:false={isEditMode}>
+                                    <div class="slds-grid slds-wrap slds-gutters">
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                                            <lightning-input type="file" label="Ajouter des photos" variant="label-hidden" multiple accept=".jpg, .jpeg, .png" onchange={handleFileSelect}></lightning-input>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_9-of-12">
+                                            <template if:true={hasFilesToUpload}>
+                                                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                                                    <template for:each={filesToUpload} for:item="file" for:index="index">
+                                                        <div key={file.key} class="slds-col slds-size_1-of-4 slds-medium-size_1-of-6 slds-large-size_1-of-8 slds-m-bottom_small">
+                                                            <div class="slds-box slds-box_x-small slds-theme_shade slds-text-align_center slds-position_relative">
+                                                                <lightning-button-icon icon-name="utility:close" variant="bare" size="small" class="slds-position_absolute slds-float_right" style="top:0; right:0;" data-index={index} onclick={handleRemoveFileToUpload}></lightning-button-icon>
+                                                                <img src={file.previewUrl} style="max-height: 50px; max-width: 100%;" />
+                                                                <div class="slds-truncate slds-text-body_small" title={file.name}>{file.name}</div>
+                                                            </div>
+                                                        </div>
+                                                    </template>
                                                 </div>
                                             </template>
                                         </div>
-                                    </template>
-                                </div>
-                            </div>
-                        </template>
+                                    </div>
+                                </template>
 
-                        <!-- MODE ÉDITION -->
-                        <template if:true={isEditMode}>
-                            <div class="slds-grid slds-wrap slds-gutters">
-                                <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
-                                    <lightning-file-upload
-                                        label="Ajouter des photos"
-                                        name="fileUploader"
-                                        record-id={recordId}
-                                        accept=".jpg, .jpeg, .png"
-                                        multiple
-                                        onuploadfinished={handleUploadFinished}>
-                                    </lightning-file-upload>
-                                </div>
-                                <div class="slds-col slds-size_1-of-1 slds-medium-size_9-of-12">
-                                    <template if:true={hasAttachedFiles}>
-                                        <div class="slds-grid slds-wrap slds-gutters_x-small">
-                                            <template for:each={attachedFiles} for:item="file">
-                                                <div key={file.id} class="slds-col slds-size_1-of-4 slds-medium-size_1-of-6 slds-large-size_1-of-8 slds-m-bottom_small">
-                                                    <div class="slds-box slds-box_x-small slds-theme_shade slds-text-align_center slds-p-around_none" style="position: relative;">
-                                                        <lightning-button-icon icon-name="utility:close" variant="border-filled" size="small" class="delete-btn" style="position: absolute; top: 2px; right: 2px; z-index: 10;" data-id={file.id} onclick={handleDeleteAttachedFile}></lightning-button-icon>
-                                                        <img src={file.previewUrl} style="width: 100%; height: 100px; object-fit: cover; display: block; cursor: pointer;" data-id={file.id} onclick={handlePreviewFile} />
-                                                    </div>
-                                                    <div class="slds-text-align_center slds-text-body_small slds-m-top_xx-small slds-truncate" title={file.title}>{file.title}</div>
+                                <!-- MODE ÉDITION -->
+                                <template if:true={isEditMode}>
+                                    <div class="slds-grid slds-wrap slds-gutters">
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_3-of-12">
+                                            <lightning-file-upload
+                                                label="Ajouter des photos"
+                                                name="fileUploader"
+                                                record-id={recordId}
+                                                accept=".jpg, .jpeg, .png"
+                                                multiple
+                                                onuploadfinished={handleUploadFinished}>
+                                            </lightning-file-upload>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-1 slds-medium-size_9-of-12">
+                                            <template if:true={hasAttachedFiles}>
+                                                <div class="slds-grid slds-wrap slds-gutters_x-small">
+                                                    <template for:each={attachedFiles} for:item="file">
+                                                        <div key={file.id} class="slds-col slds-size_1-of-4 slds-medium-size_1-of-6 slds-large-size_1-of-8 slds-m-bottom_small">
+                                                            <div class="slds-box slds-box_x-small slds-theme_shade slds-text-align_center slds-p-around_none" style="position: relative;">
+                                                                <lightning-button-icon icon-name="utility:close" variant="border-filled" size="small" class="delete-btn" style="position: absolute; top: 2px; right: 2px; z-index: 10;" data-id={file.id} onclick={handleDeleteAttachedFile}></lightning-button-icon>
+                                                                <img src={file.previewUrl} style="width: 100%; height: 100px; object-fit: cover; display: block; cursor: pointer;" data-id={file.id} onclick={handlePreviewFile} />
+                                                            </div>
+                                                            <div class="slds-text-align_center slds-text-body_small slds-m-top_xx-small slds-truncate" title={file.title}>{file.title}</div>
+                                                        </div>
+                                                    </template>
                                                 </div>
                                             </template>
                                         </div>
-                                    </template>
-                                </div>
+                                    </div>
+                                </template>
                             </div>
-                        </template>
-                    </div>
+                        </div>
+                    </lightning-layout-item>
+                </lightning-layout>
                 </div>
-            </lightning-layout-item>
-          </lightning-layout>
-        </div>
-    </div>
-    </div>
+            </div>
+            </div>
+       </template>
+
 
       <!-- ======================= CORPS DU COMPOSANT : DEUX COLONNES ======================= -->
       <div class="slds-grid slds-wrap slds-gutters_medium slds-p-around_medium">
@@ -398,54 +404,56 @@
                     <template if:true={isDesktop}>
                         <div class="slds-scrollable_y" style="max-height: 500px;">
                             <template for:each={cart} for:item="item">
-                                <div key={item.key} class="slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small" style="border-left: 3px solid #0176d3; padding: 0.4rem 0.75rem;">
+                                <div key={item.key} class="slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small border-left-blue">
                                     
-                                    <!-- Ligne 1 : Mnémonique (Gauche) - Statut (Centre) - Nom Article (Droite) -->
-                                    <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
-                                        <span class="slds-col slds-size_5-of-12 slds-truncate slds-text-title_bold">{item.mnemonique}</span>
-                                        <span class="slds-col slds-size_3-of-12 slds-text-align_center slds-text-body_small">{item.statutForDisplay}</span>
-                                        <span class="slds-col slds-size_4-of-12 slds-text-align_right slds-truncate slds-text-title_bold">{item.articleName}</span>
-                                    </div>
-
-                                    <!-- Ligne 2 : Site (Gauche) et Contrôles Quantité/Suppression (Droite) -->
-                                    <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
-                                        <span class="slds-text-body_small slds-text-color_weak">{item.siteName}</span>
-                                        
-                                        <div class="slds-grid slds-grid_vertical-align-center">
-                                            <div style="width: 70px;">
-                                                <lightning-input 
-                                                    type="number" 
-                                                    variant="label-hidden" 
-                                                    placeholder="Quantité" 
-                                                    value={item.quantity} 
-                                                    data-key={item.key} 
-                                                    min="1" 
-                                                    max={item.stock}>
-                                                </lightning-input>
+                                    <div class="slds-grid">
+                                        <div class="slds-col" style="border-right: 1px solid #dddbda; padding-right: 10px;">
+                                            <!-- LIGNE 1: Mnémonique + Statut + Nom Article -->
+                                            <div class="slds-grid slds-grid_align-spread slds-m-bottom_x-small">
+                                                <div class="slds-col slds-truncate slds-text-align_left" title={item.mnemonique} style="width: 45%; padding-left:0;"><strong>{item.mnemonique}</strong></div>
+                                                <div class="slds-col slds-truncate slds-text-align_center slds-text-body_small slds-text-color_weak" style="width: 35%;">{item.siteName}</div>
+                                                <div class="slds-col slds-truncate slds-text-align_right slds-text-body_small" title={item.articleName} style="width: 20%; padding-right:10px;">{item.articleName}</div>
                                             </div>
-                                            
+
+                                            <!-- LIGNE 2: Site + Quantité -->
+                                            <div class="slds-grid slds-grid_align-spread">
+                                                <div class="slds-col slds-text-align_left slds-text-body_small slds-text-color_weak" style="width: 45%; padding-left:0;">                                                
+                                                    <textarea
+                                                        class="slds-textarea style-panier"
+                                                        placeholder="Ajouter un commentaire..."
+                                                        data-key={item.key}
+                                                        onchange={handleCartCommentChange}
+                                                    >{item.comment}</textarea>
+                                                </div>
+                                                <div class="slds-col slds-text-align_center" style="width: 35%;">{item.statutForDisplay}</div>
+                                                <div class="slds-col" style="width: 20%;">
+                                                <div style="width: 40px; margin: 0 auto; text-align:right;">
+                                                        <lightning-input 
+                                                            type="number" 
+                                                            variant="label-hidden" 
+                                                            placeholder="Qté" 
+                                                            value={item.quantity} 
+                                                            data-key={item.key} 
+                                                            min="1" 
+                                                            max={item.stock}>
+                                                        </lightning-input>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="slds-col slds-shrink-none slds-grid slds-grid_vertical slds-grid_align-center slds-grid_vertical-align-center" style="width: 5%; max-width: 5%; padding-left:0; padding-right:0;">
                                             <lightning-button-icon 
                                                 icon-name="utility:delete" 
                                                 variant="bare" 
                                                 alternative-text="Supprimer" 
                                                 title="Supprimer" 
-                                                class="slds-icon-text-error slds-m-left_small"
+                                                class="slds-icon-text-error"
+                                                size="medium"
                                                 data-key={item.key} 
                                                 onclick={handleCartRemove}>
                                             </lightning-button-icon>
                                         </div>
-                                    </div>
-
-                                    <!-- Ligne 3 : Commentaire -->
-                                    <div class="slds-m-top_xx-small">
-                                        <lightning-input 
-                                            type="text" 
-                                            variant="label-hidden" 
-                                            placeholder="Ajouter un commentaire..." 
-                                            value={item.comment} 
-                                            data-key={item.key} 
-                                            onchange={handleCartCommentChange}>
-                                        </lightning-input>
                                     </div>
 
                                 </div>

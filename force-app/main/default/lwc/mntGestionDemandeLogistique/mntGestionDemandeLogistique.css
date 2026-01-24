@@ -299,3 +299,19 @@
     --sds-c-accordion-summary-color-background: #f3f2f2;
     --sds-c-accordion-summary-color-background-hover: #ecebea;
 }
+
+/* Custom textarea style for cart items */
+.style-panier {
+    height: 32px; /* Hauteur précise */
+    min-height: 32px; /* Empêche le redimensionnement automatique bizarre */
+    padding: 4px 8px; /* Ajuste le padding interne pour que le texte soit centré */
+    resize: vertical; /* Permet le redimensionnement vertical */
+    overflow: auto; /* Affiche la scrollbar si nécessaire */
+    line-height: normal; /* Important pour centrer le texte verticalement */
+}
+
+/* Petit bonus : effet au survol/focus pour garder l'UX Salesforce */
+.style-panier:focus {
+    box-shadow: 0 0 3px #0176d3;
+    border-color: #0176d3;
+}

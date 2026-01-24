@@ -26,7 +26,7 @@ export default class FlowMenuButtons extends NavigationMixin(LightningElement) {
     // Gestion des liens externes / Deep Links
     if (opt.url) {
         // Ouvre dans le navigateur système (gère les Custom Schemes comme sitetracker://)
-        window.open(opt.url, '_self');
+        window.location.assign(opt.url);
     }
 
     // Navigation de Flow (si configuré)

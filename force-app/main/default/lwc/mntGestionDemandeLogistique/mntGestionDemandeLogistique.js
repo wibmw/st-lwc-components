@@ -136,11 +136,16 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     }
 
     get enhancedRows() {
-        return this.rows.map(row => ({
-            ...row,
-            key: row.siteId ? `${row.siteId}-${row.articleId}` : row.articleId,
-            isAddedToCart: this.cartItemKeys.has(row.siteId ? `${row.siteId}-${row.articleId}` : row.articleId)
-        }));
+        return this.rows
+            .filter(row => {
+                const key = row.siteId ? `${row.siteId}-${row.articleId}` : row.articleId;
+                return !this.cartItemKeys.has(key);
+            })
+            .map(row => ({
+                ...row,
+                key: row.siteId ? `${row.siteId}-${row.articleId}` : row.articleId,
+                isAddedToCart: false
+            }));
     }
 
     get showNoResultsMessage() {
@@ -179,7 +184,11 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
             this.loadInitialData();
         } else if (this.objectApiName === 'sitetracker__Job__c' && this.recordId) {
             this.loadInitialData();
+        } else if (this.ticketCorrectifID) {
+            // Prioritize Ticket Creation flow if ticket ID is explicitly provided
+            this.loadInitialData();
         } else if (this.recordId) {
+            // Assume Order Edit flow if recordId is present but NOT a ticket creation flow
             this.loadOrderData();
         } else {
             this.loadInitialData();
@@ -192,6 +201,8 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
             let params = { nTicketId: this.nTicketId };
             if (this.objectApiName === 'sitetracker__Job__c' && this.recordId) {
                 params = { recordId: this.recordId, sObjectType: 'sitetracker__Job__c' };
+            } else if (this.objectApiName === 'Correctif__c' && this.recordId) {
+                params = { nTicketId: this.recordId, sObjectType: 'Correctif__c' };
             }
 
             const data = await getInitialData(params);
@@ -205,11 +216,14 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 this.nTicketId = data.nTicketCorrectifId;
                 const label = data.nTicketName || '';
                 const sublabel = data.nTicketSubLabel || '';
+                // Reassign to trigger reactivity
                 this.selectedNTicket = {
                     value: data.nTicketCorrectifId,
                     label: label,
                     sublabel: sublabel,
-                    pillLabel: sublabel ? `${label} - ${sublabel}` : label
+                    pillLabel: sublabel ? `${label} - ${sublabel}` : label,
+                    g2r: data.g2r,
+                    siteName: data.siteName
                 };
                 this.g2r = data.g2r;
                 this.siteName = data.siteName;
@@ -390,7 +404,6 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 // Auto-populate extra fields from ticket
                 if (selectedValue.g2r) this.g2r = selectedValue.g2r;
                 if (selectedValue.siteName) this.siteName = selectedValue.siteName;
-                if (selectedValue.compteProjet) this.compteProjet = selectedValue.compteProjet;
                 break;
             case 'demandeur':
                 this.demandeurId = selectedValue.value;
@@ -430,7 +443,6 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 this.selectedLieu = null;
                 break;
             case 'adresseLivraison':
-            case 'adresselivraison':
                 this.adresseLivraisonId = null;
                 this.selectedAdresseLivraison = null;
                 break;
@@ -640,7 +652,8 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
             statut: 'Disponible',
             statutForDisplay: '🟢 Disponible',
             isAutre: row.articleName && row.articleName.toLowerCase() === 'autre',
-            typeLigne: this.isDesktop ? 'Cockpit' : 'Technicien'
+            typeLigne: this.isDesktop ? 'Cockpit' : 'Technicien',
+            stock: row.stock
         };
         this.cart = [...this.cart, newItem];
         this.updateCartKeys();
@@ -648,6 +661,29 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         if (this.isDesktop) {
             this.hasExistingCockpitLines = this.cart.length > 0;
         }
+    }
+
+    updateCartKeys() {
+        this.cartItemKeys = new Set(this.cart.map(item => item.key));
+    }
+
+    handleCartRemove(event) {
+        const key = event.target.dataset.key || event.currentTarget.dataset.key;
+        this.cart = this.cart.filter(c => c.key !== key);
+        this.updateCartKeys();
+        if (this.isDesktop) {
+            this.hasExistingCockpitLines = this.cart.length > 0;
+        }
+        this.toast('Succès', 'Article retiré du panier.', 'success');
+    }
+
+
+    handleCartCommentChange(event) {
+        const key = event.target.dataset.key;
+        const value = event.target.value;
+        this.cart = this.cart.map(item =>
+            item.key === key ? { ...item, comment: value } : item
+        );
     }
 
     handleCartItemChange(event) {
