@@ -74,7 +74,9 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         @AuraEnabled public Id lieuId;
         @AuraEnabled public String lieuName;
         @AuraEnabled public String lieuNomDuSite;
+
         @AuraEnabled public String pillLabels;
+        @AuraEnabled public String userCompteProjet;
     }
 
     public class OrderDetailsWrapper {
@@ -112,10 +114,21 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
     // --- MÉTHODES APEX ---
 
     @AuraEnabled(cacheable=true)
-    public static InitialDataWrapper getInitialData(Id nTicketId, Id recordId, String sObjectType) {
+    public static InitialDataWrapper getInitialData(Id nTicketId, Id recordId, String sObjectType, Boolean isMobile) {
         InitialDataWrapper data = new InitialDataWrapper();
         data.currentUserId = UserInfo.getUserId();
-        data.currentUserName = UserInfo.getName();
+        String currentUserName = UserInfo.getName();
+        data.currentUserName = currentUserName;
+
+        // Récupérer le Compte Projet du User pour le mobile
+        try {
+            User u = [SELECT Compte_Projet_Logistique__c FROM User WHERE Id = :data.currentUserId LIMIT 1];
+            data.userCompteProjet = u.Compte_Projet_Logistique__c;
+        } catch (Exception e) {
+            System.debug('Error querying User Compte Projet: ' + e.getMessage());
+        }
+
+        System.debug('Tech Name: ' + currentUserName);
 
         Id ticketIdToUse = nTicketId;
 
@@ -144,16 +157,39 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
                 data.siteName = t.Nom_du_site__c;
                 
                 data.nTicketSubLabel = formatTicketSublabel(t.Code_site__c, t.Nom_du_site__c);
-
-                // Pre-fill Site info if available on the ticket
-                if (t.Site__c != null) {
-                    data.lieuId = t.Site__c;
-                    data.lieuName = t.Site__r.Name;
-                    data.lieuNomDuSite = t.Site__r.Nom_du_site__c;
-                    data.pillLabels = (t.Site__r.Name != null ? t.Site__r.Name : '') + (String.isNotBlank(t.Site__r.Nom_du_site__c) ? ' - ' + t.Site__r.Nom_du_site__c : '');
-                }
             }
         }
+
+        // LOGIQUE MOBILE SPÉCIFIQUE
+        System.debug('Mobile Context Check - isMobile: ' + isMobile);
+        if (isMobile == true) {
+            String searchName = 'STE-%';
+            String searchLogist = '%' + currentUserName + '%';
+            
+            System.debug('Searching Site with Name LIKE: ' + searchName);
+            System.debug('Searching Site with Logistician LIKE: ' + searchLogist);
+            
+            List<sitetracker__Site__c> mobileSites = [
+                SELECT Id, Name, Nom_du_site__c 
+                FROM sitetracker__Site__c 
+                WHERE Name LIKE :searchName 
+                AND RecordType.DeveloperName = 'CIRCET'  // Utilisation de DeveloperName plus sûr
+                AND Liste_Logisticiens__c LIKE :searchLogist
+                LIMIT 1
+            ];
+
+            System.debug('Mobile Sites Found: ' + mobileSites.size());
+
+            if (!mobileSites.isEmpty()) {
+                sitetracker__Site__c site = mobileSites[0];
+                System.debug('Site Found: ' + site.Name + ' (' + site.Id + ')');
+                data.lieuId = site.Id;
+                data.lieuName = site.Name;
+                data.lieuNomDuSite = site.Nom_du_site__c;
+                data.pillLabels = (site.Name != null ? site.Name : '') + (String.isNotBlank(site.Nom_du_site__c) ? ' - ' + site.Nom_du_site__c : '');
+            }
+        }
+
         return data;
     }
 
@@ -168,7 +204,7 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         } else if (sObjectType == 'Contact') {
             query = 'SELECT Id, Name, MailingStreet, MailingCity, MailingPostalCode, MailingState, MailingCountry FROM Contact WHERE Name LIKE :queryTerm ORDER BY Name LIMIT 10';
         } else if (sObjectType == 'sitetracker__Site__c') {
-            query = 'SELECT Id, Name, Nom_du_site__c FROM sitetracker__Site__c WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) ORDER BY Name LIMIT 10';
+            query = 'SELECT Id, Name, Nom_du_site__c FROM sitetracker__Site__c WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) AND RecordType.DeveloperName = `CIRCET` AND Type_de_Stock__c = `Stock` ORDER BY Name LIMIT 10';
         } else if (sObjectType == 'Correctif__c') {
             query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
         }
@@ -511,7 +547,8 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
                     Destinataire__c = adresseLivraisonId,
                     Stock__c = siteId,
                     N_Ticket_Correctif__c = nTicketId,
-                    Statut__c = 'Commande à Traiter'
+                    Statut__c = 'Commande à Traiter',
+                    Type__c = 'Autre Stock'
                 ));
             }
             insert newEnvois;
@@ -743,16 +780,47 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
             cv.Title = file.title;
             cv.PathOnClient = file.title;
             cv.VersionData = EncodingUtil.base64Decode(file.base64Data);
-            cv.FirstPublishLocationId = recordId; // Lie directement au record si possible (dépend des settings)
-            // Sinon on doit insérer puis créer ContentDocumentLink
+            if (recordId != null) cv.FirstPublishLocationId = recordId;
             cvList.add(cv);
         }
         insert cvList;
         
-        // Si FirstPublishLocationId ne suffit pas (souvent le cas pour objets custom), on crée les liens manuellement
-        // Mais FirstPublishLocationId fonctionne généralement bien. 
-        // Par sécurité, on vérifie si on doit créer les liens.
-        // Avec FirstPublishLocationId, le lien est créé automatiquement.
+        // Créer manuellement les ContentDocumentLink pour associer les fichiers à la commande
+        List<ContentDocumentLink> cdlList = new List<ContentDocumentLink>();
+        
+        // Récupérer les ContentDocumentId des ContentVersion insérées
+        Set<Id> cvIds = new Set<Id>();
+        for (ContentVersion cv : cvList) {
+            cvIds.add(cv.Id);
+        }
+        
+        // Query pour obtenir les ContentDocumentId
+        Map<Id, Id> cvIdToDocIdMap = new Map<Id, Id>();
+        for (ContentVersion cv : [SELECT Id, ContentDocumentId FROM ContentVersion WHERE Id IN :cvIds]) {
+            cvIdToDocIdMap.put(cv.Id, cv.ContentDocumentId);
+        }
+        
+        // Créer les liens
+        for (ContentVersion cv : cvList) {
+            Id contentDocId = cvIdToDocIdMap.get(cv.Id);
+            if (contentDocId != null) {
+                ContentDocumentLink cdl = new ContentDocumentLink();
+                cdl.ContentDocumentId = contentDocId;
+                cdl.LinkedEntityId = recordId;  // Lien vers la commande
+                cdl.ShareType = 'V';  // Viewer permission
+                cdl.Visibility = 'AllUsers'; // S'assurer que visible
+                cdlList.add(cdl);
+            }
+        }
+        
+        if (!cdlList.isEmpty()) {
+            try {
+                insert cdlList;
+            } catch (Exception e) {
+                System.debug('Error creating CDL: ' + e.getMessage());
+                // Ignorer si doublon
+            }
+        }
     }
 
     @AuraEnabled(cacheable=true)
@@ -760,9 +828,9 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         List<AttachedFile> results = new List<AttachedFile>();
         for (ContentDocumentLink link : [SELECT ContentDocumentId, ContentDocument.LatestPublishedVersionId, ContentDocument.Title FROM ContentDocumentLink WHERE LinkedEntityId = :recordId]) {
             AttachedFile f = new AttachedFile();
-            f.id = link.ContentDocumentId; // On utilise ContentDocumentId comme ID principal
+            f.id = link.ContentDocumentId;
             f.contentDocumentId = link.ContentDocumentId;
-            f.contentVersionId = link.ContentDocument.LatestPublishedVersionId; // Pour l'affichage de l'image
+            f.contentVersionId = link.ContentDocument.LatestPublishedVersionId;
             f.title = link.ContentDocument.Title;
             results.add(f);
         }

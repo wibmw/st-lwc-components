@@ -81,26 +81,28 @@
                                     </div>
 
                                     <!-- Ligne 4 : Adresse de Livraison et Adresse détaillée -->
-                                    <div class="slds-col slds-size_1-of-2">
-                                        <c-lookup-pill
-                                            label="Adresse de Livraison"
-                                            placeholder="Rechercher une adresse..."
-                                            icon-name="standard:address"
-                                            s-object-type="Contact"
-                                            controller-name="demande"
-                                            selected-value={selectedAdresseLivraison}
-                                            onselect={handleLookupSelect}
-                                            onremove={handleLookupRemove}
-                                            data-lookup="adresseLivraison">
-                                        </c-lookup-pill>
-                                    </div>
-                                    <div class="slds-col slds-size_1-of-2">
-                                        <lightning-textarea label="Adresse détaillée" value={contactAddress} readonly variant="label-stacked"></lightning-textarea>
-                                    </div>
+                                    <template if:true={showAddressFields}>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <c-lookup-pill
+                                                label="Adresse de Livraison"
+                                                placeholder="Rechercher une adresse..."
+                                                icon-name="standard:address"
+                                                s-object-type="Contact"
+                                                controller-name="demande"
+                                                selected-value={selectedAdresseLivraison}
+                                                onselect={handleLookupSelect}
+                                                onremove={handleLookupRemove}
+                                                data-lookup="adresseLivraison">
+                                            </c-lookup-pill>
+                                        </div>
+                                        <div class="slds-col slds-size_1-of-2">
+                                            <lightning-textarea label="Adresse détaillée" value={contactAddress} readonly variant="label-stacked"></lightning-textarea>
+                                        </div>
+                                    </template>
 
                                     <!-- Ligne 5 : Commentaire -->
                                     <div class="slds-col slds-size_1-of-1">
-                                        <lightning-textarea label="Commentaire" value={globalComment} onchange={handleGlobalCommentChange} placeholder="Saisir un commentaire..." variant="label-stacked"></lightning-textarea>
+                                        <lightning-textarea label="Commentaire" value={globalComment} placeholder="Saisir un commentaire..." variant="label-stacked" onchange={handleGlobalCommentChange}></lightning-textarea>
                                     </div>
                                 </div>
                             </lightning-accordion-section>
@@ -164,18 +166,36 @@
                     
                         <!-- N° TICKET  -->
                         <lightning-layout-item size="12" padding="around-small">
-                            <c-lookup-pill
-                                label="N° Ticket Correctif"
-                                placeholder="Rechercher un ticket..."
-                                icon-name="standard:case"
-                                s-object-type="Correctif__c"
-                                controller-name="demande"
-                                selected-value={selectedNTicket}
-                                onselect={handleLookupSelect}
-                                onremove={handleLookupRemove}
-                                data-lookup="ticket">
-                            </c-lookup-pill>
-                            
+                             <div class="slds-grid slds-wrap slds-gutters">
+                                <template if:true={showMobileTicketLookup}>
+                                    <div class="slds-col slds-size_1-of-1 slds-m-bottom_small">
+                                        <c-lookup-pill
+                                            label="N° Ticket Correctif"
+                                            placeholder="Rechercher un ticket..."
+                                            icon-name="standard:case"
+                                            s-object-type="Correctif__c"
+                                            controller-name="demande"
+                                            selected-value={selectedNTicket}
+                                            onselect={handleLookupSelect}
+                                            onremove={handleLookupRemove}
+                                            data-lookup="ticket">
+                                        </c-lookup-pill>
+                                    </div>
+                                </template>
+                                <template if:false={showMobileTicketLookup}>
+                                    <div class="slds-col slds-size_1-of-2">
+                                        <lightning-input type="text" label="N° Ticket" value={ticketName} disabled variant="label-stacked"></lightning-input>
+                                    </div>
+                                </template>
+
+                                <!-- Ces champs s'affichent toujours (soit pré-remplis par lookup, soit par contexte) -->
+                                <div class="slds-col slds-size_1-of-2">
+                                    <lightning-input type="text" label="G2R" value={g2r} disabled variant="label-stacked"></lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-1">
+                                    <lightning-input type="text" label="Nom du Site" value={siteName} disabled variant="label-stacked"></lightning-input>
+                                </div>
+                            </div>
                         </lightning-layout-item>
 
                         <!-- DEMANDEUR -->
@@ -213,6 +233,7 @@
                                 label="Compte Projet" 
                                 value={compteProjet} 
                                 onchange={handleCompteProjetChange}
+                                disabled={isMobile}
                                 variant="label-stacked">
                             </lightning-input>
                         </lightning-layout-item>
@@ -229,29 +250,30 @@
                         </lightning-layout-item>
 
                         <!-- ADRESSE LIVRAISON -->
-                        <lightning-layout-item size="12" padding="around-small">
-                            <c-lookup-pill
-                                label="Adresse de Livraison"
-                                icon-name="standard:contact"
-                                s-object-type="Contact"
-                                controller-name="demande"
-                                selected-value={selectedAdresseLivraison}
-                                onselect={handleLookupSelect}
-                                onremove={handleLookupRemove}
-                                data-lookup="adresseLivraison"
-                            ></c-lookup-pill>
-                        </lightning-layout-item>
+                        <template if:true={showAddressFields}>
+                            <lightning-layout-item size="12" padding="around-small">
+                                <c-lookup-pill
+                                    label="Adresse de Livraison"
+                                    icon-name="standard:contact"
+                                    s-object-type="Contact"
+                                    controller-name="demande"
+                                    selected-value={selectedAdresseLivraison}
+                                    onselect={handleLookupSelect}
+                                    onremove={handleLookupRemove}
+                                    data-lookup="adresseLivraison"
+                                ></c-lookup-pill>
+                            </lightning-layout-item>
 
-                        <!-- CONTACT ADDRESS -->
-                        <lightning-layout-item size="12" padding="around-small">
-                            <lightning-textarea 
-                                value={contactAddress} 
-                                readonly
-                                variant="label-hidden">
-                            </lightning-textarea>
-                        </lightning-layout-item>
+                            <!-- CONTACT ADDRESS -->
+                            <lightning-layout-item size="12" padding="around-small">
+                                <lightning-textarea 
+                                    value={contactAddress} 
+                                    readonly
+                                    variant="label-hidden">
+                                </lightning-textarea>
+                            </lightning-layout-item>
+                        </template>
 
-                        <!-- COMMENTAIRE -->
                         <lightning-layout-item size="12" padding="around-small">
                             <lightning-textarea 
                                 label="Commentaire" 
@@ -422,7 +444,6 @@
                                                         class="slds-textarea style-panier"
                                                         placeholder="Ajouter un commentaire..."
                                                         data-key={item.key}
-                                                        onchange={handleCartCommentChange}
                                                     >{item.comment}</textarea>
                                                 </div>
                                                 <div class="slds-col slds-text-align_center" style="width: 35%;">{item.statutForDisplay}</div>
@@ -434,6 +455,7 @@
                                                             placeholder="Qté" 
                                                             value={item.quantity} 
                                                             data-key={item.key} 
+                                                            onfocusout={handleMobileQuantityChange}
                                                             min="1" 
                                                             max={item.stock}>
                                                         </lightning-input>
@@ -471,14 +493,14 @@
                                           <div class="mobile-card-title">{item.mnemonique}</div>
                                           <div class="mobile-card-subtitle">{item.articleName}</div>
                                       </div>
-                                      <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Supprimer" title="Supprimer" data-key={item.key} onclick={handleMobileRemove}></lightning-button-icon>
+                                      <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Supprimer" title="Supprimer" data-key={item.key} onclick={handleCartRemove}></lightning-button-icon>
                                   </div>
                                   <div class="mobile-card-body">
                                       <p class="slds-text-body_small slds-m-bottom_small">{item.description}</p>
                                       <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
                                            <label class="slds-col slds-size_1-of-3 slds-text-body_regular">Quantité</label>
                                            <div class="slds-col slds-size_2-of-3">
-                                               <lightning-input type="number" variant="label-hidden" value={item.quantity} data-key={item.key} onchange={handleMobileQuantityChange} min="1"></lightning-input>
+                                               <lightning-input type="number" variant="label-hidden" value={item.quantity} data-key={item.key} onfocusout={handleMobileQuantityChange} min="1"></lightning-input>
                                            </div>
                                       </div>
                                       <template if:true={item.isAutre}>

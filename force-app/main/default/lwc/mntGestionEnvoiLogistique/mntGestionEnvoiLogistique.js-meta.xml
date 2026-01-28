@@ -15,6 +15,7 @@
       <property name="componentLabel" type="String" label="Gestion Envoi Logistique" description="Permet la gestion des Envois de Pièces."/>
       <property name="recordId" type="String" label="ID de l'enregistrement" description="ID de l'envoi"/>
       <property name="objectApiName" type="String" label="Object API Name" description="API Name de l'objet actuel."/>
+      <property name="ticketCorrectifID" type="String" label="ID Ticket Correctif" description="ID du ticket correctif pour pré-chargement."/>
       <property name="isSaveComplete" type="Boolean" label="Sauvegarde terminée" role="outputOnly" description="Devient vrai lorsque la sauvegarde est réussie."/>
     </targetConfig>
     <targetConfig targets="lightning__RecordPage">

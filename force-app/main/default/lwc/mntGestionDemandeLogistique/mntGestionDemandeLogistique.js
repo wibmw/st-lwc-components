@@ -1,8 +1,8 @@
-import { LightningElement, track, api } from 'lwc';
+import { LightningElement, track, api, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { FlowNavigationNextEvent } from 'lightning/flowSupport';
 import { NavigationMixin } from 'lightning/navigation';
-import { deleteRecord, getRecordNotifyChange } from 'lightning/uiRecordApi';
+import { deleteRecord, getRecordNotifyChange, getRecord } from 'lightning/uiRecordApi';
 
 import { isDesktopDevice, STATUS_DEFINITIONS_BY_KEY, STATUS_DEFINITIONS_BY_APIVALUE } from 'c/logisticsUtils';
 
@@ -61,6 +61,7 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     @track hasExistingCockpitLines = false;
     
     @track ticketPriority;
+    @track ticketName;
     @track ticketStatus;
     @track g2r;
     @track siteName;
@@ -75,9 +76,37 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     @track attachedFiles = [];
     @track activeSections = ['info_demande'];
     @track articleSearchTerm = '';
+    
+    // Flag pour éviter la double initialisation
+    isInitialized = false;
 
     _viewCommandInfo;
     delayTimeout;
+
+    // Getter pour la détection de l'objet - retourne recordId seulement s'il est valide
+    get recordIdForDetection() {
+        if (!this.recordId || typeof this.recordId !== 'string') return undefined;
+        if (this.recordId.trim() === '') return undefined;
+        return this.recordId;
+    }
+
+    // Wire pour détecter automatiquement l'objectApiName depuis le recordId
+    // Utile quand le composant est dans un Flow où objectApiName n'est pas passé automatiquement
+    @wire(getRecord, { recordId: '$recordIdForDetection', layoutTypes: ['Compact'] })
+    wiredRecord({ error, data }) {
+        if (data) {
+            // Alimenter objectApiName avec le type d'objet détecté
+            if (!this.objectApiName) {
+                this.objectApiName = data.apiName;
+                console.log('🔍 Object API Name auto-détecté:', this.objectApiName, 'depuis recordId:', this.recordId);
+                
+                // Initialiser le composant maintenant que objectApiName est disponible
+                this.initializeComponent();
+            }
+        } else if (error) {
+            console.log('⚠️ Erreur détection object (normal si pas de recordId):', error);
+        }
+    }
 
     @api get viewCommandInfo() {
         return this._viewCommandInfo !== undefined ? this._viewCommandInfo : true;
@@ -103,12 +132,21 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
 
     get isEditMode() {
         if (!this.recordId) return false;
+        // En mobile, si recordId est présent, c'est une édition.
+        // Mais attention aux IDs vides ou nulls passés par Flow
+        if (typeof this.recordId === 'string' && this.recordId.trim() === '') return false;
+        
+        // Si on est sur un Ticket (Correctif__c) ou un Job, c'est une création (contexte parent)
+        if (this.objectApiName === 'Correctif__c' || this.objectApiName === 'sitetracker__Job__c') {
+            return false;
+        }
+
         if (this.isDesktop) return this.hasExistingCockpitLines;
         return true;
     }
 
     get cardTitle() {
-        return this.isEditMode ? 'Modifier la Commande' : 'Créer une nouvelle Commande';
+        return this.isEditMode ? 'Modifier la Demande' : 'Créer une nouvelle Demande';
     }
 
     get cartCols() {
@@ -118,20 +156,24 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     get isDisabled() {
         if (this.isDesktop) {
             if (this.isEditMode) {
-                const forbiddenStatusesForUpdate = ['Nouveau', 'Clôturer'];
+                const forbiddenStatusesForUpdate = ['Nouveau', 'Clôturé'];
                 if (forbiddenStatusesForUpdate.includes(this.status)) return true;
             } else {
                 if (this.ticketStatus && this.ticketStatus !== 'PEC Cockpit') return true;
             }
         }
 
-        if (this.cart.length === 0) return !this.isEditMode;
+        if (this.cart.length === 0 && this.isEditMode) return false;
+        else if (this.cart.length === 0 && !this.isEditMode) return true;
 
         return !this.cart.every(c => {
-            const hasQuantity = c.quantity && c.quantity > 0;
+            // Validation quantité: doit être un nombre > 0
+            const quantity = parseFloat(c.quantity);
+            const hasValidQuantity = !isNaN(quantity) && quantity > 0;
+            
             const isAutre = c.articleName && c.articleName.toLowerCase() === 'autre';
             const hasCommentIfRequired = isAutre ? (c.comment && c.comment.trim().length > 0) : true;
-            return hasQuantity && hasCommentIfRequired;
+            return hasValidQuantity && hasCommentIfRequired;
         });
     }
 
@@ -153,9 +195,14 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     }
 
     get saveButtonLabel() {
+        // Mobile behavior: always "Créer" unless editing an existing one (which is rare/different view)
+        if (!this.isDesktop) {
+            return this.isEditMode && this.status !== '' ? 'Mettre à jour' : 'Créer la Demande';
+        }
+        
+        // Desktop behavior
         if (!this.isEditMode) return 'Créer la Demande';
-        if (!this.isDesktop) return 'Mettre à jour la Demande';
-        return this.hasExistingCockpitLines ? 'Mettre à jour' : 'Créer la Demande';
+        return this.hasExistingCockpitLines && this.status !== 'PEC Cockpit' ? 'Mettre à jour' : 'Valider la Demande';
     }
 
     get hasFilesToUpload() {
@@ -166,6 +213,10 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         return this.attachedFiles.length > 0;
     }
 
+    get isMobile() {
+        return !this.isDesktop;
+    }
+
     get isPecCockpitDisabled() {
         return this.status !== 'Nouveau';
     }
@@ -174,21 +225,62 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         return this.status !== 'À Retraiter';
     }
 
+    get showAddressFields() {
+        return this.typeReception !== 'Remise en main propre';
+    }
+
+    get showMobileTicketLookup() {
+        return this.isMobile && !this.recordId;
+    }
+
     connectedCallback() {
+        console.log('mntGestionDemandeLogistique connected. recordId:', this.recordId, 'objectApiName:', this.objectApiName, 'nTicketId:', this.nTicketId);
+        
         if (this.ticketCorrectifID && !this.nTicketId) {
             this.nTicketId = this.ticketCorrectifID;
         }
 
-        if (this.objectApiName === 'Correctif__c' && this.recordId) {
+        // Si ticketCorrectifID est fourni mais pas de recordId valide, on sait que c'est un Correctif__c
+        if (this.ticketCorrectifID && !this.recordIdForDetection && !this.objectApiName) {
+            this.objectApiName = 'Correctif__c';
+            console.log('📋 Object API Name défini depuis ticketCorrectifID:', this.objectApiName);
+        }
+
+        // Si objectApiName est déjà défini (Record Page), initialiser immédiatement
+        // Sinon, attendre que le @wire(getRecord) le détecte
+        if (this.objectApiName) {
+            console.log('✅ objectApiName déjà disponible, initialisation immédiate');
+            this.initializeComponent();
+        } else if (!this.recordIdForDetection) {
+            // Pas de recordId valide et pas d'objectApiName → création standard
+            console.log('ℹ️ Pas de recordId, chargement initial pour création');
+            this.initializeComponent();
+        } else {
+            console.log('⏳ Attente de la détection automatique de objectApiName via @wire...');
+        }
+    }
+
+    // Méthode d'initialisation appelée une fois que objectApiName est disponible
+    initializeComponent() {
+        if (this.isInitialized) {
+            console.log('⚠️ Déjà initialisé, ignorer');
+            return;
+        }
+        this.isInitialized = true;
+
+        console.log('🚀 Initialisation du composant avec objectApiName:', this.objectApiName);
+
+        const hasValidRecordId = this.recordId && typeof this.recordId === 'string' && this.recordId.trim().length > 0;
+
+        if (this.objectApiName === 'Correctif__c' && hasValidRecordId) {
             this.nTicketId = this.recordId;
             this.loadInitialData();
-        } else if (this.objectApiName === 'sitetracker__Job__c' && this.recordId) {
+        } else if (this.objectApiName === 'sitetracker__Job__c' && hasValidRecordId) {
             this.loadInitialData();
         } else if (this.ticketCorrectifID) {
-            // Prioritize Ticket Creation flow if ticket ID is explicitly provided
             this.loadInitialData();
-        } else if (this.recordId) {
-            // Assume Order Edit flow if recordId is present but NOT a ticket creation flow
+        } else if (hasValidRecordId) {
+            // recordId présent mais pas Correctif ni Job → Commande existante
             this.loadOrderData();
         } else {
             this.loadInitialData();
@@ -198,14 +290,16 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     async loadInitialData() {
         this.loading = true;
         try {
-            let params = { nTicketId: this.nTicketId };
+            let params = { nTicketId: this.nTicketId, isMobile: !this.isDesktop };
             if (this.objectApiName === 'sitetracker__Job__c' && this.recordId) {
-                params = { recordId: this.recordId, sObjectType: 'sitetracker__Job__c' };
+                params = { recordId: this.recordId, sObjectType: 'sitetracker__Job__c', isMobile: !this.isDesktop };
             } else if (this.objectApiName === 'Correctif__c' && this.recordId) {
-                params = { nTicketId: this.recordId, sObjectType: 'Correctif__c' };
+                params = { nTicketId: this.recordId, sObjectType: 'Correctif__c', isMobile: !this.isDesktop };
             }
 
+            console.log('🔍 loadInitialData PARAMS:', JSON.stringify(params));
             const data = await getInitialData(params);
+            console.log('🔍 loadInitialData RESPONSE:', JSON.stringify(data));
 
             if (!this.demandeurId) {
                 this.demandeurId = data.currentUserId;
@@ -227,16 +321,23 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 };
                 this.g2r = data.g2r;
                 this.siteName = data.siteName;
+                this.ticketName = label;
+            }
 
-                if (data.lieuId && !this.lieuId) {
-                    this.lieuId = data.lieuId;
-                    this.selectedLieu = {
-                        value: data.lieuId,
-                        label: data.lieuName,
-                        sublabel: data.lieuNomDuSite,
-                        pillLabel: data.pillLabels
-                    };
-                }
+            // Pré-remplissage Compte Projet sur Mobile
+            if (this.isMobile && data.userCompteProjet) {
+                this.compteProjet = data.userCompteProjet;
+                console.log('📱 Mobile: Compte Projet pré-rempli depuis User:', this.compteProjet);
+            }
+
+            if (data.lieuId && !this.lieuId) {
+                this.lieuId = data.lieuId;
+                this.selectedLieu = {
+                    value: data.lieuId,
+                    label: data.lieuName,
+                    sublabel: data.lieuNomDuSite,
+                    pillLabel: data.pillLabels
+                };
             }
         } catch (error) {
             this.showToast('Erreur', 'Impossible de charger les données initiales', 'error');
@@ -264,6 +365,7 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 this.ticketStatus = orderData.ticketStatus;
                 this.g2r = orderData.g2r;
                 this.siteName = orderData.siteName;
+                this.ticketName = orderData.nTicketName;
             }
             this.globalComment = orderData.globalComment || '';
             this.demandeurId = orderData.demandeurId;
@@ -363,7 +465,15 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 });
 
                 this.toast('Succès', 'Commande mise à jour.', 'success');
-                getRecordNotifyChange([{ recordId: this.recordId }]);
+                
+                // Rafraîchir le composant après délai pour s'assurer que le backend est à jour
+                setTimeout(() => {
+                    getRecordNotifyChange([{ recordId: this.recordId }]);
+                    try {
+                        eval("$A.get('e.force:refreshView').fire();");
+                    } catch(e) { console.log('not aura context'); }
+                    this.loadOrderData();
+                }, 500);
             } else {
                 const input = {
                     nTicketCorrectifId: this.nTicketId,
@@ -376,18 +486,60 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 };
                 const newOrderId = await createOrder({ inputJSON: JSON.stringify(input) });
 
+                // Assigner recordId pour permettre les opérations suivantes
+                this.recordId = newOrderId;
+
                 if (this.filesToUpload.length > 0) {
                     const filesData = this.filesToUpload.map(f => ({ title: f.name, base64Data: f.base64 }));
                     await uploadFiles({ recordId: newOrderId, files: filesData });
+                    
+                    // Rafraîchir la liste des fichiers après upload
+                    // await this.refreshAttachedFiles();
                 }
 
                 this.toast('Succès', 'Commande créée avec succès.', 'success');
-                getRecordNotifyChange([{ recordId: this.recordId }]);
+                getRecordNotifyChange([{ recordId: newOrderId }]);
                 this.isSaveComplete = true;
-                this.dispatchEvent(new FlowNavigationNextEvent());
+                
+                // Mobile: retour arrière vers page précédente
+                if (!this.isDesktop) {
+                    this.dispatchEvent(new FlowNavigationNextEvent());
+                } else if (this.isDesktop && !this.isEditMode){
+                    window.location.assign('/lightning/r/Commande_Pi_ces__c/' + newOrderId + '/view');
+                }
             }
         } catch (e) {
             this.toast('Erreur', e?.body?.message || 'Erreur lors de la sauvegarde.', 'error');
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    async handlePecAction(event) {
+        const actionName = event.target.name;
+        const newStatus = actionName === 'pec_cockpit' ? 'PEC Cockpit' : 'À Retraiter';
+        
+        this.loading = true;
+        try {
+            await updatePec({ 
+                orderId: this.recordId, 
+                status: newStatus 
+            });
+            
+            this.toast('Succès', `Statut mis à jour vers ${newStatus}.`, 'success');
+            
+            // Rafraîchir le composant après délai pour s'assurer que le backend est à jour
+            setTimeout(() => {
+                getRecordNotifyChange([{ recordId: this.recordId }]);
+                // Rafraîchement global
+                try {
+                     eval("$A.get('e.force:refreshView').fire();");
+                } catch(e) { console.log('not aura context'); }
+                this.loadOrderData();
+            }, 500);
+
+        } catch (error) {
+            this.toast('Erreur', 'Impossible de mettre à jour le statut : ' + (error.body?.message || error.message), 'error');
         } finally {
             this.loading = false;
         }
@@ -401,6 +553,7 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
             case 'ticket':
                 this.nTicketId = selectedValue.value;
                 this.selectedNTicket = selectedValue;
+                this.ticketName = selectedValue.label;
                 // Auto-populate extra fields from ticket
                 if (selectedValue.g2r) this.g2r = selectedValue.g2r;
                 if (selectedValue.siteName) this.siteName = selectedValue.siteName;
@@ -519,18 +672,20 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         this.toast('Succès', 'Fichiers téléchargés avec succès.', 'success');
 
         const uploadedFiles = event.detail.files;
+        console.log('📸 handleUploadFinished files:', JSON.stringify(uploadedFiles));
+        
         if (uploadedFiles && uploadedFiles.length > 0) {
-            const newFiles = uploadedFiles.map(file => ({
-                id: file.documentId,
-                title: file.name,
-                previewUrl: `/sfc/servlet.shepherd/document/download/${file.documentId}`
-            }));
+            const newFiles = uploadedFiles.map(file => {
+                console.log('📸 File Debug:', file.name, file.documentId);
+                return {
+                    id: file.documentId,
+                    title: file.name,
+                    previewUrl: `/sfc/servlet.shepherd/document/download/${file.documentId}`
+                };
+            });
             this.attachedFiles = [...this.attachedFiles, ...newFiles];
+            console.log('📸 Attached Files Updated:', JSON.stringify(this.attachedFiles));
         }
-
-        setTimeout(() => {
-            this.refreshAttachedFiles();
-        }, 1000);
     }
 
     async refreshAttachedFiles() {
@@ -548,7 +703,9 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                     };
                 });
             } catch (e) {
-                // Silent fail
+                // Afficher l'erreur pour déboguer
+                this.toast('Erreur', 'Impossible de charger les fichiers: ' + (e.body?.message || e.message), 'error');
+                console.error('refreshAttachedFiles error:', e);
             }
         }
     }
@@ -599,12 +756,14 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         }
         this.loading = true;
         try {
-            const articlesFound = await searchArticles({ term: this.articleSearchTerm, limitSize: 100 });
+            // Limiter à 10 résultats
+            const articlesFound = await searchArticles({ term: this.articleSearchTerm, limitSize: 10 });
 
             if (this.isDesktop) {
                 const articleIds = articlesFound.map(art => art.value);
                 if (articleIds.length > 0) {
-                    let res = await getInventoryAggregatesMulti({ articleIds: articleIds, limitSize: 100, offsetVal: 0, groupBySite: this.isDesktop });
+                // Limiter à 10 résultats pour l'inventaire également
+                let res = await getInventoryAggregatesMulti({ articleIds: articleIds, limitSize: 10, offsetVal: 0, groupBySite: this.isDesktop });
                     res = res.map(row => {
                         const suffix = row.siteNomDuSite ? ` - ${row.siteNomDuSite}` : '';
                         return {
@@ -686,6 +845,30 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         );
     }
 
+    handleMobileQuantityChange(event) {
+        const key = event.target.dataset.key;
+        let value = event.target.value;
+        
+        // Validation: convertir en nombre, si invalide ou <= 0, mettre à 1
+        const numValue = parseFloat(value);
+        if (isNaN(numValue) || numValue <= 0) {
+            value = '1';
+            event.target.value = '1';
+        }
+        
+        this.cart = this.cart.map(item =>
+            item.key === key ? { ...item, quantity: value } : item
+        );
+    }
+
+    handleMobileCommentChange(event) {
+        const key = event.target.dataset.key;
+        const value = event.target.value;
+        this.cart = this.cart.map(item =>
+            item.key === key ? { ...item, comment: value } : item
+        );
+    }
+
     handleCartItemChange(event) {
         const { id, field, value } = event.detail;
         this.cart = this.cart.map(item =>
@@ -693,14 +876,7 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         );
     }
 
-    handleCartItemRemove(event) {
-        const { id } = event.detail;
-        this.cart = this.cart.filter(c => c.key !== id);
-        this.updateCartKeys();
-        if (this.isDesktop) {
-            this.hasExistingCockpitLines = this.cart.length > 0;
-        }
-    }
+
 
     handleCartItemStatusChange(event) {
         const { id, newStatus } = event.detail;
