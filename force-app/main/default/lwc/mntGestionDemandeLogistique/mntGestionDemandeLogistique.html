@@ -448,7 +448,7 @@
                                                 </div>
                                                 <div class="slds-col slds-text-align_center" style="width: 35%;">{item.statutForDisplay}</div>
                                                 <div class="slds-col" style="width: 20%;">
-                                                <div style="width: 40px; margin: 0 auto; text-align:right;">
+                                                <div style="width: 40px; margin-left: auto; margin-right: -10px;">
                                                         <lightning-input 
                                                             type="number" 
                                                             variant="label-hidden" 
@@ -518,16 +518,14 @@
                           <p class="slds-text-body_regular">Ajoutez des articles depuis la recherche.</p>
                       </div>
                   </template>
-                  <div class="slds-m-top_small slds-text-align_right">
-                      <!--template if:true={hasStatusRestriction}>
-                          <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_small" role="alert">
-                              <lightning-icon icon-name="utility:warning" variant="warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
-                              <span class="slds-text-body_regular">{statusRestrictionMessage}</span>
-                          </div>
-                      </template-->
-                      <lightning-button variant="brand" label={saveButtonLabel} onclick={handleSaveOrder} disabled={isDisabled}></lightning-button>
-                  </div>
               </div>
+
+               <div class="slds-m-top_small slds-text-align_right">
+                    <template if:true={showCancelButton}>
+                        <lightning-button label="Annuler" variant="destructive" onclick={handleCancel} class="slds-m-right_small"></lightning-button>
+                    </template>
+                    <lightning-button variant="brand" label={saveButtonLabel} onclick={handleSaveOrder} disabled={isDisabled}></lightning-button>
+               </div>
           </div>
       </div>
 

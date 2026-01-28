@@ -1,10 +1,11 @@
 import { LightningElement, track, api, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
-import { FlowNavigationNextEvent } from 'lightning/flowSupport';
+import { FlowNavigationNextEvent, FlowNavigationFinishEvent } from 'lightning/flowSupport';
 import { NavigationMixin } from 'lightning/navigation';
 import { deleteRecord, getRecordNotifyChange, getRecord } from 'lightning/uiRecordApi';
-
+import { CloseActionScreenEvent } from 'lightning/actions';
 import { isDesktopDevice, STATUS_DEFINITIONS_BY_KEY, STATUS_DEFINITIONS_BY_APIVALUE } from 'c/logisticsUtils';
+import * as workspaceApi from 'lightning/platformWorkspaceApi';
 
 import getInventoryAggregatesMulti from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.getInventoryAggregatesMulti';
 import searchArticles from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.searchArticles';
@@ -231,6 +232,13 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
 
     get showMobileTicketLookup() {
         return this.isMobile && !this.recordId;
+    }
+
+    get showCancelButton() {
+        // Mode création uniquement : Pas d'ID, ou contexte parent (Ticket/Job)
+        if (!this.recordId) return true;
+        if (this.objectApiName === 'Correctif__c' || this.objectApiName === 'sitetracker__Job__c') return true;
+        return false;
     }
 
     connectedCallback() {
@@ -820,6 +828,40 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         if (this.isDesktop) {
             this.hasExistingCockpitLines = this.cart.length > 0;
         }
+    }
+
+    async handleCancel() {
+
+        // Rediriger vers la List View
+        setTimeout(() => {
+            this[NavigationMixin.Navigate]({
+                type: 'standard__objectPage',
+                attributes: {
+                    objectApiName: 'Commandes_Pieces__c', // Remplacez par votre API Name
+                    actionName: 'list'
+                },
+                state: {
+                    filterName: 'All' // Ou l'API name de votre vue : 'All', '00B...'
+                }
+            });
+        }, 300);
+        // 1. Try closing Quick Action Screen
+        const closeEvent = new CloseActionScreenEvent();
+        this.dispatchEvent(closeEvent);
+
+        // 2. Try finishing Flow
+        const navigateFinishEvent = new FlowNavigationFinishEvent();
+        this.dispatchEvent(navigateFinishEvent);
+
+        // 3. Fallback: Navigate to Record Page if possible (closes modal)
+        const { tabId } = await workspaceApi.getFocusedTabInfo();
+        await workspaceApi.closeTab({ tabId: tabId });
+
+        // 4. Dispatch close event
+        this.dispatchEvent(new CustomEvent('close', {
+            bubbles: true,
+            composed: true
+        }));
     }
 
     updateCartKeys() {
