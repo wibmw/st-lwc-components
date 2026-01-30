@@ -132,31 +132,33 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
 
         Id ticketIdToUse = nTicketId;
 
-        // Handle Job context to resolve Ticket ID
-        if (sObjectType == 'sitetracker__Job__c' && recordId != null) {
-            List<sitetracker__Job__c> jobs = [SELECT Correctif__c FROM sitetracker__Job__c WHERE Id = :recordId LIMIT 1];
-            if (!jobs.isEmpty()) {
-                ticketIdToUse = jobs[0].Correctif__c;
+        if (isMobile == true) {
+            // Handle Job context to resolve Ticket ID
+            if (sObjectType == 'sitetracker__Job__c' && recordId != null) {
+                List<sitetracker__Job__c> jobs = [SELECT Correctif__c FROM sitetracker__Job__c WHERE Id = :recordId LIMIT 1];
+                if (!jobs.isEmpty()) {
+                    ticketIdToUse = jobs[0].Correctif__c;
+                }
+            } else if (sObjectType == 'Correctif__c' && recordId != null) {
+                 ticketIdToUse = recordId;
             }
-        } else if (sObjectType == 'Correctif__c' && recordId != null) {
-             ticketIdToUse = recordId;
-        }
 
-        if (ticketIdToUse != null) {
-            List<Correctif__c> tickets = [
-                SELECT ID_ticket_client__c, Code_site__c, Nom_du_site__c, Site__c, Site__r.Name, Site__r.Nom_du_site__c
-                FROM Correctif__c
-                WHERE Id = :ticketIdToUse
-                LIMIT 1
-            ];
-            if (!tickets.isEmpty()) {
-                Correctif__c t = tickets[0];
-                data.nTicketCorrectifId = t.Id;
-                data.nTicketName = t.ID_ticket_client__c;
-                data.g2r = t.Code_site__c;
-                data.siteName = t.Nom_du_site__c;
-                
-                data.nTicketSubLabel = formatTicketSublabel(t.Code_site__c, t.Nom_du_site__c);
+            if (ticketIdToUse != null) {
+                List<Correctif__c> tickets = [
+                    SELECT ID_ticket_client__c, Code_site__c, Nom_du_site__c, Site__c, Site__r.Name, Site__r.Nom_du_site__c
+                    FROM Correctif__c
+                    WHERE Id = :ticketIdToUse
+                    LIMIT 1
+                ];
+                if (!tickets.isEmpty()) {
+                    Correctif__c t = tickets[0];
+                    data.nTicketCorrectifId = t.Id;
+                    data.nTicketName = t.ID_ticket_client__c;
+                    data.g2r = t.Code_site__c;
+                    data.siteName = t.Nom_du_site__c;
+                    
+                    data.nTicketSubLabel = formatTicketSublabel(t.Code_site__c, t.Nom_du_site__c);
+                }
             }
         }
 
@@ -204,7 +206,7 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         } else if (sObjectType == 'Contact') {
             query = 'SELECT Id, Name, MailingStreet, MailingCity, MailingPostalCode, MailingState, MailingCountry FROM Contact WHERE Name LIKE :queryTerm ORDER BY Name LIMIT 10';
         } else if (sObjectType == 'sitetracker__Site__c') {
-            query = 'SELECT Id, Name, Nom_du_site__c FROM sitetracker__Site__c WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) AND RecordType.DeveloperName = `CIRCET` AND Type_de_Stock__c = `Stock` ORDER BY Name LIMIT 10';
+            query = 'SELECT Id, Name, Nom_du_site__c FROM sitetracker__Site__c WHERE (Name LIKE :queryTerm OR Nom_du_site__c LIKE :queryTerm) AND RecordType.DeveloperName = \'CIRCET\' AND Type_de_Stock__c = \'Stock\' ORDER BY Name LIMIT 10';
         } else if (sObjectType == 'Correctif__c') {
             query = 'SELECT Id, Name, ID_ticket_client__c, Code_site__c, Nom_du_site__c FROM Correctif__c WHERE ID_ticket_client__c LIKE :queryTerm OR Code_site__c LIKE :queryTerm ORDER BY ID_ticket_client__c, Code_site__c LIMIT 10';
         }

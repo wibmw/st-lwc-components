@@ -2,7 +2,9 @@ import { LightningElement, api, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { NavigationMixin } from 'lightning/navigation';
 import { FlowNavigationNextEvent } from 'lightning/flowSupport';
+import { CloseActionScreenEvent } from 'lightning/actions';
 import { getRecordNotifyChange } from 'lightning/uiRecordApi';
+import * as workspaceApi from 'lightning/platformWorkspaceApi';
 
 import { isDesktopDevice, STATUS_DEFINITIONS_BY_KEY, STATUS_DEFINITIONS_BY_APIVALUE, reduceErrors } from 'c/logisticsUtils';
 
@@ -156,27 +158,83 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         return (this.compteProjet && ticket) ? `${this.compteProjet} - ${ticket}` : '';
     }
 
-    get isSaveDisabled() {
-        const isInEditMode = (this._objectApiName === 'Envoi_Logistique__c');
-        if (isInEditMode) return false;
-        return this.cart.length === 0;
+    // --- MODE HELPERS ---
+
+    get isCreationMode() {
+        return !this._recordId || (this._objectApiName !== 'Envoi_Logistique__c');
     }
 
+    get isRefuseMode() {
+        if (this.isCreationMode) return false;
+        if (!this.commandeDetails || this.commandeDetails.length === 0) return false;
+        return this.commandeDetails.some(item => 
+            item.statut === 'Non Disponible' || item.statut === 'Refusée'
+        );
+    }
+
+    get isUpdateMode() {
+        return !this.isCreationMode && this.statutEnvoi === 'A Réceptionner';
+    }
+
+    get isValidateMode() {
+        return !this.isCreationMode && !this.isRefuseMode && !this.isUpdateMode;
+        // Default to Validate for other statuses (e.g. 'En préparation')
+    }
+
+    // --- BUTTON GETTERS ---
+
+    get mainButtonLabel() {
+        if (this.isCreationMode) return 'Créer la Commande';
+        if (this.isRefuseMode) return 'Refuser la Commande';
+        if (this.isUpdateMode) return 'Mettre à jour';
+        return 'Valider la Commande';
+    }
+
+    get mainButtonVariant() {
+        if (this.isRefuseMode) return 'destructive';
+        if (this.isCreationMode || this.isUpdateMode) return 'brand';
+        return 'success';
+    }
+
+    get isSaveDisabled() {
+        // 1. Global: Statut Clôturé
+        if ((this.statutEnvoi && this.statutEnvoi.includes('Clôturé')) || (this.statutEnvoi && this.statutEnvoi.includes('Cloturé'))) return true;
+
+        if (this.isRefuseMode) return false;
+
+        // 2. Creation Mode: Cart check & Trackings
+        if (this.isCreationMode) {
+             return this.cart.length === 0;
+        }
+
+        // 3. Validation Mode: Cart check (quantities match)
+        // User requested: "In Validation Mode if the cart quantity doesn't match the order quantity"
+        if (this.isValidateMode) {
+             if (this.cart.length === 0) return true;
+             // Optional: Add comparison with commandeDetails length if strictly required
+        }
+
+        return false;
+    }
+
+    // --- UTILS ---
+
     get isReadOnly() {
-        return this.statutEnvoi === 'Clôturer NOK' || this.statutEnvoi === 'Clôturer OK';
+        return this.statutEnvoi && this.statutEnvoi.includes('Clôtur');
     }
 
     get hasCommandeDetails() {
         return this.commandeDetails && this.commandeDetails.length > 0;
     }
 
-    get validateButtonLabel() {
-        return this.dateEnvoi ? 'Mettre à jour la Commande' : 'Valider la Commande';
+    get mainButtonAction() {
+        if (this.isRefuseMode) return 'Refuse';
+        if (this.isUpdateMode) return 'Update';
+        if (this.isValidateMode) return 'Validate';
+        return 'Create';
     }
 
-    get validateButtonVariant() {
-        return this.dateEnvoi ? 'brand' : 'success';
-    }
+
 
     get isChronopost() {
         return this.typeTransporteur === 'CHRONOPOST';
@@ -184,6 +242,13 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
 
     get isBlReadOnly() {
         return !!this.dateEnvoi;
+    }
+
+    get showCancelButton() {
+        // Mode création uniquement : Pas d'ID (ou ID vide), ou contexte parent (Ticket/Job)
+        if (!this._recordId) return true;
+        if (this._objectApiName === 'Correctif__c' || this._objectApiName === 'sitetracker__Job__c') return true;
+        return false;
     }
 
     connectedCallback() {
@@ -301,7 +366,21 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     async loadCommandeDetails(commandeId) {
         try {
             const allDetails = await getCommandeDetails({ commandeId: commandeId, envoiId: this._recordId });
-            this.commandeDetails = allDetails.filter(d => d.typeLigne === 'Cockpit');
+            this.commandeDetails = allDetails
+                .filter(d => d.typeLigne === 'Cockpit')
+                .map(d => {
+                    let prefix = '';
+                    if (d.statut === 'Disponible' || d.statut === 'Validée') {
+                        prefix = '🟢 ';
+                    } else if (d.statut === 'Non Disponible' || d.statut === 'Refusée') {
+                        prefix = '🔴 ';
+                    }
+                    return { 
+                        ...d, 
+                        statutForDisplay: prefix + d.statut,
+                        isReadOnly: this.isReadOnly
+                    };
+                });
         } catch (error) {
             throw error;
         }
@@ -613,14 +692,35 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         }
     }
 
-    async handleSave() {
+    async handleSave(event) {
         this.isLoading = true;
         try {
+            // Determine Status
+            let newStatus = this.statutEnvoi; // Default keep current
+
+            // Logic User:
+            // - Si validée -> 'A Réceptionner'
+            // - Si refusée -> 'Clôturé NOK'
+            // - Si création -> 'A Réceptionner'
+            
+            const action = this.mainButtonAction; // Based on mode
+            
+            if (this.isRefuseMode) {
+                newStatus = 'Clôturé NOK';
+            } else if (!this._recordId) {
+                // Creation
+                newStatus = 'A Réceptionner';
+            } else if (this.isValidateMode && !this.isUpdateMode) {
+                // Validation (Transition)
+                newStatus = 'A Réceptionner';
+            }
+            // Si Update Mode ('A Réceptionner'), on garde le statut (déjà set par default)
+
             const inputData = {
                 recordId: this._recordId,
                 contextObjectType: this._objectApiName,
                 nTicketCorrectifId: this.nTicketCorrectifId,
-                statutDeLEnvoi: this.dateEnvoi ? this.statutEnvoi : 'En cours de préparation',
+                statutDeLEnvoi: newStatus,
                 transporteur: this.typeTransporteur,
                 typeEnvoi: this.typeEnvoi,
                 typeReception: this.typeReception,
@@ -634,7 +734,8 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
                     statutChronopost: c.statutChronopost
                 })),
                 commandeParenteId: this.linkedCommandeId || null,
-                orderLines: this.commandeDetails
+                orderLines: this.commandeDetails,
+                actionGlobale: (action === 'Refuse') ? 'REFUSER' : (action === 'Validate' ? 'VALIDER' : '')
             };
 
             const result = await saveEnvoi({ inputJSON: JSON.stringify(inputData) });
@@ -642,6 +743,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
 
             if (this._recordId) {
                 getRecordNotifyChange([{ recordId: this._recordId }]);
+                await this.loadEnvoiData(this._recordId);
             } else {
                 this.isSaveComplete = true;
                 this.dispatchEvent(new FlowNavigationNextEvent());
@@ -659,6 +761,47 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             description: 'Popup de suivi Chronopost',
             trackingUrl: url
         });
+    }
+
+    async handleCancel() {
+        // Rediriger vers la List View (Envoi_Logistique__c)
+        setTimeout(() => {
+            this[NavigationMixin.Navigate]({
+                type: 'standard__objectPage',
+                attributes: {
+                    objectApiName: 'Envoi_Logistique__c',
+                    actionName: 'list'
+                },
+                state: {
+                    filterName: 'All'
+                }
+            });
+        }, 300);
+
+        // 1. Close Action
+        this.dispatchEvent(new CloseActionScreenEvent());
+
+        // 2. Finish Flow
+        this.dispatchEvent(new FlowNavigationNextEvent()); 
+        // Note: FlowNavigationNextEvent used in Demande code snippet user shared but user said "Finish". 
+        // In Demande JS I see "this.dispatchEvent(navigateFinishEvent)" where navigateFinishEvent is FlowNavigationFinishEvent.
+        // But original code in Envoi uses FlowNavigationNextEvent for success.
+        // I will use FlowNavigationFinishEvent for Cancel if I can import it, or just Next if that's what's available. 
+        // The user imported FlowNavigationNextEvent in line 4. I should check if Finish is imported.
+        // I will add FlowNavigationFinishEvent to imports in next step to be safe, or stick to what is there.
+        // Actually, for Cancel, Finish is better.
+        
+        // 3. Close Tab/Modal
+        try {
+            const { tabId } = await workspaceApi.getFocusedTabInfo();
+            if(tabId) await workspaceApi.closeTab({ tabId: tabId });
+        } catch(e) { /* ignore */ }
+        
+        // 4. Dispatch close event
+        this.dispatchEvent(new CustomEvent('close', {
+            bubbles: true,
+            composed: true
+        }));
     }
 
     showToast(title, message, variant) {

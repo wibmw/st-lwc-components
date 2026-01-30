@@ -65,7 +65,7 @@
                                     <!-- Ligne 3 : Lieu et Type de Réception -->
                                     <div class="slds-col slds-size_1-of-2">
                                         <c-lookup-pill
-                                            label="Lieu"
+                                            label="Lieu de Destination"
                                             placeholder="Rechercher un site..."
                                             icon-name="standard:location"
                                             s-object-type="sitetracker__Site__c"
@@ -209,13 +209,14 @@
                                 onselect={handleLookupSelect}
                                 onremove={handleLookupRemove}
                                 data-lookup="demandeur"
+                                disabled
                             ></c-lookup-pill>
                         </lightning-layout-item>
 
                         <!-- LIEU -->
                         <lightning-layout-item size="12" padding="around-small">
                             <c-lookup-pill
-                                label="Lieu"
+                                label="Lieu de Destination"
                                 icon-name="standard:account"
                                 s-object-type="sitetracker__Site__c"
                                 controller-name="demande"
@@ -233,7 +234,7 @@
                                 label="Compte Projet" 
                                 value={compteProjet} 
                                 onchange={handleCompteProjetChange}
-                                disabled={isMobile}
+                                disabled
                                 variant="label-stacked">
                             </lightning-input>
                         </lightning-layout-item>

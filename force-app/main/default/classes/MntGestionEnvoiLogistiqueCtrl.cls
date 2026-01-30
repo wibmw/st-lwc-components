@@ -551,6 +551,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         }
         return results;
     }
+
     @AuraEnabled
     public static Id saveEnvoi(String inputJSON) {
         System.debug('### START saveEnvoi');
@@ -575,7 +576,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             envoi.N_Ticket_Correctif__c = input.nTicketCorrectifId;
             
             if (isCreation) {
-                envoi.Statut__c = ('Réparateur'.equals(input.typeEnvoi)) ? 'Livraison en Cours' : 'Commande à Traiter';
+                envoi.Statut__c = ('Réparateur'.equals(input.typeEnvoi)) ? 'Clôturer OK' : 'Commande à Traiter';
             }
             
             envoi.Type__c = input.typeEnvoi; 
@@ -605,7 +606,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                     recordsToUpdate.add(new Commande_Pi_ces__c(Id = commandeId, Statut_Commande__c = 'À Retraiter'));
                 }
             } else if ('VALIDER'.equals(input.actionGlobale)) {
-                envoi.Statut__c = 'Livraison en Cours';
+                envoi.Statut__c = 'À Réceptionner';
                 envoi.Date_d_Envoi__c = System.now();
                 
                 if (commandeId != null) {
@@ -628,15 +629,15 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             upsert envoi;
             System.debug('### Envoi Upserted. ID: ' + envoi.Id);
 
-            envoi.Bypass_ValidationRules__c = false;
-            update envoi;
+            //envoi.Bypass_ValidationRules__c = false;
+            //update envoi;
 
             // --- 4. UPDATE RELATED RECORDS (COMMANDES) ---
             if (!recordsToUpdate.isEmpty()) {
                 for (SObject sobj : recordsToUpdate) sobj.put('Bypass_ValidationRules__c', true);
                 update recordsToUpdate;
-                for (SObject sobj : recordsToUpdate) sobj.put('Bypass_ValidationRules__c', false);
-                update recordsToUpdate;
+                //for (SObject sobj : recordsToUpdate) sobj.put('Bypass_ValidationRules__c', false);
+                //update recordsToUpdate;
             }
             
             // --- 5. NOTIFICATION REFUS ---
@@ -715,7 +716,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             }
             
             // Upserts / Create
-            String newStatusForSentPieces = 'Réparateur'.equals(input.typeEnvoi) ? 'En Réparation' : 'A réceptionner';
+            String newStatusForSentPieces = 'Réparateur'.equals(input.typeEnvoi) ? 'En Réparation' : 'A Réceptionner';
             
             if (!currentPieceIdsInCart.isEmpty()) {
                 Map<Id, Pi_ce_Unitaire__c> piecesDataMap = new Map<Id, Pi_ce_Unitaire__c>([SELECT Id, Name, Lieu__c, Lieu__r.Name, RMA__c FROM Pi_ce_Unitaire__c WHERE Id IN :currentPieceIdsInCart]); 
@@ -772,6 +773,17 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                         
                         if(needsUpdate) {
                             historiesToUpdate.add(existingHist);
+                        }
+                        
+                        // NEW: Update Piece Status/Location on Validation for existing items
+                        if ('VALIDER'.equals(input.actionGlobale)) {
+                             Pi_ce_Unitaire__c pieceToUpdate = new Pi_ce_Unitaire__c(
+                                 Id = pieceActuelle.Id, 
+                                 Statut__c = newStatusForSentPieces, 
+                                 Lieu_Pr_c_dent__c = pieceActuelle.Lieu__c, 
+                                 Lieu__c = input.lieuId
+                             );
+                             piecesToUpdate.add(pieceToUpdate);
                         }
                     }
                 }

@@ -510,11 +510,14 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 this.isSaveComplete = true;
                 
                 // Mobile: retour arrière vers page précédente
-                if (!this.isDesktop) {
-                    this.dispatchEvent(new FlowNavigationNextEvent());
-                } else if (this.isDesktop && !this.isEditMode){
-                    window.location.assign('/lightning/r/Commande_Pi_ces__c/' + newOrderId + '/view');
-                }
+                setTimeout(() => {
+                    if (!this.isDesktop) {
+                        window.history.back();
+                        this.handleCancel(); //this.dispatchEvent(new FlowNavigationNextEvent());
+                    } else if (this.isDesktop && !this.isEditMode){
+                        window.location.assign('/lightning/r/Commande_Pi_ces__c/' + newOrderId + '/view');
+                    }
+                }, 1000);
             }
         } catch (e) {
             this.toast('Erreur', e?.body?.message || 'Erreur lors de la sauvegarde.', 'error');

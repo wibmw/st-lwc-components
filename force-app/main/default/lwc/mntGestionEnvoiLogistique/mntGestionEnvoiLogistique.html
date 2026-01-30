@@ -34,41 +34,11 @@
                                     ></c-lookup-pill>
                                 </div>
                                 <div class="slds-col slds-size_1-of-2">
-                                    <div class="slds-form-element">
-                                        <label class="slds-form-element__label">Réf. Destinataire CHRONOPOST</label>
-                                        <div class="slds-form-element__control">
-                                            <div class="slds-box slds-box_x-small slds-theme_shade cursor-pointer" onclick={handleCopyRef}>
-                                                <lightning-icon icon-name="utility:copy" size="x-small" class="slds-m-right_x-small"></lightning-icon>
-                                                {refDestinataireChronopost}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- LIGNE 2 : G2R & NOM DU SITE -->
-                            <div class="slds-grid slds-gutters slds-m-bottom_x-small">
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="G2R" value={g2r} readonly variant="label-stacked"></lightning-input>
-                                </div>
-                                <div class="slds-col slds-size_1-of-2">
                                     <lightning-input type="text" label="Nom du site" value={siteName} readonly variant="label-stacked"></lightning-input>
                                 </div>
                             </div>
 
-                            <!-- LIGNE 4 : REF CHRONOPOST (SINGLE LINE) -->
-                            <div class="slds-grid slds-gutters slds-m-bottom_x-small" if:true={refDestinataireChronopost}>
-                                <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="Compte Projet" value={compteProjet} readonly variant="label-stacked"></lightning-input>
-                                </div>
-
-                                <div class="slds-col slds-size_1-of-2">
-                                    <label class="slds-form-element__label">Date d'Envoi</label>
-                                    <lightning-input type="datetime" variant="label-hidden" value={dateEnvoi} disabled></lightning-input>
-                                </div>
-                            </div>
-
-                            <!-- LIGNE 3 : DEMANDEUR & CRÉÉ PAR -->
+                            <!-- LIGNE 2 : G2R & NOM DU SITE -->
                             <div class="slds-grid slds-gutters slds-m-bottom_x-small">
                                 <div class="slds-col slds-size_1-of-2">
                                     <c-lookup-pill
@@ -84,7 +54,26 @@
                                     ></c-lookup-pill>
                                 </div>
                                 <div class="slds-col slds-size_1-of-2">
-                                    <lightning-input type="text" label="Créé par" value={createdBy} readonly variant="label-stacked"></lightning-input>
+                                    <lightning-input type="text" label="G2R" value={g2r} readonly variant="label-stacked"></lightning-input>
+                                </div>
+                            </div>
+
+                            <!-- LIGNE 4 : REF CHRONOPOST (SINGLE LINE) -->
+                            <div class="slds-grid slds-gutters slds-m-bottom_x-small" if:true={refDestinataireChronopost}>
+                                <div class="slds-col slds-size_1-of-2">
+                                    <lightning-input type="text" label="Compte Projet" value={compteProjet} readonly variant="label-stacked"></lightning-input>
+                                </div>
+
+                                <div class="slds-col slds-size_1-of-2">
+                                    <div class="slds-form-element">
+                                        <label class="slds-form-element__label">Réf. Destinataire CHRONOPOST</label>
+                                        <div class="slds-form-element__control">
+                                            <div class="slds-box slds-box_x-small slds-theme_shade cursor-pointer" onclick={handleCopyRef}>
+                                                <lightning-icon icon-name="utility:copy" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                                                {refDestinataireChronopost}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -115,7 +104,9 @@
                                     <lightning-combobox label="Type de Réception" value={typeReception} options={typeReceptionOptions} onchange={handleTypeReceptionChange} variant="label-stacked" disabled={isReadOnly}></lightning-combobox>
                                 </div>
                                 <div class="slds-col slds-size_1-of-2">
-                                    <lightning-combobox label="Transporteur" value={typeTransporteur} options={typeTransporteurOptions} onchange={handleTypeTransporteurChange} variant="label-stacked" disabled={isReadOnly}></lightning-combobox>
+                                    <template if:false={isMainPropre}>
+                                        <lightning-combobox label="Transporteur" value={typeTransporteur} options={typeTransporteurOptions} onchange={handleTypeTransporteurChange} variant="label-stacked" disabled={isReadOnly}></lightning-combobox>
+                                    </template>
                                 </div>
                             </div>
 
@@ -151,6 +142,17 @@
                             <div class="slds-grid slds-gutters">
                                 <div class="slds-col slds-size_1-of-1">
                                     <lightning-textarea label="Commentaire" value={commentaire} onchange={handleCommentChange} variant="label-stacked" disabled={isReadOnly}></lightning-textarea>
+                                </div>
+                            </div>
+                            <!-- LIGNE 3 : DEMANDEUR & CRÉÉ PAR -->
+                            <div class="slds-grid slds-gutters slds-m-bottom_x-small">
+                                <div class="slds-col slds-size_1-of-2">
+                                    <lightning-input type="text" label="Créé par" value={createdBy} readonly variant="label-stacked"></lightning-input>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2">
+                
+                                    <label class="slds-form-element__label">Date d'Envoi</label>
+                                    <lightning-input type="datetime" variant="label-hidden" value={dateEnvoi} disabled></lightning-input>
                                 </div>
                             </div>
                         </div>
@@ -350,8 +352,8 @@
                                                     </div>
                                                 </div>
                                                 <div class="mobile-card-footer" if:false={isReadOnly}>
-                                                    <lightning-button-icon icon-name="utility:check" variant="border-filled" alternative-text="Disponible" title="Disponible" class="slds-icon-text-success" data-action="validate" data-articlename={detail.articleName} data-sitename={detail.siteName} onclick={handleMobileStatusAction}></lightning-button-icon>
-                                                    <lightning-button-icon icon-name="utility:close" variant="border-filled" alternative-text="Non Disponible" title="Non Disponible" class="slds-icon-text-error" data-action="refuse" data-articlename={detail.articleName} data-sitename={detail.siteName} onclick={handleMobileStatusAction}></lightning-button-icon>
+                                                    <lightning-button-icon icon-name="utility:check" variant="border-filled" alternative-text="Disponible" title="Disponible" class="slds-icon-text-success" data-action="validate" data-articlename={detail.articleName} data-sitename={detail.siteName} onclick={handleMobileStatusAction} disabled={isReadOnly}></lightning-button-icon>
+                                                    <lightning-button-icon icon-name="utility:close" variant="border-filled" alternative-text="Non Disponible" title="Non Disponible" class="slds-icon-text-error" data-action="refuse" data-articlename={detail.articleName} data-sitename={detail.siteName} onclick={handleMobileStatusAction} disabled={isReadOnly}></lightning-button-icon>
                                                 </div>
                                             </div>
                                         </template>
@@ -517,44 +519,29 @@
                         </template>
                     </div>
                 </div>
+
+                <!-- BOUTONS D'ACTION (Positionnés sous le panier) -->
+                <div class="slds-m-top_small slds-text-align_right" if:false={isReadOnly}>
+                    
+                    <template if:true={showCancelButton}>
+                        <lightning-button label="Annuler" variant="destructive" onclick={handleCancel} class="slds-m-right_small"></lightning-button>
+                    </template>
+
+                    <!-- Bouton Fusionné (Refuser / Valider / Créer / Mettre à jour) -->
+                    <lightning-button 
+                        label={mainButtonLabel} 
+                        variant={mainButtonVariant} 
+                        onclick={handleSave} 
+                        disabled={isSaveDisabled}>
+                    </lightning-button>
+
+                </div>
             </div>
         </div>
             
             <!-- ======================= BOUTON DE SAUVEGARDE ======================= -->
 <!-- ... FOOTER ... -->
-<div slot="footer" class="slds-p-horizontal_medium slds-p-bottom_medium slds-text-align_right" if:false={isReadOnly}>
-    
-    <!-- Bouton par défaut (Sauvegarde simple/Brouillon) si conditions non remplies -->
-    <template if:false={canValidateOrder}>
-        <template if:false={canRefuseOrder}>
-             <lightning-button label="Sauvegarder Brouillon" variant="neutral" onclick={handleSave}></lightning-button>
-        </template>
-    </template>
 
-    <!-- Bouton VALIDER LA COMMANDE (Si tout est Disponible) -->
-    <template if:true={canValidateOrder}>
-        <lightning-button 
-            label={validateButtonLabel} 
-            variant={validateButtonVariant} 
-            class="slds-m-left_small"
-            data-global-action="VALIDER" 
-            onclick={handleSave} 
-            disabled={isSaveDisabled}>
-        </lightning-button>
-    </template>
-
-    <!-- Bouton REFUSER LA COMMANDE (Si au moins un Non Disponible) -->
-    <template if:true={canRefuseOrder}>
-        <lightning-button 
-            label="Refuser la Commande" 
-            variant="destructive" 
-            class="slds-m-left_small"
-            data-global-action="REFUSER" 
-            onclick={handleSave}>
-        </lightning-button>
-    </template>
-
-</div>
         </lightning-card>
 
 </template>
