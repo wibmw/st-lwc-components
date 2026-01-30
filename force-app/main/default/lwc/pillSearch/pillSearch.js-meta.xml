@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>60.0</apiVersion>
+    <isExposed>true</isExposed>
+    <description>Generic lookup/search component with pill display. Configurable for any Salesforce object with support for relationship fields and filters. Perfect for Screen Flows and Lightning Pages.</description>
+    <masterLabel>Pill Search</masterLabel>
+    
+    <targets>
+        <target>lightning__FlowScreen</target>
+        <target>lightning__AppPage</target>
+        <target>lightning__RecordPage</target>
+        <target>lightning__HomePage</target>
+    </targets>
+    
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowScreen">
+            <!-- Input Properties -->
+            <property name="label" type="String" label="Label" description="Field label displayed above the component" default="Search"/>
+            <property name="placeholder" type="String" label="Placeholder" description="Placeholder text in search input" default="Rechercher..."/>
+            <property name="iconName" type="String" label="Icon Name" description="SLDS icon name (e.g., 'standard:account', 'standard:contact')" default="standard:record" required="true"/>
+            <property name="sObjectType" type="String" label="Object API Name" description="Salesforce object API name (e.g., 'Account', 'Contact', 'CustomObject__c')" required="true"/>
+            <property name="searchFields" type="String" label="Search Fields" description="Comma-separated fields to search (e.g., 'Name,Email' or 'Account.Name,Email'). Supports relationship fields." default="Name" required="true"/>
+            <property name="labelField" type="String" label="Label Field" description="Field to display as main label (e.g., 'Name' or 'Account.Name'). Supports relationship fields." default="Name" required="true"/>
+            <property name="sublabelField" type="String" label="Sublabel Field" description="Optional field to display as sublabel (e.g., 'Email' or 'Account.Industry'). Supports relationship fields."/>
+            <property name="filterClause" type="String" label="Filter Clause" description="Optional WHERE clause filter (e.g., 'IsActive = true' or 'Type = \'Customer\' AND AccountId != null')"/>
+            <property name="readOnly" type="Boolean" label="Read Only" description="Make the component read-only" default="false"/>
+            <property name="required" type="Boolean" label="Required" description="Mark field as required" default="false"/>
+            
+            <!-- Output Properties -->
+            <property name="selectedRecordId" type="String" role="outputOnly" label="Selected Record ID" description="ID of the selected record"/>
+            <property name="selectedRecordName" type="String" role="outputOnly" label="Selected Record Name" description="Name/label of the selected record"/>
+        </targetConfig>
+        
+        <targetConfig targets="lightning__AppPage,lightning__RecordPage,lightning__HomePage">
+            <property name="label" type="String" label="Label" description="Field label" default="Search"/>
+            <property name="placeholder" type="String" label="Placeholder" description="Placeholder text" default="Rechercher..."/>
+            <property name="iconName" type="String" label="Icon Name" description="SLDS icon name" default="standard:record"/>
+            <property name="sObjectType" type="String" label="Object API Name" description="Salesforce object API name" required="true"/>
+            <property name="searchFields" type="String" label="Search Fields" description="Comma-separated fields to search" default="Name" required="true"/>
+            <property name="labelField" type="String" label="Label Field" description="Field to display as label" default="Name" required="true"/>
+            <property name="sublabelField" type="String" label="Sublabel Field" description="Field to display as sublabel"/>
+            <property name="filterClause" type="String" label="Filter Clause" description="Optional WHERE clause filter"/>
+            <property name="readOnly" type="Boolean" label="Read Only" default="false"/>
+            <property name="required" type="Boolean" label="Required" default="false"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

@@ -1,0 +1,108 @@
+<template>
+    <!-- Label (if provided) -->
+    <template if:true={label}>
+        <label class="slds-form-element__label">
+            <template if:true={required}>
+                <abbr class="slds-required" title="required">*</abbr>
+            </template>
+            {label}
+        </label>
+    </template>
+
+    <!-- Combobox Container -->
+    <div class="slds-form-element__control">
+        <div class={comboboxClass} aria-expanded={isOpen} aria-haspopup="listbox" role="combobox">
+            <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
+                
+                <!-- Selected Value Pill -->
+                <template if:true={hasSelectedValue}>
+                    <div class="slds-truncate" style="max-width: 100%">
+                        <lightning-pill 
+                            label={pillLabel} 
+                            onremove={handleRemove}
+                            class="slds-size_1-of-1">
+                            <lightning-icon 
+                                icon-name={iconName} 
+                                alternative-text={label} 
+                                size="x-small">
+                            </lightning-icon>
+                        </lightning-pill>
+                    </div>
+                </template>
+
+                <!-- Search Input -->
+                <template if:false={hasSelectedValue}>
+                    <lightning-input 
+                        type="search" 
+                        variant={inputVariant}
+                        placeholder={placeholder} 
+                        onchange={handleSearchInput}
+                        onfocus={handleFocus}
+                        onblur={handleBlur}
+                        disabled={isDisabled}
+                        autocomplete="off">
+                    </lightning-input>
+                </template>
+            </div>
+
+            <!-- Suggestions Dropdown -->
+            <template if:true={isOpen}>
+                <div class="slds-listbox slds-listbox_vertical slds-dropdown pillsearch-dropdown_fluid" role="listbox">
+                    
+                    <!-- Loading Spinner -->
+                    <template if:true={isLoading}>
+                        <div class="slds-align_absolute-center slds-m-around_small">
+                            <lightning-spinner size="small" alternative-text="Recherche..."></lightning-spinner>
+                        </div>
+                    </template>
+
+                    <!-- Suggestions List -->
+                    <template if:false={isLoading}>
+                        <template if:true={hasSuggestions}>
+                            <ul class="slds-listbox slds-listbox_vertical" role="presentation">
+                                <template for:each={suggestions} for:item="suggestion">
+                                    <li key={suggestion.value} role="presentation" class="slds-listbox__item">
+                                        <div 
+                                            class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" 
+                                            role="option" 
+                                            onclick={handleSelect}
+                                            data-value={suggestion.value}
+                                            data-label={suggestion.label}
+                                            data-sublabel={suggestion.sublabel}
+                                            data-pilllabel={suggestion.pillLabel}>
+                                            
+                                            <span class="slds-media__figure slds-listbox__option-icon">
+                                                <lightning-icon 
+                                                    icon-name={iconName} 
+                                                    size="small">
+                                                </lightning-icon>
+                                            </span>
+                                            
+                                            <span class="slds-media__body">
+                                                <span class="slds-listbox__option-text slds-listbox__option-text_entity">
+                                                    {suggestion.label}
+                                                </span>
+                                                <template if:true={suggestion.sublabel}>
+                                                    <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">
+                                                        {suggestion.sublabel}
+                                                    </span>
+                                                </template>
+                                            </span>
+                                        </div>
+                                    </li>
+                                </template>
+                            </ul>
+                        </template>
+
+                        <!-- No Results -->
+                        <template if:false={hasSuggestions}>
+                            <div class="slds-align_absolute-center slds-m-around_small">
+                                <p class="slds-text-body_small slds-text-color_weak">Aucun résultat</p>   
+                            </div>
+                        </template>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
+</template>

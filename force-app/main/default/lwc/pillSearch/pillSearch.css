@@ -1,0 +1,15 @@
+/* Dropdown fluid width */
+.pillsearch-dropdown_fluid {
+    min-width: 100%;
+    max-width: 100%;
+}
+
+/* Make sure pill doesn't overflow */
+lightning-pill {
+    max-width: 100%;
+}
+
+/* Ensure proper z-index for dropdown */
+.slds-dropdown {
+    z-index: 9999;
+}
