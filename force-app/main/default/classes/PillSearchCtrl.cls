@@ -13,6 +13,8 @@ public with sharing class PillSearchCtrl {
      * @param searchFields Comma-separated fields to search (supports relationships like 'Account.Name')
      * @param displayFields Comma-separated fields to display (supports relationships)
      * @param filterClause Optional WHERE clause filter (e.g., 'IsActive = true')
+     * @param labelFormat Optional template for label (e.g., '{Name} - {Email}')
+     * @param sublabelFormat Optional template for sublabel
      * @return List of SearchResult wrapper objects
      */
     @AuraEnabled(cacheable=true)
@@ -21,7 +23,9 @@ public with sharing class PillSearchCtrl {
         String sObjectType, 
         String searchFields, 
         String displayFields,
-        String filterClause
+        String filterClause,
+        String labelFormat,
+        String sublabelFormat
     ) {
         try {
             // Validate inputs
@@ -36,6 +40,14 @@ public with sharing class PillSearchCtrl {
             Set<String> allFields = new Set<String>{'Id'}; // Always include Id
             allFields.addAll(parseFields(searchFields));
             allFields.addAll(parseFields(displayFields));
+            
+            // Extract fields from format templates if provided
+            if (String.isNotBlank(labelFormat)) {
+                allFields.addAll(extractFieldsFromTemplate(labelFormat));
+            }
+            if (String.isNotBlank(sublabelFormat)) {
+                allFields.addAll(extractFieldsFromTemplate(sublabelFormat));
+            }
             
             // Build SELECT clause
             String selectClause = 'SELECT ' + String.join(new List<String>(allFields), ', ');
@@ -61,13 +73,25 @@ public with sharing class PillSearchCtrl {
                     lowerFilter.contains('update') || lowerFilter.contains('merge')) {
                     throw new AuraHandledException('Invalid filter clause: DML keywords not allowed');
                 }
+                
+                // Add the filter clause as-is (it should already contain proper quoting)
+                // We don't escape it because it needs to preserve SOQL syntax like 'Customer'
                 whereClause += ' AND (' + filterClause + ')';
             }
             
-            // Build complete query
-            String query = selectClause + ' FROM ' + sanitizedObjectType + ' ' + whereClause + ' ORDER BY Name LIMIT 10';
+            // Build complete query with error handling for ORDER BY
+            String orderByClause = '';
+            try {
+                // Try to order by Name if it exists in the field list
+                if (allFields.contains('Name')) {
+                    orderByClause = ' ORDER BY Name';
+                }
+            } catch (Exception e) {
+                // If Name doesn't exist, order by Id
+                orderByClause = ' ORDER BY Id';
+            }
             
-            System.debug('PillSearchCtrl query: ' + query);
+            String query = selectClause + ' FROM ' + sanitizedObjectType + ' ' + whereClause + orderByClause + ' LIMIT 10';
             
             // Execute query
             List<SObject> records = Database.query(query);
@@ -82,17 +106,28 @@ public with sharing class PillSearchCtrl {
             for (SObject record : records) {
                 SearchResult result = new SearchResult();
                 result.value = (String)record.get('Id');
-                result.label = getFieldValue(record, labelFieldName);
-                result.sublabel = sublabelFieldName != null ? getFieldValue(record, sublabelFieldName) : '';
-                result.pillLabel = result.label;
+                
+                // Use format templates if provided, otherwise use simple field values
+                if (String.isNotBlank(labelFormat)) {
+                    result.label = formatWithTemplate(record, labelFormat);
+                    result.pillLabel = result.label;
+                } else {
+                    result.label = getFieldValue(record, labelFieldName);
+                    result.pillLabel = result.label;
+                }
+                
+                if (String.isNotBlank(sublabelFormat)) {
+                    result.sublabel = formatWithTemplate(record, sublabelFormat);
+                } else {
+                    result.sublabel = sublabelFieldName != null ? getFieldValue(record, sublabelFieldName) : '';
+                }
+                
                 results.add(result);
             }
             
             return results;
             
         } catch (Exception e) {
-            System.debug('PillSearchCtrl error: ' + e.getMessage());
-            System.debug('Stack trace: ' + e.getStackTraceString());
             throw new AuraHandledException('Search error: ' + e.getMessage());
         }
     }
@@ -115,6 +150,57 @@ public with sharing class PillSearchCtrl {
             }
         }
         return fields;
+    }
+    
+    /**
+     * @description Extract field names from a template string
+     * @param template Template string with {FieldName} placeholders
+     * @return List of field names found in template
+     */
+    private static List<String> extractFieldsFromTemplate(String template) {
+        List<String> fields = new List<String>();
+        if (String.isBlank(template)) {
+            return fields;
+        }
+        
+        // Match {FieldName} patterns using regex
+        Pattern fieldPattern = Pattern.compile('\\{([^}]+)\\}');
+        Matcher matcher = fieldPattern.matcher(template);
+        
+        while (matcher.find()) {
+            String fieldName = matcher.group(1).trim();
+            if (String.isNotBlank(fieldName)) {
+                fields.add(fieldName);
+            }
+        }
+        
+        return fields;
+    }
+    
+    /**
+     * @description Format a template string by replacing {FieldName} with actual values
+     * @param record The SObject record
+     * @param template Template string (e.g., '{Name} - {Email}')
+     * @return Formatted string with field values
+     */
+    private static String formatWithTemplate(SObject record, String template) {
+        if (record == null || String.isBlank(template)) {
+            return '';
+        }
+        
+        String result = template;
+        
+        // Extract all fields from template
+        List<String> fields = extractFieldsFromTemplate(template);
+        
+        // Replace each {FieldName} with actual value
+        for (String fieldName : fields) {
+            String fieldValue = getFieldValue(record, fieldName);
+            // Replace placeholder with value (handle null as empty string)
+            result = result.replace('{' + fieldName + '}', fieldValue != null ? fieldValue : '');
+        }
+        
+        return result;
     }
     
     /**
@@ -153,7 +239,6 @@ public with sharing class PillSearchCtrl {
                 return value != null ? String.valueOf(value) : '';
             }
         } catch (Exception e) {
-            System.debug('Error getting field value for ' + fieldPath + ': ' + e.getMessage());
             return '';
         }
     }

@@ -1,12 +1,41 @@
-/* Dropdown fluid width */
-.pillsearch-dropdown_fluid {
-    min-width: 100%;
+/* Subtitle style for pill */
+.subtitle {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    font-weight: 300;
+}
+
+/* Custom wrapper for pill content alignment */
+.pill-content-wrapper {
+    text-align: left !important;
+    display: block;
+    overflow: hidden; /* Essential for truncation */
+}
+
+/* Wrapper around the content to handle flex resizing */
+.pill-action-wrapper {
+    flex: 1 1 auto;
+    min-width: 0; /* Critical for truncation in flexbox */
+    text-align: left;
+    display: block; /* Works better inside the flex pill */
+}
+
+.pill-content-wrapper .slds-pill__label {
+    text-align: left !important;
+    display: block; /* Ensure it behaves as a block for truncation */
     max-width: 100%;
 }
 
-/* Make sure pill doesn't overflow */
-lightning-pill {
+.pill-content-wrapper .subtitle {
+    text-align: left !important;
+    display: block; /* Ensure it behaves as a block for truncation */
     max-width: 100%;
+}
+
+/* Remove border from action */
+.slds-pill__action {
+    border: none !important;
+    max-width: 100%; /* Force constraint on the action container */
 }
 
 /* Ensure proper z-index for dropdown */

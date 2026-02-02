@@ -10,6 +10,8 @@
  * @property {String} searchFields - Comma-separated fields to search (supports relationships)
  * @property {String} labelField - Field to display as main label (supports relationships)
  * @property {String} sublabelField - Field to display as sublabel (supports relationships)
+ * @property {String} labelFormat - Optional template for label formatting (e.g., '{Name} - {Email}')
+ * @property {String} sublabelFormat - Optional template for sublabel formatting
  * @property {String} filterClause - Optional WHERE clause filter
  * @property {Boolean} readOnly - Whether component is read-only
  * @property {Boolean} required - Whether field is required
@@ -32,6 +34,8 @@ export default class PillSearch extends LightningElement {
     @api searchFields = 'Name';
     @api labelField = 'Name';
     @api sublabelField = '';
+    @api labelFormat = '';
+    @api sublabelFormat = '';
     @api filterClause = '';
     @api readOnly = false;
     @api required = false;
@@ -66,6 +70,14 @@ export default class PillSearch extends LightningElement {
 
     get hasSuggestions() {
         return this.suggestions && this.suggestions.length > 0;
+    }
+
+    get formattedSuggestions() {
+        if (!this.suggestions) return [];
+        return this.suggestions.map(suggestion => ({
+            ...suggestion,
+            hasSublabel: suggestion.sublabel && suggestion.sublabel.trim() !== ''
+        }));
     }
 
     get isDisabled() {
@@ -181,7 +193,6 @@ export default class PillSearch extends LightningElement {
      */
     async performSearch(searchTerm) {
         if (!this.sObjectType) {
-            console.error('PillSearch: sObjectType is required');
             this.isLoading = false;
             return;
         }
@@ -192,13 +203,14 @@ export default class PillSearch extends LightningElement {
                 sObjectType: this.sObjectType,
                 searchFields: this.searchFields,
                 displayFields: `${this.labelField}${this.sublabelField ? ',' + this.sublabelField : ''}`,
-                filterClause: this.filterClause
+                filterClause: this.filterClause,
+                labelFormat: this.labelFormat,
+                sublabelFormat: this.sublabelFormat
             });
             
             this.suggestions = results || [];
             this.isLoading = false;
         } catch (error) {
-            console.error('PillSearch error:', error);
             this.suggestions = [];
             this.isLoading = false;
             

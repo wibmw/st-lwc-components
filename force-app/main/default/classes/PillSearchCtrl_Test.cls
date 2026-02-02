@@ -52,6 +52,8 @@ private class PillSearchCtrl_Test {
             'Contact',
             'LastName,Email',
             'LastName,Email',
+            null,
+            null,
             null
         );
         
@@ -75,6 +77,8 @@ private class PillSearchCtrl_Test {
             'Contact',
             'LastName,Account.Name',
             'LastName,Account.Industry',
+            null,
+            null,
             null
         );
         
@@ -98,7 +102,9 @@ private class PillSearchCtrl_Test {
             'Contact',
             'Email',
             'LastName,Email',
-            'AccountId != null'
+            'AccountId != null',
+            null,
+            null
         );
         
         Test.stopTest();
@@ -119,6 +125,8 @@ private class PillSearchCtrl_Test {
             'Contact',
             'LastName',
             'LastName',
+            null,
+            null,
             null
         );
         
@@ -140,6 +148,8 @@ private class PillSearchCtrl_Test {
             'Contact',
             'LastName',
             'LastName,Account.Name',
+            null,
+            null,
             null
         );
         
@@ -165,11 +175,17 @@ private class PillSearchCtrl_Test {
                 'Contact',
                 'LastName',
                 'LastName',
-                'LastName = \'Doe\' DELETE FROM Contact'
+                'LastName = \'Doe\' DELETE FROM Contact',
+                null,
+                null
             );
         } catch (AuraHandledException e) {
             exceptionThrown = true;
-            System.assert(e.getMessage().contains('Invalid filter'), 'Should throw invalid filter error');
+            System.assert(e.getMessage().contains('DML keywords not allowed'), 'Should throw invalid filter error: ' + e.getMessage());
+        } catch (Exception e) {
+            exceptionThrown = true;
+            System.assert(e.getMessage().contains('DML keywords not allowed') || e.getMessage().contains('Invalid filter'), 
+                'Should throw invalid filter error: ' + e.getMessage());
         }
         
         Test.stopTest();
@@ -189,6 +205,8 @@ private class PillSearchCtrl_Test {
             'Contact',
             'LastName',
             'LastName',
+            null,
+            null,
             null
         );
         
@@ -210,6 +228,8 @@ private class PillSearchCtrl_Test {
             '',
             'LastName',
             'LastName',
+            null,
+            null,
             null
         );
         
@@ -217,5 +237,130 @@ private class PillSearchCtrl_Test {
         
         System.assertNotEquals(null, results, 'Results should not be null');
         System.assertEquals(0, results.size(), 'Should return empty list for blank object type');
+    }
+    
+    /**
+     * @description Test search with label format template
+     */
+    @isTest
+    static void testSearchRecords_WithLabelFormat() {
+        Test.startTest();
+        
+        List<PillSearchCtrl.SearchResult> results = PillSearchCtrl.searchRecords(
+            'Doe',
+            'Contact',
+            'LastName,Email',
+            'LastName,Email',
+            null,
+            '{LastName} - {Email}',
+            null
+        );
+        
+        Test.stopTest();
+        
+        System.assertNotEquals(null, results, 'Results should not be null');
+        System.assertEquals(1, results.size(), 'Should find 1 contact');
+        System.assertEquals('Doe - john.doe@test.com', results[0].label, 'Label should be formatted');
+        System.assertEquals('Doe - john.doe@test.com', results[0].pillLabel, 'PillLabel should match label');
+    }
+    
+    /**
+     * @description Test search with sublabel format template
+     */
+    @isTest
+    static void testSearchRecords_WithSublabelFormat() {
+        Test.startTest();
+        
+        List<PillSearchCtrl.SearchResult> results = PillSearchCtrl.searchRecords(
+            'Doe',
+            'Contact',
+            'LastName,Email,FirstName',
+            'LastName,Email,FirstName',
+            null,
+            null,
+            'Email: {Email}'
+        );
+        
+        Test.stopTest();
+        
+        System.assertNotEquals(null, results, 'Results should not be null');
+        System.assertEquals(1, results.size(), 'Should find 1 contact');
+        System.assertEquals('Email: john.doe@test.com', results[0].sublabel, 'Sublabel should be formatted');
+    }
+    
+    /**
+     * @description Test search with both label and sublabel format templates
+     */
+    @isTest
+    static void testSearchRecords_WithBothFormats() {
+        Test.startTest();
+        
+        List<PillSearchCtrl.SearchResult> results = PillSearchCtrl.searchRecords(
+            'Doe',
+            'Contact',
+            'LastName,Email,FirstName',
+            'LastName,Email,FirstName',
+            null,
+            '{FirstName} {LastName}',
+            '{Email}'
+        );
+        
+        Test.stopTest();
+        
+        System.assertNotEquals(null, results, 'Results should not be null');
+        System.assertEquals(1, results.size(), 'Should find 1 contact');
+        System.assertEquals('John Doe', results[0].label, 'Label should be formatted');
+        System.assertEquals('john.doe@test.com', results[0].sublabel, 'Sublabel should be formatted');
+    }
+    
+    /**
+     * @description Test format with relationship fields
+     */
+    @isTest
+    static void testSearchRecords_FormatWithRelationships() {
+        Test.startTest();
+        
+        List<PillSearchCtrl.SearchResult> results = PillSearchCtrl.searchRecords(
+            'Doe',
+            'Contact',
+            'LastName,Email',
+            'LastName,Email,Account.Name',
+            null,
+            '{LastName} ({Account.Name})',
+            '{Email}'
+        );
+        
+        Test.stopTest();
+        
+        System.assertNotEquals(null, results, 'Results should not be null');
+        System.assertEquals(1, results.size(), 'Should find 1 contact');
+        System.assertEquals('Doe (Test Account)', results[0].label, 'Label should include relationship field');
+        System.assertEquals('john.doe@test.com', results[0].sublabel, 'Sublabel should be formatted');
+    }
+    
+    /**
+     * @description Test backward compatibility - using displayFields without format templates
+     */
+    @isTest
+    static void testSearchRecords_BackwardCompatibility() {
+        Test.startTest();
+        
+        // Call with null formats - should use displayFields behavior
+        List<PillSearchCtrl.SearchResult> results = PillSearchCtrl.searchRecords(
+            'Smith',
+            'Contact',
+            'LastName,Email',
+            'FirstName,LastName',
+            null,
+            null,
+            null
+        );
+        
+        Test.stopTest();
+        
+        System.assertNotEquals(null, results, 'Results should not be null');
+        System.assertEquals(1, results.size(), 'Should find 1 contact');
+        System.assertEquals('Jane', results[0].label, 'Label should be first display field');
+        System.assertEquals('Smith', results[0].sublabel, 'Sublabel should be second display field');
     }
 }

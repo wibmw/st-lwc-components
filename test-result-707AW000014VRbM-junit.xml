@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <testsuite name="force.apex" timestamp="2026-02-01T09:33:04.000Z" hostname="https://sitetracker-circet--mnt.sandbox.my.salesforce.com" tests="14" failures="1"  errors="0"  time="0.28">
+        <properties>
+            <property name="outcome" value="Failed"/>
+            <property name="testsRan" value="14"/>
+            <property name="passing" value="13"/>
+            <property name="failing" value="1"/>
+            <property name="skipped" value="0"/>
+            <property name="passRate" value="93%"/>
+            <property name="failRate" value="7%"/>
+            <property name="testStartTime" value="Sun Feb 01 2026 10:33:04"/>
+            <property name="testSetupTimeInMs" value="119"/>
+            <property name="testExecutionTime" value="0.28 s"/>
+            <property name="testTotalTime" value="0.40 s"/>
+            <property name="commandTime" value="0.15 s"/>
+            <property name="hostname" value="https://sitetracker-circet--mnt.sandbox.my.salesforce.com"/>
+            <property name="orgId" value="00DAW00000K9kiz2AB"/>
+            <property name="username" value="ibrahim.laouer@circet.prod.mnt"/>
+            <property name="testRunId" value="707AW000014VRbM"/>
+            <property name="userId" value="005Jv000007a5YEIAY"/>
+        </properties>
+        <testcase name="testSearchRecords_BackwardCompatibility" classname="PillSearchCtrl_Test" time="0.04">
+        </testcase>
+        <testcase name="testSearchRecords_BlankObjectType" classname="PillSearchCtrl_Test" time="0.01">
+        </testcase>
+        <testcase name="testSearchRecords_BlankSearchTerm" classname="PillSearchCtrl_Test" time="0.01">
+        </testcase>
+        <testcase name="testSearchRecords_FormatWithRelationships" classname="PillSearchCtrl_Test" time="0.03">
+        </testcase>
+        <testcase name="testSearchRecords_InvalidFilter" classname="PillSearchCtrl_Test" time="0.01">
+            <failure message="System.AssertException: Assertion Failed: Should throw invalid filter error"><![CDATA[Class.PillSearchCtrl_Test.testSearchRecords_InvalidFilter: line 184, column 1]]></failure>
+        </testcase>
+        <testcase name="testSearchRecords_NoResults" classname="PillSearchCtrl_Test" time="0.02">
+        </testcase>
+        <testcase name="testSearchRecords_NullRelationship" classname="PillSearchCtrl_Test" time="0.02">
+        </testcase>
+        <testcase name="testSearchRecords_RelationshipFields" classname="PillSearchCtrl_Test" time="0.03">
+        </testcase>
+        <testcase name="testSearchRecords_SimpleFields" classname="PillSearchCtrl_Test" time="0.02">
+        </testcase>
+        <testcase name="testSearchRecords_WithBothFormats" classname="PillSearchCtrl_Test" time="0.03">
+        </testcase>
+        <testcase name="testSearchRecords_WithFilter" classname="PillSearchCtrl_Test" time="0.03">
+        </testcase>
+        <testcase name="testSearchRecords_WithLabelFormat" classname="PillSearchCtrl_Test" time="0.02">
+        </testcase>
+        <testcase name="testSearchRecords_WithSublabelFormat" classname="PillSearchCtrl_Test" time="0.02">
+        </testcase>
+    </testsuite>
+</testsuites>

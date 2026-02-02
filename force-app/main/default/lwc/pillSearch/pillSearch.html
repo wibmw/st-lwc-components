@@ -16,17 +16,25 @@
                 
                 <!-- Selected Value Pill -->
                 <template if:true={hasSelectedValue}>
-                    <div class="slds-truncate" style="max-width: 100%">
-                        <lightning-pill 
-                            label={pillLabel} 
-                            onremove={handleRemove}
-                            class="slds-size_1-of-1">
-                            <lightning-icon 
-                                icon-name={iconName} 
-                                alternative-text={label} 
-                                size="x-small">
-                            </lightning-icon>
-                        </lightning-pill>
+                    <div class="slds-pill-container" style="max-width: 100%">
+                        <span class="slds-pill slds-size_1-of-1">
+                            <span class="slds-pill__icon_container">
+                                <span class="slds-icon_container" title={sObjectType}>
+                                    <lightning-icon icon-name={iconName} size="small"></lightning-icon>
+                                </span>
+                            </span>
+                            <span class="pill-action-wrapper">
+                                <span class="pill-content-wrapper">
+                                    <span class="slds-pill__label slds-truncate">{pillLabel}</span>
+                                    <template if:true={selectedValue.sublabel}>
+                                        <span class="subtitle slds-truncate">{selectedValue.sublabel}</span>
+                                    </template>
+                                </span>
+                            </span>
+                            <button class="slds-button slds-button_icon slds-button_icon slds-pill__remove" title="Retirer" onclick={handleRemove}>
+                                <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Retirer"></lightning-icon>
+                            </button>
+                        </span>
                     </div>
                 </template>
 
@@ -60,7 +68,7 @@
                     <template if:false={isLoading}>
                         <template if:true={hasSuggestions}>
                             <ul class="slds-listbox slds-listbox_vertical" role="presentation">
-                                <template for:each={suggestions} for:item="suggestion">
+                                <template for:each={formattedSuggestions} for:item="suggestion">
                                     <li key={suggestion.value} role="presentation" class="slds-listbox__item">
                                         <div 
                                             class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" 
@@ -82,7 +90,7 @@
                                                 <span class="slds-listbox__option-text slds-listbox__option-text_entity">
                                                     {suggestion.label}
                                                 </span>
-                                                <template if:true={suggestion.sublabel}>
+                                                <template if:true={suggestion.hasSublabel}>
                                                     <span class="slds-listbox__option-meta slds-listbox__option-meta_entity">
                                                         {suggestion.sublabel}
                                                     </span>

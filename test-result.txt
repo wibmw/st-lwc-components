@@ -1,0 +1,39 @@
+=== Test Results
+TEST NAME                                                      OUTCOME  MESSAGE                                                                        RUNTIME (MS)
+─────────────────────────────────────────────────────────────  ───────  ─────────────────────────────────────────────────────────────────────────────  ────────────
+PillSearchCtrl_Test.testSearchRecords_BackwardCompatibility    Pass                                                                                    38          
+PillSearchCtrl_Test.testSearchRecords_BlankObjectType          Pass                                                                                    8           
+PillSearchCtrl_Test.testSearchRecords_BlankSearchTerm          Pass                                                                                    8           
+PillSearchCtrl_Test.testSearchRecords_FormatWithRelationships  Pass                                                                                    28          
+PillSearchCtrl_Test.testSearchRecords_InvalidFilter            Fail     System.AssertException: Assertion Failed: Should throw invalid filter error    
+                                                                        Class.PillSearchCtrl_Test.testSearchRecords_InvalidFilter: line 184, column 1              
+PillSearchCtrl_Test.testSearchRecords_NoResults                Pass                                                                                    20          
+PillSearchCtrl_Test.testSearchRecords_NullRelationship         Pass                                                                                    24          
+PillSearchCtrl_Test.testSearchRecords_RelationshipFields       Pass                                                                                    33          
+PillSearchCtrl_Test.testSearchRecords_SimpleFields             Pass                                                                                    20          
+PillSearchCtrl_Test.testSearchRecords_WithBothFormats          Pass                                                                                    26          
+PillSearchCtrl_Test.testSearchRecords_WithFilter               Pass                                                                                    27          
+PillSearchCtrl_Test.testSearchRecords_WithLabelFormat          Pass                                                                                    19          
+PillSearchCtrl_Test.testSearchRecords_WithSublabelFormat       Pass                                                                                    22          
+
+
+=== Test Setup Time by Test Class for Run 707AW000014VRbM
+TEST SETUP METHOD NAME             SETUP TIME
+─────────────────────────────────  ──────────
+PillSearchCtrl_Test.setupTestData  119       
+
+
+=== Test Summary
+NAME                 VALUE                         
+───────────────────  ──────────────────────────────
+Outcome              Failed                        
+Tests Ran            14                            
+Pass Rate            93%                           
+Fail Rate            7%                            
+Skip Rate            0%                            
+Test Run Id          707AW000014VRbM               
+Test Setup Time      119 ms                        
+Test Execution Time  280 ms                        
+Test Total Time      399 ms                        
+Org Id               00DAW00000K9kiz2AB            
+Username             ibrahim.laouer@circet.prod.mnt
