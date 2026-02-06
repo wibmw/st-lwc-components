@@ -23,8 +23,12 @@
  */
 import { LightningElement, api, track } from 'lwc';
 import searchRecords from '@salesforce/apex/PillSearchCtrl.searchRecords';
+import getRecordDetails from '@salesforce/apex/PillSearchCtrl.getRecordDetails';
 
 export default class PillSearch extends LightningElement {
+    
+    _selectedRecordId = '';
+    _initialized = false;
     // ==================== INPUT PROPERTIES ====================
     
     @api label = '';
@@ -42,7 +46,20 @@ export default class PillSearch extends LightningElement {
 
     // ==================== OUTPUT PROPERTIES ====================
     
-    @api selectedRecordId = '';
+    @api 
+    get selectedRecordId() {
+        return this._selectedRecordId;
+    }
+    set selectedRecordId(value) {
+        this._selectedRecordId = value;
+        // If value changes after initialization (e.g. from flow), fetch details
+        if (this._initialized && value && !this.selectedValue) {
+            this.fetchRecordDetails(value);
+        } else if (this._initialized && !value) {
+            this.handleRemove();
+        }
+    }
+    
     @api selectedRecordName = '';
 
     // ==================== PRIVATE PROPERTIES ====================
@@ -58,6 +75,13 @@ export default class PillSearch extends LightningElement {
 
     get comboboxClass() {
         return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isOpen ? 'slds-is-open' : ''}`;
+    }
+
+    connectedCallback() {
+        this._initialized = true;
+        if (this.selectedRecordId) {
+            this.fetchRecordDetails(this.selectedRecordId);
+        }
     }
 
     get hasSelectedValue() {
@@ -218,6 +242,42 @@ export default class PillSearch extends LightningElement {
             this.dispatchEvent(new CustomEvent('error', {
                 detail: { error }
             }));
+        }
+    }
+
+    /**
+     * Fetch details for selected record ID
+     */
+    async fetchRecordDetails(recordId) {
+        if (!recordId || !this.sObjectType) return;
+
+        try {
+            this.isLoading = true;
+            const result = await getRecordDetails({
+                recordId: recordId,
+                sObjectType: this.sObjectType,
+                displayFields: `${this.labelField}${this.sublabelField ? ',' + this.sublabelField : ''}`,
+                labelFormat: this.labelFormat,
+                sublabelFormat: this.sublabelFormat
+            });
+
+            if (result) {
+                this.selectedValue = {
+                    value: result.value,
+                    label: result.label,
+                    sublabel: result.sublabel,
+                    pillLabel: result.pillLabel
+                };
+                this.selectedRecordName = result.label;
+            } else {
+                // If record not found, clear selection
+                this.handleRemove();
+            }
+        } catch (error) {
+            console.error('Error fetching record details:', error);
+            this.handleRemove();
+        } finally {
+            this.isLoading = false;
         }
     }
 

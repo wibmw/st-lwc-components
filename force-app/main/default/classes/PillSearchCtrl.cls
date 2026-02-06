@@ -131,6 +131,84 @@ public with sharing class PillSearchCtrl {
             throw new AuraHandledException('Search error: ' + e.getMessage());
         }
     }
+
+    /**
+     * @description Fetch details for a specific record by ID
+     * @param recordId ID of the record to fetch
+     * @param sObjectType Salesforce object API name
+     * @param displayFields Comma-separated fields to display (supports relationships)
+     * @param labelFormat Optional template for label (e.g., '{Name} - {Email}')
+     * @param sublabelFormat Optional template for sublabel
+     * @return SearchResult object with label and sublabel
+     */
+    @AuraEnabled(cacheable=true)
+    public static SearchResult getRecordDetails(
+        String recordId,
+        String sObjectType,
+        String displayFields,
+        String labelFormat,
+        String sublabelFormat
+    ) {
+        try {
+            if (String.isBlank(recordId) || String.isBlank(sObjectType)) {
+                return null;
+            }
+
+            // Sanitize object name
+            String sanitizedObjectType = String.escapeSingleQuotes(sObjectType);
+            
+            // Build field list
+            Set<String> allFields = new Set<String>{'Id', 'Name'}; // Always include Id and Name (fallback)
+            allFields.addAll(parseFields(displayFields));
+            
+            if (String.isNotBlank(labelFormat)) {
+                allFields.addAll(extractFieldsFromTemplate(labelFormat));
+            }
+            if (String.isNotBlank(sublabelFormat)) {
+                allFields.addAll(extractFieldsFromTemplate(sublabelFormat));
+            }
+            
+            // Build Query
+            String selectClause = 'SELECT ' + String.join(new List<String>(allFields), ', ');
+            String query = selectClause + ' FROM ' + sanitizedObjectType + ' WHERE Id = :recordId LIMIT 1';
+            
+            // Execute Query
+            List<SObject> records = Database.query(query);
+            if (records.isEmpty()) {
+                return null;
+            }
+            
+            SObject record = records[0];
+            
+            // Format Result
+            SearchResult result = new SearchResult();
+            result.value = (String)record.get('Id');
+            
+            // Parse display fields to determine label/sublabel fields if not using format
+            List<String> displayFieldsList = parseFields(displayFields);
+            String labelFieldName = displayFieldsList.size() > 0 ? displayFieldsList[0] : 'Name';
+            String sublabelFieldName = displayFieldsList.size() > 1 ? displayFieldsList[1] : null;
+
+            if (String.isNotBlank(labelFormat)) {
+                result.label = formatWithTemplate(record, labelFormat);
+                result.pillLabel = result.label;
+            } else {
+                result.label = getFieldValue(record, labelFieldName);
+                result.pillLabel = result.label;
+            }
+            
+            if (String.isNotBlank(sublabelFormat)) {
+                result.sublabel = formatWithTemplate(record, sublabelFormat);
+            } else {
+                result.sublabel = sublabelFieldName != null ? getFieldValue(record, sublabelFieldName) : '';
+            }
+            
+            return result;
+            
+        } catch (Exception e) {
+            throw new AuraHandledException('Error fetching record details: ' + e.getMessage());
+        }
+    }
     
     /**
      * @description Parse comma-separated field list

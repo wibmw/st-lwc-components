@@ -6,6 +6,9 @@ import { deleteRecord, getRecordNotifyChange, getRecord } from 'lightning/uiReco
 import { CloseActionScreenEvent } from 'lightning/actions';
 import { isDesktopDevice, STATUS_DEFINITIONS_BY_KEY, STATUS_DEFINITIONS_BY_APIVALUE } from 'c/logisticsUtils';
 import * as workspaceApi from 'lightning/platformWorkspaceApi';
+import { RefreshEvent } from 'lightning/refresh';
+
+// ... (existing imports)
 
 import getInventoryAggregatesMulti from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.getInventoryAggregatesMulti';
 import searchArticles from '@salesforce/apex/MntGestionDemandeLogistiqueCtrl.searchArticles';
@@ -142,7 +145,8 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
             return false;
         }
 
-        if (this.isDesktop) return this.hasExistingCockpitLines;
+        // Si on a un recordId et qu'on n'est pas dans un contexte parent, c'est une édition,
+        // peu importe s'il y a des lignes ou non (ex: dossier 'À Retraiter').
         return true;
     }
 
@@ -157,15 +161,25 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     get isDisabled() {
         if (this.isDesktop) {
             if (this.isEditMode) {
-                const forbiddenStatusesForUpdate = ['Nouveau', 'Clôturé'];
+                const forbiddenStatusesForUpdate = ['Nouveau', 'Clôturé','À Retraiter'];
                 if (forbiddenStatusesForUpdate.includes(this.status)) return true;
             } else {
-                if (this.ticketStatus && this.ticketStatus !== 'PEC Cockpit') return true;
+                if (this.ticketStatus && this.ticketStatus !== 'PEC Cockpit' && this.ticketStatus !== 'PEC Retraitement') return true;
             }
         }
 
-        if (this.cart.length === 0 && this.isEditMode) return false;
-        else if (this.cart.length === 0 && !this.isEditMode) return true;
+        // Validation Panier Vide
+        if (this.cart.length === 0) {
+             // Cas Création : on ne peut pas créer une demande vide
+             if (!this.isEditMode) return true;
+
+             // Cas Première Validation (PEC Cockpit) : on doit avoir des lignes pour valider
+             if (this.status === 'PEC Cockpit') return true;
+
+             // Cas Mise à jour (Commande en Cours, PEC Retraitement...) :
+             // On AUTORISE un panier vide (pour passer en 'À Retraiter')
+             return false;
+        }
 
         return !this.cart.every(c => {
             // Validation quantité: doit être un nombre > 0
@@ -202,8 +216,8 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         }
         
         // Desktop behavior
-        if (!this.isEditMode) return 'Créer la Demande';
-        return this.hasExistingCockpitLines && this.status !== 'PEC Cockpit' ? 'Mettre à jour' : 'Valider la Demande';
+        if (!this.isEditMode && this.status == 'Nouveau') return 'Créer la Demande';
+        return this.hasExistingCockpitLines && this.status == 'PEC Cockpit' ? 'Valider la Demande' : 'Mettre à jour';
     }
 
     get hasFilesToUpload() {
@@ -323,7 +337,7 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                     value: data.nTicketCorrectifId,
                     label: label,
                     sublabel: sublabel,
-                    pillLabel: sublabel ? `${label} - ${sublabel}` : label,
+                    pillLabel: label, //sublabel ? `${label} - ${sublabel}` : label,
                     g2r: data.g2r,
                     siteName: data.siteName
                 };
@@ -477,9 +491,7 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 // Rafraîchir le composant après délai pour s'assurer que le backend est à jour
                 setTimeout(() => {
                     getRecordNotifyChange([{ recordId: this.recordId }]);
-                    try {
-                        eval("$A.get('e.force:refreshView').fire();");
-                    } catch(e) { console.log('not aura context'); }
+                    this.dispatchEvent(new RefreshEvent());
                     this.loadOrderData();
                 }, 500);
             } else {
@@ -528,7 +540,7 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
 
     async handlePecAction(event) {
         const actionName = event.target.name;
-        const newStatus = actionName === 'pec_cockpit' ? 'PEC Cockpit' : 'À Retraiter';
+        const newStatus = actionName === 'pec_cockpit' ? 'PEC Cockpit' : 'PEC Retraitement';
         
         this.loading = true;
         try {
@@ -542,10 +554,8 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
             // Rafraîchir le composant après délai pour s'assurer que le backend est à jour
             setTimeout(() => {
                 getRecordNotifyChange([{ recordId: this.recordId }]);
-                // Rafraîchement global
-                try {
-                     eval("$A.get('e.force:refreshView').fire();");
-                } catch(e) { console.log('not aura context'); }
+                // Rafraîchement global des listes
+                this.dispatchEvent(new RefreshEvent());
                 this.loadOrderData();
             }, 500);
 
@@ -768,13 +778,23 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         this.loading = true;
         try {
             // Limiter à 10 résultats
-            const articlesFound = await searchArticles({ term: this.articleSearchTerm, limitSize: 10 });
+            const articlesFound = await searchArticles({ 
+                term: this.articleSearchTerm, 
+                limitSize: 10,
+                includePieces: this.isDesktop
+            });
+            const articleIds = articlesFound.map(art => art.value);
 
-            if (this.isDesktop) {
-                const articleIds = articlesFound.map(art => art.value);
-                if (articleIds.length > 0) {
-                // Limiter à 10 résultats pour l'inventaire également
-                let res = await getInventoryAggregatesMulti({ articleIds: articleIds, limitSize: 10, offsetVal: 0, groupBySite: this.isDesktop });
+            if (articleIds.length > 0) {
+                // Appel unifié pour Desktop et Mobile
+                let res = await getInventoryAggregatesMulti({ 
+                    articleIds: articleIds, 
+                    limitSize: 10, 
+                    offsetVal: 0, 
+                    groupBySite: this.isDesktop 
+                });
+
+                if (this.isDesktop) {
                     res = res.map(row => {
                         const suffix = row.siteNomDuSite ? ` - ${row.siteNomDuSite}` : '';
                         return {
@@ -782,21 +802,11 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                             siteName: row.siteName + suffix
                         };
                     });
-                    this.rows = [...res];
-                } else {
-                    this.rows = [];
                 }
-            } else {
-                const res = articlesFound.map(art => ({
-                    articleId: art.value,
-                    articleName: art.label,
-                    mnemonique: art.sublabel,
-                    description: art.description,
-                    siteId: null,
-                    siteName: '',
-                    stock: 0
-                }));
+                
                 this.rows = [...res];
+            } else {
+                this.rows = [];
             }
         } catch (e) {
             this.toast('Erreur', 'Chargement impossible: ' + (e.body?.message || e.message), 'error');
@@ -830,6 +840,11 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         this.toast('Succès', `${row.articleName} ajouté.`, 'success');
         if (this.isDesktop) {
             this.hasExistingCockpitLines = this.cart.length > 0;
+        }
+        
+        // Refresh search results to show items that were previously filtered out
+        if (this.articleSearchTerm.length >= 3) {
+            this.refresh(false);
         }
     }
 

@@ -13,6 +13,7 @@ import getEnvoiDetails from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getE
 import getInitialData from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getInitialData';
 import searchPiecesUnitaires from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.searchPiecesUnitaires';
 import saveEnvoi from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.saveEnvoi';
+import getTechModeData from '@salesforce/apex/MntGestionEnvoiLogistiqueCtrl.getTechModeData';
 import TrackingModal from 'c/trackingModal';
 
 const getRowActions = (row, doneCallback) => {
@@ -36,6 +37,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     @api componentLabel;
     @api isSaveComplete = false;
     @api ticketCorrectifID;
+    @api techMode = false;
 
     _recordId;
     _objectApiName;
@@ -59,6 +61,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     @track nTicketCorrectifId;
     @track destinataireId;
     @track stockId;
+    @track sourceStockId; // To preserve Stock__c (Source)
     @track statutEnvoi = 'Commande à Traiter';
     @track dateEnvoi;
     @track typeEnvoi = 'Autre Stock';
@@ -77,6 +80,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     @track commandeDetails = [];
     @track linkedCommandeId;
     @track isContextCommande = false;
+    @track isTechMode = false;
 
     delayTimeout;
     commandeDetailsCols = COMMANDE_DETAILS_COLS;
@@ -98,7 +102,12 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     get filteredSearchResults() {
         if (!this.searchResults) return [];
         const cartIds = new Set(this.cart.map(c => c.pieceUnitaireId));
-        return this.searchResults.filter(item => !cartIds.has(item.id));
+        const baseClass = this.isDesktop 
+            ? 'slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small'
+            : 'mobile-card2 slds-m-bottom_xx-small';
+        return this.searchResults
+            .filter(item => !cartIds.has(item.id))
+            .map(item => ({ ...item, cardClass: baseClass }));
     }
 
     get isDestinationLocked() {
@@ -107,8 +116,12 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
 
     get cartData() {
         if (!this.cart) return [];
+        const baseClass = this.isDesktop 
+            ? 'slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small border-left-blue'
+            : 'mobile-card2 slds-m-bottom_xx-small';
         return this.cart.map(item => ({
             ...item,
+            cardClass: baseClass,
             isTrackingDisabled: !item.numBonLivraison,
             trackingUrl: item.numBonLivraison
                 ? `https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLT=${item.numBonLivraison}`
@@ -173,7 +186,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     }
 
     get isUpdateMode() {
-        return !this.isCreationMode && this.statutEnvoi === 'A Réceptionner';
+        return !this.isCreationMode && this.statutEnvoi === 'À Réceptionner';
     }
 
     get isValidateMode() {
@@ -241,7 +254,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     }
 
     get isBlReadOnly() {
-        return !!this.dateEnvoi;
+        return !this.statutEnvoi.includes('Commande à Traiter');
     }
 
     get showCancelButton() {
@@ -251,7 +264,22 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         return false;
     }
 
+    get isSearchDisabled() {
+        // Disable search if read-only OR if in TechMode (because we only show specific pieces)
+        return this.isReadOnly || this.isTechMode;
+    }
+
     connectedCallback() {
+        // Check for TechMode parameter in URL or API property
+        const urlParams = new URLSearchParams(window.location.search);
+        const isTechModeUrl = urlParams.get('TechMode') === 'true';
+
+        if ((isTechModeUrl || this.techMode) && this._recordId) {
+            this.isTechMode = true;
+            this.handleTechModeContext();
+            return;
+        }
+
         if (this._objectApiName === 'Commande_Pi_ces__c') {
             this.linkedCommandeId = this._recordId;
             this.isContextCommande = true;
@@ -363,6 +391,91 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         }
     }
 
+    async handleTechModeContext() {
+        this.isLoading = true;
+        try {
+            this.cardTitle = 'Créer un Envoi';
+            this.saveButtonLabel = 'Créer l\'Envoi';
+            this.typeEnvoi = 'Autre Stock';
+
+            const techData = await getTechModeData({ pieceId: this._recordId });
+
+            // Pre-fill ticket info
+            if (techData.correctifId) {
+                this.nTicketCorrectifId = techData.correctifId;
+                this.selectedNTicket = {
+                    value: techData.correctifId,
+                    label: techData.correctifName,
+                    sublabel: techData.correctifSubLabel,
+                    pillLabel: techData.correctifName
+                };
+                this.g2r = techData.g2r || '';
+                this.siteName = techData.siteName || '';
+            }
+
+            // Pre-fill destination from User's STR__c
+            if (techData.destinationSiteId) {
+                this.stockId = techData.destinationSiteId;
+                const label = techData.destinationSiteName || '';
+                const sublabel = techData.destinationSiteSubLabel || '';
+                this.selectedStock = {
+                    value: techData.destinationSiteId,
+                    label: label,
+                    sublabel: sublabel,
+                    pillLabel: sublabel ? `${label} - ${sublabel}` : label
+                };
+            }
+
+            // Pre-fill address from Contact
+            if (techData.contactId) {
+                this.destinataireId = techData.contactId;
+                this.selectedDestinataire = { 
+                    value: techData.contactId, 
+                    label: techData.contactName 
+                };
+                this.contactAddress = techData.contactAddress || '';
+                // Map Account Project from User
+                if (techData.accountProject) {
+                    this.compteProjet = techData.accountProject;
+                }
+            }
+
+            // Pre-select the piece in cart
+            let defaultStatus = '';
+            if (this.typeReception === 'Livraison') {
+                defaultStatus = 'En préparation chez l\'expéditeur';
+            }
+
+            this.cart = [{
+                pieceUnitaireId: techData.pieceId,
+                name: techData.pieceName,
+               mnemonique: '',
+                cleEquipement: '',
+                sousLieu: '',
+                numBonLivraison: '',
+                statutChronopost: defaultStatus
+            }];
+
+            // Populate search results with other "A Retourner" pieces
+            if (techData.otherPieces && techData.otherPieces.length > 0) {
+                this.searchResults = techData.otherPieces.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    cleEquipement: p.cleEquipement,
+                    rma: p.rma,
+                    sousLieu: p.sousLieu,
+                    mnemonique: p.mnemonique,
+                    description: p.description
+                }));
+            }
+
+        } catch (error) {
+            this.showToast('Erreur', reduceErrors(error)[0], 'error');
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
     async loadCommandeDetails(commandeId) {
         try {
             const allDetails = await getCommandeDetails({ commandeId: commandeId, envoiId: this._recordId });
@@ -429,6 +542,17 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
                     sublabel: sublabel,
                     pillLabel: sublabel ? `${label} - ${sublabel}` : label
                 };
+            }
+            
+            // Preserve Source Stock (Stock__c) 
+            this.sourceStockId = envoiData.stockId;
+
+            // Map Demandeur
+            if (envoiData.demandeurId) {
+                 this.selectedDemandeur = {
+                     value: envoiData.demandeurId,
+                     label: envoiData.demandeurCommande // Label used for display
+                 };
             }
             this.commentaire = envoiData.commentaire;
             this.cart = envoiData.lines.map(line => ({ ...line, pieceUnitaireId: line.pieceUnitaireId }));
@@ -502,6 +626,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
                 mnemonique: piece.mnemonique,
                 cleEquipement: piece.cleEquipement,
                 sousLieu: piece.sousLieu,
+                description: piece.description, // Added description for consistency/restore
                 numBonLivraison: '',
                 statutChronopost: defaultStatus
             }];
@@ -524,6 +649,25 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
 
     handleRemoveItem(event) {
         const id = event.target.dataset.id || event.currentTarget.dataset.id;
+        
+        // --- TechMode Logic: Restore to Search Results ---
+        if (this.isTechMode) {
+            const removedItem = this.cart.find(item => item.pieceUnitaireId === id);
+            if (removedItem) {
+                // Add back to searchResults so it appears available again
+                this.searchResults = [...this.searchResults, {
+                    id: removedItem.pieceUnitaireId,
+                    name: removedItem.name,
+                    cleEquipement: removedItem.cleEquipement,
+                    mnemonique: removedItem.mnemonique,
+                    sousLieu: removedItem.sousLieu,
+                    description: removedItem.description || '', 
+                    rma: '' // Optional, not stored in cart but part of search result structure
+                }];
+            }
+        }
+        // -------------------------------------------------
+
         this.cart = this.cart.filter(item => item.pieceUnitaireId !== id);
         this.showToast('Succès', 'Pièce retirée du panier.', 'success');
     }
@@ -704,17 +848,30 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             // - Si création -> 'A Réceptionner'
             
             const action = this.mainButtonAction; // Based on mode
+
+            // --- VALIDATION BL OBLIGATOIRE ---
+            if (action === 'Validate') {
+                const missingBl = this.cart.some(item => !item.numBonLivraison || item.numBonLivraison.trim() === '');
+                if (missingBl) {
+                    this.showToast('Erreur', 'Le N° de Bon de Livraison est obligatoire pour toutes les pièces lors de la validation.', 'error');
+                    this.isLoading = false;
+                    return;
+                }
+            }
+            // ---------------------------------
             
             if (this.isRefuseMode) {
                 newStatus = 'Clôturé NOK';
             } else if (!this._recordId) {
                 // Creation
-                newStatus = 'A Réceptionner';
+                newStatus = 'À Réceptionner';
             } else if (this.isValidateMode && !this.isUpdateMode) {
                 // Validation (Transition)
-                newStatus = 'A Réceptionner';
+                newStatus = 'À Réceptionner';
             }
             // Si Update Mode ('A Réceptionner'), on garde le statut (déjà set par default)
+
+
 
             const inputData = {
                 recordId: this._recordId,
@@ -726,7 +883,9 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
                 typeReception: this.typeReception,
                 dateEnvoi: this.dateEnvoi,
                 destinataireId: this.destinataireId,
-                lieuId: this.stockId,
+                lieuId: this.stockId, // Maps to Lieu_de_Destination__c
+                stockId: this.sourceStockId, // Preserve Stock__c (Source)
+                demandeurId: (this.selectedDemandeur ? this.selectedDemandeur.value : null), // Add Demandeur
                 commentaire: this.commentaire,
                 cart: this.cart.map(c => ({
                     pieceUnitaireId: c.pieceUnitaireId,
@@ -735,7 +894,8 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
                 })),
                 commandeParenteId: this.linkedCommandeId || null,
                 orderLines: this.commandeDetails,
-                actionGlobale: (action === 'Refuse') ? 'REFUSER' : (action === 'Validate' ? 'VALIDER' : '')
+                actionGlobale: (action === 'Refuse') ? 'REFUSER' : (action === 'Validate' ? 'VALIDER' : ''),
+                isTechMode: this.isTechMode
             };
 
             const result = await saveEnvoi({ inputJSON: JSON.stringify(inputData) });

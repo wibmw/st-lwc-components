@@ -177,19 +177,6 @@
                                         </c-lookup-pill>
                                     </lightning-layout-item>
 
-                                    <!-- REF CHRONOPOST (Read-only) -->
-                                    <lightning-layout-item size="12" padding="around-small">
-                                        <div class="slds-form-element">
-                                            <label class="slds-form-element__label">Réf. Destinataire CHRONOPOST</label>
-                                            <div class="slds-form-element__control">
-                                                <div class="slds-box slds-box_x-small slds-theme_shade cursor-pointer" onclick={handleCopyRef}>
-                                                    <lightning-icon icon-name="utility:copy" size="x-small" class="slds-m-right_x-small"></lightning-icon>
-                                                    {refDestinataireChronopost}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </lightning-layout-item>
-
                                     <!-- G2R (Read-only) -->
                                     <lightning-layout-item size="12" padding="around-small">
                                         <lightning-input 
@@ -209,17 +196,8 @@
                                             variant="label-stacked">
                                         </lightning-input>
                                     </lightning-layout-item>
-
-                                    <!-- COMPTE PROJET -->
-                                    <lightning-layout-item size="12" padding="around-small">
-                                        <lightning-input 
-                                            label="Compte Projet"
-                                            value={compteProjet}
-                                            onchange={handleCompteProjetChange}
-                                            variant="label-stacked"
-                                            disabled={isReadOnly}>
-                                        </lightning-input>
-                                    </lightning-layout-item>
+                                    <!-- COMPTE PROJET (Hidden in mobile as per request, but data is kept) -->
+                                    <!-- REF CHRONOPOST (Hidden in mobile as per request) -->
 
                                     <!-- STOCK/LIEU DE DESTINATION -->
                                     <lightning-layout-item size="12" padding="around-small">
@@ -236,7 +214,9 @@
                                         </c-lookup-pill>
                                     </lightning-layout-item>
 
-                                    <!-- TYPE D'ENVOI (disabled) -->
+                                    <!-- Other fields... -->
+                                    <!-- ... Keeping rest of layout ... -->
+                                     <!-- TYPE D'ENVOI (disabled) -->
                                     <lightning-layout-item size="12" padding="around-small">
                                         <lightning-combobox 
                                             label="Type d'envoi"
@@ -259,7 +239,7 @@
                                             disabled={isReadOnly}>
                                         </lightning-combobox>
                                     </lightning-layout-item>
-
+                                    <template if:false={isMainPropre}>
                                     <!-- TRANSPORTEUR -->
                                     <lightning-layout-item size="12" padding="around-small">
                                         <lightning-combobox 
@@ -273,7 +253,7 @@
                                     </lightning-layout-item>
 
                                     <!-- ADRESSE DE LIVRAISON (si Main Propre = false) -->
-                                    <template if:false={isMainPropre}>
+                                    
                                         <lightning-layout-item size="12" padding="around-small">
                                             <c-lookup-pill
                                                 label="Adresse de Livraison"
@@ -317,11 +297,13 @@
             </div>
 
             <!-- COLONNE DROITE : DÉTAILS DE LA COMMANDE -->
-                <div class="slds-col slds-size_1-of_1 slds-large-size_7-of-12">
+                <!-- ... (Details card kept same) ... -->
+                <template if:true={isDesktop}>
+                 <div class="slds-col slds-size_1-of_1 slds-large-size_7-of-12">
                     <div class="slds-box slds-box_small slds-theme_shade" style="height: 100%;">
                         <!-- COLONNE DE DROITE : DÉTAILS DE LA COMMANDE (LECTURE SEULE) -->
                         <lightning-card title="Détails de la Commande" icon-name="standard:sales_order">
-                            <div class="slds-var-p-around_medium">
+                             <div class="slds-var-p-around_medium">
                                 <template if:true={commandeDetails.length}>
                                     <div class="desktop-only">
                                         <template if:true={isDesktop}>
@@ -336,7 +318,7 @@
                                         </template>
                                     </div>
                                     
-                                    <template if:false={isDesktop}>
+                                    <!--template if:false={isDesktop}>
                                         <template for:each={commandeDetails} for:item="detail">
                                             <div key={detail.articleName} class="mobile-card">
                                                 <div class="mobile-card-header">
@@ -357,7 +339,7 @@
                                                 </div>
                                             </div>
                                         </template>
-                                    </template>
+                                    </template-->
                                 </template>
                                 <template if:false={commandeDetails.length}>
                                     <p>Aucun détail trouvé pour cette commande.</p>
@@ -366,6 +348,7 @@
                         </lightning-card>
                     </div>
                 </div>
+            </template>
         </div>
         <!-- ======================= CORPS PRINCIPAL : RECHERCHE PIÈCES & PANIER ======================= -->
         <div class="slds-grid slds-wrap slds-gutters_medium slds-p-horizontal_medium slds-p-bottom_medium">
@@ -383,49 +366,80 @@
                         onchange={handleSearch} 
                         class="slds-m-bottom_medium" 
                         data-search-input="true"
-                        disabled={isReadOnly}>
+                        disabled={isSearchDisabled}>
                     </lightning-input>
 
                     <!-- LISTE DES RÉSULTATS (Style Cartes) -->
                     <div class="slds-scrollable_y max-h-400">
                         <template if:true={filteredSearchResults.length}>
                             <template for:each={filteredSearchResults} for:item="result">
-                                <div key={result.id} class="slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small border-left-blue">
-                                    <div class="slds-grid">
-                                        <div class="slds-col" style="border-right: 1px solid #dddbda; padding-right: 10px;">
+                                <div key={result.id} class={result.cardClass}>
+                                    <template if:true={isDesktop}>
+                                        <!-- Desktop Layout (Original) -->
+                                        <div class="slds-grid">
+                                            <div class="slds-col" style="border-right: 1px solid #dddbda; padding-right: 10px;">
                                             <!-- Ligne 1 : Nom + Mnémonique -->
-                                            <div class="slds-grid slds-grid_align-spread">
-                                                <span class="slds-text-title_bold" title={result.name}>{result.name}-{result.cleEquipement}</span>
-                                                <span class="slds-text-body_small slds-truncate slds-m-left_small" title={result.mnemonique}>{result.mnemonique}</span>
-                                            </div>
+                                                <div class="slds-grid slds-grid_align-spread">
+                                                    <span class="slds-text-title_bold" title={result.name}>{result.name}-{result.cleEquipement}</span>
+                                                    <span class="slds-text-body_small slds-truncate slds-m-left_small" title={result.mnemonique}>{result.mnemonique}</span>
+                                                </div>
                                             <!-- Ligne 2 : Description + Sous-Lieu (aligned right) + Button -->
-                                            <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
-                                            <div class="slds-truncate" title={result.description} style="max-width: 65%;">
-                                                <span class="slds-text-body_small slds-text-color_weak">{result.description}</span>
+                                                <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
+                                                <div class="slds-truncate" title={result.description} style="max-width: 65%;">
+                                                    <span class="slds-text-body_small slds-text-color_weak">{result.description}</span>
+                                                </div>
+                                                <div class="slds-truncate slds-text-align_right" style="max-width: 20%;">
+                                                    <template if:true={result.sousLieu}>
+                                                        <span class="slds-text-body_small slds-text-color_weak">{result.sousLieu}</span>
+                                                    </template>
+                                                    <template if:true={result.rma}>
+                                                        <span class="slds-text-body_small slds-text-color_error">RMA: {result.rma}</span>
+                                                    </template>
+                                                </div>
+    
+                                                </div>
                                             </div>
-                                            <div class="slds-truncate slds-text-align_right" style="max-width: 20%;">
-                                                <template if:true={result.sousLieu}>
-                                                    <span class="slds-text-body_small slds-text-color_weak">{result.sousLieu}</span>
-                                                </template>
-                                                <template if:true={result.rma}>
-                                                    <span class="slds-text-body_small slds-text-color_error">RMA: {result.rma}</span>
-                                                </template>
-                                            </div>
-
+                                            <div class="slds-col slds-shrink-none slds-grid slds-grid_vertical slds-grid_align-center slds-grid_vertical-align-center" style="width: 5%; max-width: 5%; padding-left:0; padding-right:0;">
+                                                <lightning-button-icon 
+                                                    icon-name="utility:add" 
+                                                    variant="brand" 
+                                                    size="small" 
+                                                    data-id={result.id} 
+                                                    onclick={handleAddToCart} 
+                                                    alternative-text="Ajouter"
+                                                    disabled={isReadOnly}>
+                                                </lightning-button-icon>
                                             </div>
                                         </div>
-                                        <div class="slds-col slds-shrink-none slds-grid slds-grid_vertical slds-grid_align-center slds-grid_vertical-align-center" style="width: 5%; max-width: 5%; padding-left:0; padding-right:0;">
-                                            <lightning-button-icon 
-                                                icon-name="utility:add" 
-                                                variant="brand" 
-                                                size="small" 
-                                                data-id={result.id} 
-                                                onclick={handleAddToCart} 
-                                                alternative-text="Ajouter"
-                                                disabled={isReadOnly}>
-                                            </lightning-button-icon>
+                                    </template>
+                                    <template if:false={isDesktop}>
+                                        <!-- Mobile Layout (Optimized) -->
+                                        <div class="mobile-cart-card">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <!-- Conteneur texte -->
+                                                <div class="mobile-text-container slds-col">
+                                                    <!-- Nom + Clé -->
+                                                    <div class="slds-truncate slds-text-title_bold" title={result.name}>{result.name}-{result.cleEquipement}</div>
+                                                    <!-- Mnémonique -->
+                                                    <div class="slds-truncate slds-text-body_small slds-m-top_xxx-small" title={result.mnemonique}>{result.mnemonique}</div>
+                                                    <!-- Description -->
+                                                    <div class="slds-truncate slds-text-body_small slds-text-color_weak slds-m-top_xxx-small" title={result.description}>{result.description}</div>
+                                                </div>
+                                                <!-- Bouton ajouter -->
+                                                <div class="slds-col slds-shrink-none">
+                                                    <lightning-button-icon 
+                                                        icon-name="utility:add" 
+                                                        variant="brand" 
+                                                        size="medium" 
+                                                        data-id={result.id} 
+                                                        onclick={handleAddToCart} 
+                                                        alternative-text="Ajouter"
+                                                        disabled={isReadOnly}>
+                                                    </lightning-button-icon>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </template>
                                 </div>
                             </template>
                         </template>
@@ -451,9 +465,10 @@
                     <div class="slds-scrollable_y max-h-500">
                         <template if:true={cart.length}>
                             <template for:each={cartData} for:item="item">
-                                <div key={item.pieceUnitaireId} class="slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small border-left-blue">
-                                    
-                                    <div class="slds-grid">
+                                <div key={item.pieceUnitaireId} class={item.cardClass}>
+                                    <template if:true={isDesktop}>
+                                        <!-- Desktop Layout (Original) -->
+                                        <div class="slds-grid">
                                         <div class="slds-col" style="border-right: 1px solid #dddbda; padding-right: 10px;">
                                             <!-- LIGNE 1: NOM + MNEMONIQUE + SOUS-LIEU -->
                                             <div class="slds-grid slds-grid_align-spread slds-m-bottom_x-small">
@@ -505,7 +520,46 @@
                                             </template>
                                             <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Supprimer" title="Supprimer" class="slds-icon-text-error" size="medium" onclick={handleRemoveItem} data-id={item.pieceUnitaireId} disabled={isReadOnly}></lightning-button-icon>
                                         </div>
-                                    </div>
+                                        </div>
+                                    </template>
+                                    <template if:false={isDesktop}>
+                                        <!-- Mobile Layout (Optimized) - No Status, No Chrono Buttons -->
+                                        <div class="mobile-cart-card">
+                                            <div class="slds-grid slds-grid_vertical-align-center">
+                                                <div class="mobile-text-container slds-col">
+                                                    <div class="slds-grid slds-grid_align-spread">
+                                                        <div class="slds-truncate slds-text-title_bold" title={item.name}>
+                                                            {item.name}
+                                                        </div>
+                                                        <div class="slds-text-body_small slds-text-color_weak" style="flex-shrink: 0; padding-left: 0.5rem;">
+                                                            {item.mnemonique}
+                                                        </div>
+                                                    </div>
+                                                    <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
+                                                        <div class="slds-truncate slds-text-body_small slds-text-color_weak" title={item.sousLieu}>
+                                                            {item.sousLieu}
+                                                        </div>
+                                                        <div style="flex-shrink: 0; max-width: 50%;">
+                                                            <lightning-input 
+                                                                type="text" 
+                                                                label="N° Bon Livraison"
+                                                                variant="label-hidden" 
+                                                                placeholder="N° BL" 
+                                                                value={item.numBonLivraison} 
+                                                                data-id={item.pieceUnitaireId}
+                                                                onchange={handleCartInputChange}
+                                                                disabled={isBlReadOnly}
+                                                                class="compact-input">
+                                                            </lightning-input>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="slds-shrink-none">
+                                                    <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Supprimer" title="Supprimer" class="slds-icon-text-error" size="medium" onclick={handleRemoveItem} data-id={item.pieceUnitaireId} disabled={isReadOnly}></lightning-button-icon>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
                         </template>

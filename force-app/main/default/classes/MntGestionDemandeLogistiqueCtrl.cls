@@ -175,7 +175,7 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
                 SELECT Id, Name, Nom_du_site__c 
                 FROM sitetracker__Site__c 
                 WHERE Name LIKE :searchName 
-                AND RecordType.DeveloperName = 'CIRCET'  // Utilisation de DeveloperName plus sûr
+                AND RecordType.DeveloperName = 'CIRCET'
                 AND Liste_Logisticiens__c LIKE :searchLogist
                 LIMIT 1
             ];
@@ -247,16 +247,67 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
     }
 
     @AuraEnabled(cacheable=true)
-    public static List<IdLabel> searchArticles(String term, Integer limitSize) {
+    public static List<IdLabel> searchArticles(String term, Integer limitSize, Boolean includePieces) {
         List<IdLabel> results = new List<IdLabel>();
         if (String.isBlank(term) || term.length() < 2) { return results; }
 
-        // Use SOSL because Description__c is likely a Long Text Area and cannot be filtered in SOQL
-        String searchStr = '*' + term + '*';
-        List<List<SObject>> searchList = [FIND :searchStr IN ALL FIELDS RETURNING Articles__c(Id, Name, Mnemonique__c, Description__c ORDER BY Name) LIMIT :limitSize];
+        String soqlTerm = '%' + term + '%';
+        String soslTerm = '*' + term + '*';
+        Set<Id> articleIds = new Set<Id>();
         
-        if (!searchList.isEmpty()) {
-            for (Articles__c art : (List<Articles__c>)searchList[0]) {
+        // Extended limit for internal queries
+        Integer queryLimit = (limitSize != null && limitSize > 0) ? limitSize * 5 : 50;
+
+        // 1. SOQL on Articles (Name, Mnemonique) - Description is excluded from SOQL due to Long Text Area validation
+        for (Articles__c art : [
+            SELECT Id 
+            FROM Articles__c 
+            WHERE Name LIKE :soqlTerm 
+               OR Mnemonique__c LIKE :soqlTerm 
+            LIMIT :limitSize
+        ]) {
+            articleIds.add(art.Id);
+        }
+
+        // 2. SOQL on Pieces (Name, Mnemonique)
+        if (includePieces == true) {
+            for (Pi_ce_Unitaire__c piece : [
+                SELECT Code_Article__c 
+                FROM Pi_ce_Unitaire__c 
+                WHERE Code_Article__c != null 
+                  AND (Name LIKE :soqlTerm OR Mn_monique__c LIKE :soqlTerm)
+                LIMIT :limitSize
+            ]) {
+                articleIds.add(piece.Code_Article__c);
+            }
+        }
+        
+        // 3. SOSL for Description matches (and general catch-all)
+        // This handles the Description field which cannot be filtered in SOQL
+        List<List<SObject>> searchList;
+        if (includePieces == true) {
+            searchList = [FIND :soslTerm IN ALL FIELDS RETURNING Articles__c(Id), Pi_ce_Unitaire__c(Code_Article__c) LIMIT :queryLimit];
+            if (!searchList.isEmpty()) {
+                for (Articles__c art : (List<Articles__c>)searchList[0]) articleIds.add(art.Id);
+                if (searchList.size() > 1) {
+                    for (Pi_ce_Unitaire__c piece : (List<Pi_ce_Unitaire__c>)searchList[1]) {
+                        if (piece.Code_Article__c != null) articleIds.add(piece.Code_Article__c);
+                    }
+                }
+            }
+        } else {
+            searchList = [FIND :soslTerm IN ALL FIELDS RETURNING Articles__c(Id) LIMIT :queryLimit];
+            if (!searchList.isEmpty()) {
+                for (Articles__c art : (List<Articles__c>)searchList[0]) articleIds.add(art.Id);
+            }
+        }
+
+        if (!articleIds.isEmpty()) {
+            // Re-query full details for the unique set of Articles
+            // We use the same LIMIT as a safeguard, but since we already limited SOSL using limitSize, 
+            // the number of IDs should be reasonable. However, SOSL limit is per object type, so we might have more.
+            // We'll re-apply limit.
+             for (Articles__c art : [SELECT Id, Name, Mnemonique__c, Description__c FROM Articles__c WHERE Id IN :articleIds ORDER BY Name]) {
                 IdLabel il = new IdLabel();
                 il.value = art.Id;
                 il.label = art.Name;
@@ -265,6 +316,7 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
                 results.add(il);
             }
         }
+        
         return results;
     }
 
@@ -272,57 +324,64 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
     public static List<AggregationRow> getInventoryAggregatesMulti(List<Id> articleIds, Integer limitSize, Integer offsetVal, Boolean groupBySite) {
         if (articleIds == null || articleIds.isEmpty()) { return new List<AggregationRow>(); }
         
-        List<AggregateResult> aggResults;
+        List<AggregationRow> results = new List<AggregationRow>();
+        
         if (groupBySite == null || groupBySite == true) {
             // Desktop behavior: Group by Site + Article
-            aggResults = [
+            List<AggregateResult> aggResults = [
                 SELECT Lieu__c siteId, Lieu__r.Name siteName, Lieu__r.Nom_du_site__c siteNom, Code_Article__c articleId, Code_Article__r.Name articleName, Code_Article__r.Mnemonique__c mnemonique, COUNT(Id) stock
                 FROM Pi_ce_Unitaire__c WHERE Code_Article__c IN :articleIds AND Statut__c = 'En Stock'
                 GROUP BY Lieu__c, Lieu__r.Name, Lieu__r.Nom_du_site__c, Code_Article__c, Code_Article__r.Name, Code_Article__r.Mnemonique__c
                 ORDER BY Lieu__r.Name, Code_Article__r.Name LIMIT :limitSize OFFSET :offsetVal
             ];
-        } else {
-            // Mobile behavior: Group by Article only (ignore Site)
-            aggResults = [
-                SELECT Code_Article__c articleId, Code_Article__r.Name articleName, Code_Article__r.Mnemonique__c mnemonique, COUNT(Id) stock
-                FROM Pi_ce_Unitaire__c WHERE Code_Article__c IN :articleIds AND Statut__c = 'En Stock'
-                GROUP BY Code_Article__c, Code_Article__r.Name, Code_Article__r.Mnemonique__c
-                ORDER BY Code_Article__r.Name LIMIT :limitSize OFFSET :offsetVal
-            ];
-        }
-        
-        // Fetch descriptions separately to avoid "can not be grouped" error on Long Text Area fields
-        Map<Id, String> articleDescriptionMap = new Map<Id, String>();
-        if (!aggResults.isEmpty()) {
+
+            // Descriptions for desktop
+            Map<Id, String> articleDescriptionMap = new Map<Id, String>();
             Set<Id> foundArticleIds = new Set<Id>();
             for (AggregateResult ar : aggResults) {
                 foundArticleIds.add((Id)ar.get('articleId'));
             }
-            for (Articles__c art : [SELECT Id, Description__c FROM Articles__c WHERE Id IN :foundArticleIds]) {
-                articleDescriptionMap.put(art.Id, art.Description__c);
+            if (!foundArticleIds.isEmpty()) {
+                for (Articles__c art : [SELECT Id, Description__c FROM Articles__c WHERE Id IN :foundArticleIds]) {
+                    articleDescriptionMap.put(art.Id, art.Description__c);
+                }
             }
-        }
 
-        List<AggregationRow> results = new List<AggregationRow>();
-        for (AggregateResult ar : aggResults) {
-            AggregationRow row = new AggregationRow();
-            // Only populate site info if we grouped by site
-            if (groupBySite == null || groupBySite == true) {
+            for (AggregateResult ar : aggResults) {
+                AggregationRow row = new AggregationRow();
                 row.siteId = (Id)ar.get('siteId');
                 row.siteName = (String)ar.get('siteName');
                 row.siteNomDuSite = (String)ar.get('siteNom');
+                row.articleId = (Id)ar.get('articleId');
+                row.articleName = (String)ar.get('articleName');
+                row.stock = (Decimal)ar.get('stock');
+                row.mnemonique = (String)ar.get('mnemonique');
+                row.description = articleDescriptionMap.get(row.articleId);
+                results.add(row);
             }
-            row.articleId = (Id)ar.get('articleId');
-            row.articleName = (String)ar.get('articleName');
-            row.stock = (Decimal)ar.get('stock');
-            row.mnemonique = (String)ar.get('mnemonique');
-            row.description = articleDescriptionMap.get(row.articleId);
-            results.add(row);
+        } else {
+            // Mobile behavior: Query Articles directly (No aggregation needed)
+            List<Articles__c> articles = [
+                SELECT Id, Name, Mnemonique__c, Description__c
+                FROM Articles__c WHERE Id IN :articleIds
+                ORDER BY Name LIMIT :limitSize OFFSET :offsetVal
+            ];
+
+            for (Articles__c art : articles) {
+                AggregationRow row = new AggregationRow();
+                row.articleId = art.Id;
+                row.articleName = art.Name;
+                row.mnemonique = art.Mnemonique__c;
+                row.description = art.Description__c;
+                row.stock = 1; // Default or 0, stock concept is not same here
+                results.add(row);
+            }
         }
+        
         return results;
     }
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static OrderDetailsWrapper getOrderDetails(Id orderId) {
         OrderDetailsWrapper result = new OrderDetailsWrapper();
         Commande_Pi_ces__c order = [
@@ -399,7 +458,7 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
             insert newOrder;
 
             // 1. Ensure Envois exist (and get map)
-            Map<Id, Id> siteToEnvoiIdMap = ensureEnvoisExist(newOrder.Id, input.lines, input.adresseLivraisonId, input.nTicketCorrectifId);
+            Map<String, Id> siteToEnvoiIdMap = ensureEnvoisExist(newOrder.Id, input.lines, input.adresseLivraisonId, input.nTicketCorrectifId, input.demandeurId, input.lieuId);
 
             // 2. Create Lines
             List<Commande_Pi_ces_D_tails__c> orderDetails = new List<Commande_Pi_ces_D_tails__c>();
@@ -479,6 +538,12 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
                 if (currentStatus == 'PEC Cockpit' || currentStatus == 'PEC Retraitement') {
                     orderToUpdate.Statut_Commande__c = 'Commande en Cours';
                 }
+            } else {
+                // If cart is empty, set status to 'À Retraiter'
+                // User requirement: "si on enregistre le panier sans ligne, on passe au statut 'À Retraiter'"
+                if (currentStatus != 'Nouveau' && currentStatus != 'PEC Cockpit' && currentStatus != 'PEC Retraitement') {
+                    orderToUpdate.Statut_Commande__c = 'À Retraiter';
+                }
             }
             
             update orderToUpdate;
@@ -488,7 +553,7 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
             update orderToUpdate;
 
             // 2. Ensure Envois exist
-            Map<Id, Id> siteToEnvoiIdMap = ensureEnvoisExist(input.orderId, input.lines, input.adresseLivraisonId, input.nTicketCorrectifId);
+            Map<String, Id> siteToEnvoiIdMap = ensureEnvoisExist(input.orderId, input.lines, input.adresseLivraisonId, input.nTicketCorrectifId, input.demandeurId, input.lieuId);
 
             // 3. Sync Lines (Create/Update/Delete)
             clientKeyToNewIdMap = syncOrderLines(input.orderId, input.lines, siteToEnvoiIdMap, input.typeLigneContext);
@@ -522,46 +587,82 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
 
     // --- HELPER METHODS FOR LOGIC ---
 
-    private static Map<Id, Id> ensureEnvoisExist(Id orderId, List<OrderLineInput> lines, Id adresseLivraisonId, Id nTicketId) {
-        Map<Id, Id> siteToEnvoiIdMap = new Map<Id, Id>();
+    private static Map<String, Id> ensureEnvoisExist(Id orderId, List<OrderLineInput> lines, Id adresseLivraisonId, Id nTicketId, Id demandeurId, Id lieuDestinationId) {
+        Map<String, Id> envoiMap = new Map<String, Id>(); // Key can be 'SITEID' or 'SITEID-ARTICLEID'
         
-        // Fetch existing
-        for (Envoi_Logistique__c envoi : [SELECT Id, Stock__c FROM Envoi_Logistique__c WHERE Commande_Pi_ces__c = :orderId]) {
-            siteToEnvoiIdMap.put(envoi.Stock__c, envoi.Id);
+        // Fetch existing Envois
+        Map<Id, Envoi_Logistique__c> existingEnvoisMap = new Map<Id, Envoi_Logistique__c>(
+            [SELECT Id, Stock__c, Lieu_de_Destination__c FROM Envoi_Logistique__c WHERE Commande_Pi_ces__c = :orderId]
+        );
+        
+        // Priority 1: Map by Stock (Default)
+        for (Envoi_Logistique__c envoi : existingEnvoisMap.values()) {
+            if (envoi.Stock__c != null) {
+                envoiMap.put(String.valueOf(envoi.Stock__c), envoi.Id);
+            } else if (envoi.Lieu_de_Destination__c != null) {
+                 envoiMap.put(String.valueOf(envoi.Lieu_de_Destination__c), envoi.Id);
+            }
         }
-
-        // Identify missing
-        Set<Id> sitesNeedingEnvoi = new Set<Id>();
-        if (lines != null) {
-            for (OrderLineInput line : lines) {
-                if (line.typeLigne == 'Cockpit' && line.siteId != null && !siteToEnvoiIdMap.containsKey(line.siteId)) {
-                    sitesNeedingEnvoi.add(line.siteId);
+            
+        // Priority 2: Map by Stock+Article for specific affinity
+        if (!existingEnvoisMap.isEmpty()) {
+            for (Commande_Pi_ces_D_tails__c detail : [
+                SELECT Envoi_Logistique__c, Code_Articles__c 
+                FROM Commande_Pi_ces_D_tails__c 
+                WHERE Envoi_Logistique__c IN :existingEnvoisMap.keySet()
+                  AND Code_Articles__c != null
+            ]) {
+                Envoi_Logistique__c envoi = existingEnvoisMap.get(detail.Envoi_Logistique__c);
+                if (envoi != null) {
+                    // Safety check if Stock/Destination is missing on Envoi (rare but possible)
+                    String siteKey = (envoi.Stock__c != null ? String.valueOf(envoi.Stock__c) : String.valueOf(envoi.Lieu_de_Destination__c));
+                    if (siteKey != null) {
+                        String key = siteKey + '-' + detail.Code_Articles__c;
+                        envoiMap.put(key, envoi.Id);
+                    }
                 }
             }
         }
 
-        // Create missing
+        // Identify and Create missing
+        Set<Id> sitesNeedingEnvoi = new Set<Id>();
+        if (lines != null) {
+            for (OrderLineInput line : lines) {
+                if (line.typeLigne == 'Cockpit' && line.siteId != null) {
+                     // Check specific then generic
+                     String keySpecific = line.siteId + '-' + line.articleId;
+                     String keyGeneric = String.valueOf(line.siteId);
+                     
+                     if (!envoiMap.containsKey(keySpecific) && !envoiMap.containsKey(keyGeneric)) {
+                        sitesNeedingEnvoi.add(line.siteId);
+                     }
+                }
+            }
+        }
+
         if (!sitesNeedingEnvoi.isEmpty()) {
             List<Envoi_Logistique__c> newEnvois = new List<Envoi_Logistique__c>();
             for (Id siteId : sitesNeedingEnvoi) {
                 newEnvois.add(new Envoi_Logistique__c(
                     Commande_Pi_ces__c = orderId,
                     Destinataire__c = adresseLivraisonId,
-                    Stock__c = siteId,
+                    Stock__c = siteId, // Used as Key
                     N_Ticket_Correctif__c = nTicketId,
                     Statut__c = 'Commande à Traiter',
-                    Type__c = 'Autre Stock'
+                    Type__c = 'Autre Stock',
+                    Demandeur__c = demandeurId,
+                    Lieu_de_Destination__c = lieuDestinationId
                 ));
             }
             insert newEnvois;
             for (Envoi_Logistique__c envoi : newEnvois) {
-                siteToEnvoiIdMap.put(envoi.Stock__c, envoi.Id);
+                 envoiMap.put(String.valueOf(envoi.Stock__c), envoi.Id); // Add as generic Site handler
             }
         }
-        return siteToEnvoiIdMap;
+        return envoiMap;
     }
 
-    private static Map<String, Id> syncOrderLines(Id orderId, List<OrderLineInput> inputLines, Map<Id, Id> siteToEnvoiIdMap, String typeLigneContext) {
+    private static Map<String, Id> syncOrderLines(Id orderId, List<OrderLineInput> inputLines, Map<String, Id> siteToEnvoiIdMap, String typeLigneContext) {
         Map<String, Id> clientKeyToNewIdMap = new Map<String, Id>();
         List<Commande_Pi_ces_D_tails__c> linesToCreate = new List<Commande_Pi_ces_D_tails__c>();
         List<Commande_Pi_ces_D_tails__c> linesToUpdate = new List<Commande_Pi_ces_D_tails__c>();
@@ -574,7 +675,18 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
 
         if (inputLines != null) {
             for (OrderLineInput line : inputLines) {
-                Id envoiId = (line.typeLigne == 'Cockpit' && line.siteId != null) ? siteToEnvoiIdMap.get(line.siteId) : null;
+                // Determine Envoi ID: Try Article-Specific match first, then Generic Site match
+                Id envoiId = null;
+                if (line.typeLigne == 'Cockpit' && line.siteId != null) {
+                    String keySpecific = line.siteId + '-' + line.articleId;
+                    String keyGeneric = String.valueOf(line.siteId);
+                    
+                    if (siteToEnvoiIdMap.containsKey(keySpecific)) {
+                        envoiId = siteToEnvoiIdMap.get(keySpecific);
+                    } else if (siteToEnvoiIdMap.containsKey(keyGeneric)) {
+                        envoiId = siteToEnvoiIdMap.get(keyGeneric);
+                    }
+                }
 
                 if (line.detailId != null && existingLinesMap.containsKey(line.detailId)) {
                     Commande_Pi_ces_D_tails__c existingLine = existingLinesMap.get(line.detailId);
@@ -603,15 +715,19 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
             }
         }
 
-        // Identify deletions
+        // Identify deletions & Collect Envois to check
         List<Commande_Pi_ces_D_tails__c> linesToDelete = new List<Commande_Pi_ces_D_tails__c>();
+        Set<Id> envoiIdsToCheck = new Set<Id>();
         
         for (Id id : existingLinesMap.keySet()) {
             if (!processedDetailIds.contains(id)) {
                 Commande_Pi_ces_D_tails__c line = existingLinesMap.get(id);
-                // Only delete if it matches the current context (e.g. don't delete Technicien lines when saving Cockpit)
+                // Only delete if it matches the current context
                 if (String.isBlank(typeLigneContext) || line.Type_Ligne__c == typeLigneContext) {
                     linesToDelete.add(line);
+                    if (line.Envoi_Logistique__c != null) {
+                        envoiIdsToCheck.add(line.Envoi_Logistique__c);
+                    }
                 }
             }
         }
@@ -620,19 +736,35 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         if (!linesToDelete.isEmpty()) delete linesToDelete;
 
         // Clean up empty Envois
-        /* 
         if (!envoiIdsToCheck.isEmpty()) {
-            List<Envoi_Logistique__c> envoisToDelete = new List<Envoi_Logistique__c>();
-            for (Envoi_Logistique__c envoi : [SELECT Id, (SELECT Id FROM Lignes_de_Commande__r LIMIT 1) FROM Envoi_Logistique__c WHERE Id IN :envoiIdsToCheck]) {
-                if (envoi.Lignes_de_Commande__r.isEmpty()) {
-                    envoisToDelete.add(envoi);
+            // Find Envois that STILL have other lines attached
+            Set<Id> envoisWithLines = new Set<Id>();
+            for (AggregateResult ar : [SELECT Envoi_Logistique__c FROM Commande_Pi_ces_D_tails__c WHERE Envoi_Logistique__c IN :envoiIdsToCheck GROUP BY Envoi_Logistique__c]) {
+                envoisWithLines.add((Id)ar.get('Envoi_Logistique__c'));
+            }
+
+            Set<Id> envoisToDeleteIds = new Set<Id>();
+            for (Id envoiId : envoiIdsToCheck) {
+                if (!envoisWithLines.contains(envoiId)) {
+                    envoisToDeleteIds.add(envoiId);
                 }
             }
-            if (!envoisToDelete.isEmpty()) {
+
+            if (!envoisToDeleteIds.isEmpty()) {
+                // Delete associated History lines (Type = 'ENV')
+                List<Historique_Pi_ces__c> historyToDelete = [SELECT Id FROM Historique_Pi_ces__c WHERE Envoi_Logistique__c IN :envoisToDeleteIds AND Type__c = 'ENV'];
+                if (!historyToDelete.isEmpty()) {
+                    delete historyToDelete;
+                }
+                
+                // Delete Envois
+                List<Envoi_Logistique__c> envoisToDelete = new List<Envoi_Logistique__c>();
+                for (Id eid : envoisToDeleteIds) {
+                    envoisToDelete.add(new Envoi_Logistique__c(Id = eid));
+                }
                 delete envoisToDelete;
             }
         }
-        */
         if (!linesToCreate.isEmpty()) { 
             insert linesToCreate;
             for (Commande_Pi_ces_D_tails__c newLine : linesToCreate) {

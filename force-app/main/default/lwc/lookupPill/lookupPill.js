@@ -31,7 +31,7 @@ export default class LookupPill extends LightningElement {
     @api 
     get sObjectType() { return this._sObjectType; }
     set sObjectType(val) {
-        console.log('LookupPill: SET sObjectType =>', val);
+
         this._sObjectType = val;
     }
 
@@ -54,12 +54,12 @@ export default class LookupPill extends LightningElement {
     @api 
     get controllerName() { return this._controllerName; }
     set controllerName(val) {
-        console.log('LookupPill: SET controllerName =>', val);
+
         this._controllerName = val;
     }
 
     connectedCallback() {
-        console.log(`LookupPill Connected: Object=${this.sObjectType}, CTRL=${this.controllerName}`);
+
     }
 
     _selectedValue = null;
@@ -205,14 +205,14 @@ export default class LookupPill extends LightningElement {
      * Perform Apex search
      */
     async performSearch(searchTerm) {
-        console.log('Performing search for:', searchTerm, 'on object:', this.sObjectType, 'with controller:', this.controllerName);
+
         
         // Select the correct Apex method based on controller name
         const apexSearchRecords = this.controllerName === 'demande' ? searchRecordsDemande : searchRecordsEnvoi;
         
         // Safety check for the import
         if (!apexSearchRecords) {
-            console.error('CRITICAL: apexSearchRecords import is UNDEFINED. Check deployment of controllers.');
+
             this.isLoading = false;
             return;
         }
@@ -223,11 +223,11 @@ export default class LookupPill extends LightningElement {
                 sObjectType: this.sObjectType
             });
             
-            console.log('Search results:', results);
+
             this.suggestions = results || [];
             this.isLoading = false;
         } catch (error) {
-            console.error('Lookup search error detail:', JSON.stringify(error));
+
             this.suggestions = [];
             this.isLoading = false;
             

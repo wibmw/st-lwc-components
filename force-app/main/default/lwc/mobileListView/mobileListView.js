@@ -8,6 +8,7 @@ export default class MobileListView extends NavigationMixin(LightningElement) {
     @api listViewApiName;
     @api sectionName;
     @api flowUrl; // New input property for Flow URL
+    @api techMode = false; // New input property for Tech Mode
     
     // Output property for Flow to capture theclicked record
     @api selectedRecordId = '';
@@ -140,8 +141,11 @@ export default class MobileListView extends NavigationMixin(LightningElement) {
             // Check if Flow URL is provided for redirection
             if (this.flowUrl && this.flowUrl.trim().length > 0) {
                 // Construct absolute URL (same pattern as menuMobile)
-                const finalUrl = this.flowUrl + '?recordId=' + recordId;
-               window.location.assign(finalUrl); //window.open(finalUrl, '_self');
+                let finalUrl = this.flowUrl + '?recordId=' + recordId;
+                if (this.techMode) {
+                    finalUrl += '&TechMode=true';
+                }
+                window.location.assign(finalUrl); //window.open(finalUrl, '_self');
             } 
         }
     }

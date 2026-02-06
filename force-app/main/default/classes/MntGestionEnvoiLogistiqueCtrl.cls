@@ -108,6 +108,26 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         @AuraEnabled public String actionGlobale; 
         @AuraEnabled public Id commandeParenteId; 
         @AuraEnabled public List<CommandeDetailLine> orderLines;
+        @AuraEnabled public Boolean isTechMode;
+    }
+
+    public class TechModeDataWrapper {
+        @AuraEnabled public Id pieceId;
+        @AuraEnabled public String pieceName;
+        @AuraEnabled public Id correctifId;
+        @AuraEnabled public String correctifName;
+        @AuraEnabled public String correctifSubLabel;
+        @AuraEnabled public String g2r;
+        @AuraEnabled public String siteName;
+        @AuraEnabled public Id destinationSiteId;
+        @AuraEnabled public String destinationSiteName;
+        @AuraEnabled public String destinationSiteSubLabel;
+        @AuraEnabled public Id contactId;
+        @AuraEnabled public String contactName;
+        @AuraEnabled public String contactAddress;
+        @AuraEnabled public List<PieceUnitaireResult> otherPieces;
+        @AuraEnabled public String accountProject;
+        public TechModeDataWrapper() { this.otherPieces = new List<PieceUnitaireResult>(); }
     }
 
     // --- AURA ENABLED METHODS ---
@@ -129,7 +149,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
     }
     
     // Charge les lignes de la commande parente, filtré par envoi si fourni
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static List<CommandeDetailLine> getCommandeDetails(Id commandeId, Id envoiId) {
         List<CommandeDetailLine> results = new List<CommandeDetailLine>();
         
@@ -158,7 +178,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         return results;
     }
 
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static EnvoiDetailsWrapper getEnvoiDetails(Id envoiId) {
         if (envoiId == null) {
             throw new AuraHandledException('L\'ID de l\'envoi est manquant.');
@@ -428,6 +448,123 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             }
         }
         return data;
+    }
+
+    @AuraEnabled
+    public static TechModeDataWrapper getTechModeData(Id pieceId) {
+        TechModeDataWrapper result = new TechModeDataWrapper();
+        
+        if (pieceId == null) {
+            throw new AuraHandledException('L\'ID de la pièce est manquant.');
+        }
+
+        // 0. Get Current User Info
+        try {
+            User u = [SELECT Compte_Projet_Logistique__c FROM User WHERE Id = :UserInfo.getUserId() LIMIT 1];
+            result.accountProject = u.Compte_Projet_Logistique__c;
+        } catch (Exception e) {
+            System.debug('Error getting User Project Account: ' + e.getMessage());
+        }
+
+        // 1. Get piece data with ticket info
+        List<Pi_ce_Unitaire__c> pieces = [
+            SELECT Id, Name, Correctif__c, Correctif__r.ID_ticket_client__c, 
+                   Correctif__r.Code_site__c, Correctif__r.Nom_du_site__c,
+                   Cl_quipement__c, Sous_Lieux__c, Code_Article__r.Mnemonique__c,
+                   Code_Article__r.Description__c
+            FROM Pi_ce_Unitaire__c
+            WHERE Id = :pieceId
+            LIMIT 1
+        ];
+
+        if (pieces.isEmpty()) {
+            throw new AuraHandledException('Pièce introuvable.');
+        }
+
+        Pi_ce_Unitaire__c piece = pieces[0];
+        result.pieceId = piece.Id;
+        result.pieceName = piece.Name;
+
+        // 2. Get ticket info
+        if (piece.Correctif__c != null) {
+            result.correctifId = piece.Correctif__c;
+            result.correctifName = piece.Correctif__r.ID_ticket_client__c;
+            result.g2r = piece.Correctif__r.Code_site__c;
+            result.siteName = piece.Correctif__r.Nom_du_site__c;
+            String g2r = piece.Correctif__r.Code_site__c != null ? piece.Correctif__r.Code_site__c : '';
+            String siteName = piece.Correctif__r.Nom_du_site__c != null ? piece.Correctif__r.Nom_du_site__c : '';
+            result.correctifSubLabel = g2r + (String.isNotBlank(g2r) && String.isNotBlank(siteName) ? ' - ' : '') + siteName;
+        }
+
+        // 3. Get current user's STR__c field
+        List<User> users = [
+            SELECT STR__c 
+            FROM User 
+            WHERE Id = :UserInfo.getUserId()
+            LIMIT 1
+        ];
+
+        if (!users.isEmpty() && users[0].STR__c != null) {
+            String strValue = users[0].STR__c;
+            
+            // STR__c value is the Site ID
+            List<sitetracker__Site__c> sites = [
+                SELECT Id, Name, Nom_du_site__c
+                FROM sitetracker__Site__c
+                WHERE Id = :strValue
+                LIMIT 1
+            ];
+
+            if (!sites.isEmpty()) {
+                sitetracker__Site__c site = sites[0];
+                result.destinationSiteId = site.Id;
+                result.destinationSiteName = site.Name;
+                result.destinationSiteSubLabel = site.Nom_du_site__c;
+
+                // 4. Find Contact with LastName matching Site Name
+                List<Contact> contacts = [
+                    SELECT Id, Name, MailingStreet, MailingCity, MailingPostalCode, MailingCountry
+                    FROM Contact
+                    WHERE LastName = :site.Name
+                    LIMIT 1
+                ];
+
+                if (!contacts.isEmpty()) {
+                    Contact contact = contacts[0];
+                    result.contactId = contact.Id;
+                    result.contactName = contact.Name;
+                    
+                    List<String> addressParts = new List<String>();
+                    if (String.isNotBlank(contact.MailingStreet)) addressParts.add(contact.MailingStreet);
+                    if (String.isNotBlank(contact.MailingPostalCode)) addressParts.add(contact.MailingPostalCode + ' ' + contact.MailingCity);
+                    result.contactAddress = String.join(addressParts, '\n');
+                }
+            }
+        }
+
+        // 5. Get other pieces with status "A Retourner" and Mes_Pi_ces__c = true
+        result.otherPieces = new List<PieceUnitaireResult>();
+        for (Pi_ce_Unitaire__c p : [
+            SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c,
+                   Code_Article__r.Mnemonique__c, Code_Article__r.Description__c
+            FROM Pi_ce_Unitaire__c
+            WHERE Statut__c = 'A Retourner' 
+              AND Mes_Pi_ces__c = true
+              AND Id != :pieceId
+            LIMIT 50
+        ]) {
+            PieceUnitaireResult res = new PieceUnitaireResult();
+            res.id = p.Id;
+            res.name = p.Name;
+            res.cleEquipement = p.Cl_quipement__c;
+            res.sousLieu = p.Sous_Lieux__c;
+            res.rma = p.RMA__c;
+            res.mnemonique = p.Code_Article__r.Mnemonique__c;
+            res.description = p.Code_Article__r.Description__c;
+            result.otherPieces.add(res);
+        }
+
+        return result;
     }
 
     @AuraEnabled
@@ -716,13 +853,26 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             }
             
             // Upserts / Create
-            String newStatusForSentPieces = 'Réparateur'.equals(input.typeEnvoi) ? 'En Réparation' : 'A Réceptionner';
+            String newStatusForSentPieces;
+            if (input.isTechMode != null && input.isTechMode) {
+                newStatusForSentPieces = 'A contrôler';
+            } else {
+                newStatusForSentPieces = 'Réparateur'.equals(input.typeEnvoi) ? 'En Réparation' : 'A Réceptionner';
+            }
             
             if (!currentPieceIdsInCart.isEmpty()) {
-                Map<Id, Pi_ce_Unitaire__c> piecesDataMap = new Map<Id, Pi_ce_Unitaire__c>([SELECT Id, Name, Lieu__c, Lieu__r.Name, RMA__c FROM Pi_ce_Unitaire__c WHERE Id IN :currentPieceIdsInCart]); 
+                Map<Id, Pi_ce_Unitaire__c> piecesDataMap = new Map<Id, Pi_ce_Unitaire__c>([SELECT Id, Name, Lieu__c, Lieu__r.Name, RMA__c, Panne__c, Pi_ce_Install_e__r.N_Serie__c FROM Pi_ce_Unitaire__c WHERE Id IN :currentPieceIdsInCart]); 
                 String today = Date.today().format();
                 String toLocation = (fullEnvoi.Stock__r != null ? fullEnvoi.Stock__r.Name : '');
-    
+                
+                // Trigramme Mapping
+                Map<String, String> trigrammeMap = new Map<String, String>{
+                    'STR01' => 'CIR01AGJ', 'STR13' => 'CIR01AGL', 'STR14' => 'CIR01AGQ',
+                    'STR31' => 'CIR01AGN', 'STR33' => 'CIR01AGO', 'STR34' => 'CIR01AGM',
+                    'STR42' => 'CIR01AGK', 'STR44' => 'CIR01AGP', 'STR54' => 'CIR01AGS',
+                    'STR59' => 'CIR01AGR', 'STR93' => 'CIR01AGH', 'STR20' => 'CIR01AGD'
+                };
+
                 for (Id currentPieceId : currentPieceIdsInCart) {
                     CartLine line = cartLineMap.get(currentPieceId);
                     Pi_ce_Unitaire__c pieceActuelle = piecesDataMap.get(currentPieceId);
@@ -745,18 +895,38 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                         histPU.Type__c = 'PU';
                         
                         if ('Réparateur'.equals(input.typeEnvoi)) {
-                            histPU.TRAME__c = '[TRIGRAMME][PANNE][EQT_MIS_SUR_SITE_(SN) = N° de série de la pièce INSTALLE][RMA=N° RMA][CONTRAT PROMA FIXE/MOBILE]';
-                            histPU.Remarques__c = 'Envoi vers Réparateur le [' + today + '] RMA N° [' + (pieceActuelle.RMA__c != null ? pieceActuelle.RMA__c : '') + '] N° de BL [' + (line.numBonLivraison != null ? line.numBonLivraison : '') + ']';
+                            String trigramme = '';
+                            if (pieceActuelle.Lieu__r != null && trigrammeMap.containsKey(pieceActuelle.Lieu__r.Name)) {
+                                trigramme = trigrammeMap.get(pieceActuelle.Lieu__r.Name);
+                            }
+                            String panne = (pieceActuelle.Panne__c != null ? pieceActuelle.Panne__c : '');
+                            String nSerieInstalle = (pieceActuelle.Pi_ce_Install_e__r != null && pieceActuelle.Pi_ce_Install_e__r.N_Serie__c != null ? pieceActuelle.Pi_ce_Install_e__r.N_Serie__c : '');
+                            String rma = (pieceActuelle.RMA__c != null ? pieceActuelle.RMA__c : '');
+                            
+                            histPU.TRAME__c = '[' + trigramme + '][' + panne + '][EQT_MIS_SUR_SITE_(SN) =' + nSerieInstalle + '][RMA=' + rma + '][CONTRAT PROMA FIXE/MOBILE]';
+                            histPU.Remarques__c = 'Envoi vers Réparateur le [' + today + '] RMA N° [' + rma + '] N° de BL [' + (line.numBonLivraison != null ? line.numBonLivraison : '') + ']';
                             histPU.BT_RPMAT__c = true;
                         } else {
-                            histPU.INVENTAI__c = true;
-                            if (fullEnvoi.N_Ticket_Correctif__c == null) {
-                                histPU.Remarques__c = 'Envois le [' + today + '] vers [' + toLocation + '] N° de BL [' + line.numBonLivraison + ']';
+                            // histPU.INVENTAI__c = true;
+                            String fromLocation = (pieceActuelle.Lieu__r != null ? pieceActuelle.Lieu__r.Name : '');
+                            
+                            // TechMode custom remarks
+                            if (input.isTechMode != null && input.isTechMode) {
+                                if ('Livraison'.equalsIgnoreCase(input.typeReception)) {
+                                    histPU.Remarques__c = 'Pièce envoyée avec Chronopost N° [' + (line.numBonLivraison != null ? line.numBonLivraison : '') + '] par [' + UserInfo.getName() + '] pour réparation vers [' + toLocation + ']';
+                                } else if ('Remise en main propre'.equalsIgnoreCase(input.typeReception)) {
+                                    histPU.Remarques__c = 'Pièce déposée en main propre par [' + UserInfo.getName() + '] pour réparation vers [' + toLocation + ']';
+                                }
+                            } else if ('Remise en main propre'.equalsIgnoreCase(input.typeEnvoi)) {
+                                histPU.Remarques__c = 'Pièce déplacée par [' + UserInfo.getName() + '] du [' + fromLocation + ']  vers [' + toLocation + ']';
                             } else {
-                                String fromLocation = (pieceActuelle.Lieu__r != null ? pieceActuelle.Lieu__r.Name : '');
-                                String ticketNum = (fullEnvoi.N_Ticket_Correctif__r != null ? fullEnvoi.N_Ticket_Correctif__r.ID_ticket_client__c : '');
-                                String siteCode = (fullEnvoi.N_Ticket_Correctif__r != null ? fullEnvoi.N_Ticket_Correctif__r.Code_site__c : '');
-                                histPU.Remarques__c = 'Envois depuis [' + fromLocation + '] vers [' + toLocation + '] N° de BL [' + line.numBonLivraison + '] N° Ticket [' + ticketNum + '] Site Code [' + siteCode + '] le [' + today + ']';
+                                if (fullEnvoi.N_Ticket_Correctif__c == null) {
+                                    histPU.Remarques__c = 'Envois depuis [' + fromLocation + '] vers [' + toLocation + '] N° de BL [' + line.numBonLivraison + '] le [' + today + ']';
+                                } else {
+                                    String ticketNum = (fullEnvoi.N_Ticket_Correctif__r != null ? fullEnvoi.N_Ticket_Correctif__r.ID_ticket_client__c : '');
+                                    String siteCode = (fullEnvoi.N_Ticket_Correctif__r != null ? fullEnvoi.N_Ticket_Correctif__r.Code_site__c : '');
+                                    histPU.Remarques__c = 'Envois depuis [' + fromLocation + '] vers [' + toLocation + '] N° de BL [' + line.numBonLivraison + '] N° Ticket [' + ticketNum + '] Site Code [' + siteCode + '] le [' + today + ']';
+                                }
                             }
                         }
                         historiesToCreate.add(histPU);

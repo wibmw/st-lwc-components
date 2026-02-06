@@ -20,6 +20,7 @@
             <property name="listViewApiName" type="String" label="List View API Name" required="true" />
             <property name="sectionName" type="String" label="Accordion Section Name" required="false" />
             <property name="flowUrl" type="String" label="Flow URL" description="URL of the flow to redirect to on click (e.g., /flow/My_Flow). If set, clicking a record redirects here with ?recordId={id}." required="false" />
+            <property name="techMode" type="Boolean" label="Tech Mode" description="If checked, adds &amp;TechMode=true to the URL." required="false" />
             <property name="selectedRecordId" type="String" label="Selected Record ID" description="Output: The ID of the record clicked by the user" role="outputOnly" />
         </targetConfig>
     </targetConfigs>

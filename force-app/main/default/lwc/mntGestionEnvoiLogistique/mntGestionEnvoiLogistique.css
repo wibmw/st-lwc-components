@@ -34,7 +34,7 @@
     border: 1px solid #dddbda;
     border-radius: 0.25rem;
     margin-bottom: 0.75rem;
-    padding: 0.75rem;
+    padding: 0.75rem 0;
     box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
@@ -72,7 +72,7 @@
 }
 
 /* Scrollbar customization */
-.slds-scrollable_y {
+/*.slds-scrollable_y {
     scrollbar-width: thin;
     scrollbar-color: #dddbda transparent;
 }
@@ -93,6 +93,7 @@
 .slds-scrollable_y::-webkit-scrollbar-thumb:hover {
     background: #bbb; 
 }
+*/
 
 /* Color utilities */
 .slds-text-color_weak {
@@ -246,4 +247,166 @@
 
 .compact-input {
     max-width: 150px;
+}
+
+/* Mobile overflow fix - force text truncation */
+@media (max-width: 767px) {
+    .slds-box {
+        overflow: hidden;
+        max-width: 100%;
+    }
+    
+    .mobile-search-card,
+    .mobile-cart-card {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+    }
+    
+    .mobile-text-container {
+        max-width: 100%;
+        overflow: hidden;
+    }
+    
+    .mobile-text-container p,
+    .mobile-text-container div {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+
+/* ========================================================================== */
+/* MOBILE RESPONSIVE OPTIMIZATIONS */
+/* Ultra-compact mobile layout with minimal padding */
+/* ========================================================================== */
+@media (max-width: 767px) {
+    /* Main container - minimal padding */
+    .slds-p-around_medium {
+        padding: 0 !important;
+    }
+    
+    .slds-p-horizontal_medium {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    
+    .slds-p-bottom_medium {
+        padding-bottom: 0 !important;
+    }
+    
+    /* Remove gutters completely */
+    .slds-gutters_medium > .slds-col {
+        padding-left: 5px !important;
+        padding-right: 0 !important; /* Maximized right space */
+    }
+    
+    /* Box containers - minimal padding */
+    .slds-box {
+        padding: 0.5rem !important;
+        margin-left: 20px !important; /* Slightly reduced left margin */
+        margin-right: 0px !important; /* Negative margin to extend right */
+        overflow: hidden;
+        max-width: 100%;
+        width: auto !important; /* Force auto width to respect margins */
+        box-sizing: border-box;
+    }
+
+    /* Reduce internal form padding to give more width to inputs */
+    .slds-p-around_small {
+        padding: 0 !important;
+    }
+    
+    .slds-box_small {
+        padding: 0.25rem !important;
+    }
+    
+    /* Mobile cards - ultra compact */
+    .mobile-card2 {
+        padding: 0;
+        margin-bottom: 0;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+    
+    .mobile-cart-card {
+        padding: 10px;
+        margin-bottom: 10px;
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        box-sizing: border-box;
+        background-color: white;
+        border: 1px solid #dddbda;
+        border-left: 3px solid #0176d3;
+        border-radius: 0.25rem;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Text container with truncation */
+    .mobile-text-container {
+        min-width: 0 !important;
+        flex: 1 1 auto;
+        overflow: hidden;
+        max-width: 100%;
+        padding-right: 10px;
+    }
+    
+    .mobile-text-container p,
+    .mobile-text-container div {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* Scrollable containers */
+    .slds-scrollable_y {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        padding: 0 !important;
+    }
+    
+    /* Force grid to full width */
+    .slds-grid {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+    
+    /* Column full width on mobile */
+    .slds-col {
+        min-width: 0;
+        overflow: hidden;
+        padding: 0 !important;
+    }
+    
+    /* Truncate utility */
+    .slds-truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+    }
+    
+    /* Section headings - reduce margin */
+    .slds-text-heading_medium {
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Remove all SLDS margin classes */
+    .slds-m-bottom_medium {
+        margin-bottom: 0.25rem !important;
+    }
+    
+    .slds-m-bottom_small {
+        margin-bottom: 0.25rem !important;
+    }
 }
