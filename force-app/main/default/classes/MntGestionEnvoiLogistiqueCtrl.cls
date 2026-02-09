@@ -890,9 +890,11 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                         hist.Statut_Chronopost__c = line.statutChronopost;
                         
                         historiesToCreate.add(hist);
+                        hist.Envoi_Logistique__c = '';
     
                         Historique_Pi_ces__c histPU = hist.clone(false, true, false, false);
                         histPU.Type__c = 'PU';
+                        Pi_ce_Unitaire__c pieceToUpdate;
                         
                         if ('Réparateur'.equals(input.typeEnvoi)) {
                             String trigramme = '';
@@ -906,8 +908,19 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                             histPU.TRAME__c = '[' + trigramme + '][' + panne + '][EQT_MIS_SUR_SITE_(SN) =' + nSerieInstalle + '][RMA=' + rma + '][CONTRAT PROMA FIXE/MOBILE]';
                             histPU.Remarques__c = 'Envoi vers Réparateur le [' + today + '] RMA N° [' + rma + '] N° de BL [' + (line.numBonLivraison != null ? line.numBonLivraison : '') + ']';
                             histPU.BT_RPMAT__c = true;
+                            historiesToCreate.add(histPU);
+
+                            if(pieceActuelle.Lieu__r.Name == 'REBUT'){
+                                Historique_Pi_ces__c histPURebut = histPU.clone(false, true, false, false);
+                                histPURebut.Statut__c = 'Rebut';
+                                histPURebut.Remarques__c = 'Mis au REBUT';
+                                histPURebut.TRAME__c = '[' + trigramme + '][PIECE_IRREPARABLE-MISE_AU_REBUT][RMA=' + rma + '][CONTRAT PROMA FIXE/MOBILE]';
+                                histPURebut.BT_RETREP__c = true;
+                                historiesToCreate.add(histPURebut);
+                            }
+                            
                         } else {
-                            // histPU.INVENTAI__c = true;
+                            histPU.INVENTAI__c = true;
                             String fromLocation = (pieceActuelle.Lieu__r != null ? pieceActuelle.Lieu__r.Name : '');
                             
                             // TechMode custom remarks
@@ -928,11 +941,15 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                                     histPU.Remarques__c = 'Envois depuis [' + fromLocation + '] vers [' + toLocation + '] N° de BL [' + line.numBonLivraison + '] N° Ticket [' + ticketNum + '] Site Code [' + siteCode + '] le [' + today + ']';
                                 }
                             }
+                            historiesToCreate.add(histPU);
                         }
-                        historiesToCreate.add(histPU);
-    
-                        Pi_ce_Unitaire__c pieceToUpdate = new Pi_ce_Unitaire__c(Id = pieceActuelle.Id, Statut__c = newStatusForSentPieces, Lieu_Pr_c_dent__c = pieceActuelle.Lieu__c, Lieu__c = input.lieuId);
+                        if(pieceActuelle.Lieu__r.Name != 'REBUT'){
+                            pieceToUpdate = new Pi_ce_Unitaire__c(Id = pieceActuelle.Id, Statut__c = newStatusForSentPieces, Lieu_Pr_c_dent__c = pieceActuelle.Lieu__c, Lieu__c = input.lieuId); }
+                        else {
+                            pieceToUpdate = new Pi_ce_Unitaire__c(Id = pieceActuelle.Id, Statut__c = 'Rebut', Lieu__c = input.lieuId); 
+                        }
                         piecesToUpdate.add(pieceToUpdate);
+
                     } else {
                         // UPDATE
                         Historique_Pi_ces__c existingHist = previousHistoriesMap.get(currentPieceId);

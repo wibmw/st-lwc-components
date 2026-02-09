@@ -6,5 +6,11 @@
         <target>lightning__RecordPage</target>
         <target>lightning__AppPage</target>
         <target>lightning__HomePage</target>
+        <target>lightning__FlowScreen</target>
     </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__AppPage,lightning__HomePage,lightning__FlowScreen">
+            <property name="recordId" type="String" label="Record Id" description="The ID of the record to display files for." />
+        </targetConfig>
+    </targetConfigs>
 </LightningComponentBundle>

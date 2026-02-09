@@ -5,9 +5,19 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getAttachedFiles from '@salesforce/apex/MntFilesManagerCtrl.getAttachedFiles';
 
 export default class MntFilesManager extends NavigationMixin(LightningElement) {
-    @api recordId;
     @track attachedFiles = [];
     @track loading = false;
+    _recordId;
+
+    @api
+    get recordId() {
+        return this._recordId;
+    }
+
+    set recordId(value) {
+        this._recordId = value;
+        this.refreshAttachedFiles();
+    }
 
     get acceptedFormats() {
         return ['.jpg', '.jpeg', '.png', '.pdf'];
@@ -18,7 +28,10 @@ export default class MntFilesManager extends NavigationMixin(LightningElement) {
     }
 
     connectedCallback() {
-        this.refreshAttachedFiles();
+        // Refresh only if not already done by setter (though setter usually runs first)
+        if (this.recordId && this.attachedFiles.length === 0) {
+            this.refreshAttachedFiles();
+        }
     }
 
     async refreshAttachedFiles() {

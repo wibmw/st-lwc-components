@@ -42,3 +42,10 @@
 .slds-dropdown {
     z-index: 9999;
 }
+
+/* Force uppercase input */
+.search-input-uppercase,
+.search-input-uppercase input {
+    text-transform: uppercase;
+    --slds-c-input-text-transform: uppercase;
+}

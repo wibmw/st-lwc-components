@@ -198,22 +198,17 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
 
     get mainButtonLabel() {
         if (this.isCreationMode) return 'Créer la Commande';
-        if (this.isRefuseMode) return 'Refuser la Commande';
         if (this.isUpdateMode) return 'Mettre à jour';
         return 'Valider la Commande';
     }
 
     get mainButtonVariant() {
-        if (this.isRefuseMode) return 'destructive';
-        if (this.isCreationMode || this.isUpdateMode) return 'brand';
-        return 'success';
+        return 'brand';
     }
 
     get isSaveDisabled() {
         // 1. Global: Statut Clôturé
         if ((this.statutEnvoi && this.statutEnvoi.includes('Clôturé')) || (this.statutEnvoi && this.statutEnvoi.includes('Cloturé'))) return true;
-
-        if (this.isRefuseMode) return false;
 
         // 2. Creation Mode: Cart check & Trackings
         if (this.isCreationMode) {
@@ -241,7 +236,6 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     }
 
     get mainButtonAction() {
-        if (this.isRefuseMode) return 'Refuse';
         if (this.isUpdateMode) return 'Update';
         if (this.isValidateMode) return 'Validate';
         return 'Create';
@@ -836,6 +830,48 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         }
     }
 
+    async handleRefuseOrder() {
+        this.isLoading = true;
+        try {
+            const inputData = {
+                recordId: this._recordId,
+                contextObjectType: this._objectApiName,
+                nTicketCorrectifId: this.nTicketCorrectifId,
+                statutDeLEnvoi: 'Clôturé NOK',
+                transporteur: this.typeTransporteur,
+                typeEnvoi: this.typeEnvoi,
+                typeReception: this.typeReception,
+                dateEnvoi: this.dateEnvoi,
+                destinataireId: this.destinataireId,
+                lieuId: this.stockId,
+                stockId: this.sourceStockId,
+                demandeurId: (this.selectedDemandeur ? this.selectedDemandeur.value : null),
+                commentaire: this.commentaire,
+                cart: this.cart.map(c => ({
+                    pieceUnitaireId: c.pieceUnitaireId,
+                    numBonLivraison: c.numBonLivraison,
+                    statutChronopost: c.statutChronopost
+                })),
+                commandeParenteId: this.linkedCommandeId || null,
+                orderLines: this.commandeDetails,
+                actionGlobale: 'REFUSER',
+                isTechMode: this.isTechMode
+            };
+
+            const result = await saveEnvoi({ inputJSON: JSON.stringify(inputData) });
+            this.showToast('Succès', 'Commande refusée.', 'success');
+
+            if (this._recordId) {
+                getRecordNotifyChange([{ recordId: this._recordId }]);
+                await this.loadEnvoiData(this._recordId);
+            }
+        } catch (error) {
+            this.showToast('Erreur', reduceErrors(error)[0], 'error');
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
     async handleSave(event) {
         this.isLoading = true;
         try {
@@ -844,7 +880,6 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
 
             // Logic User:
             // - Si validée -> 'A Réceptionner'
-            // - Si refusée -> 'Clôturé NOK'
             // - Si création -> 'A Réceptionner'
             
             const action = this.mainButtonAction; // Based on mode
@@ -860,9 +895,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             }
             // ---------------------------------
             
-            if (this.isRefuseMode) {
-                newStatus = 'Clôturé NOK';
-            } else if (!this._recordId) {
+            if (!this._recordId) {
                 // Creation
                 newStatus = 'À Réceptionner';
             } else if (this.isValidateMode && !this.isUpdateMode) {
@@ -894,7 +927,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
                 })),
                 commandeParenteId: this.linkedCommandeId || null,
                 orderLines: this.commandeDetails,
-                actionGlobale: (action === 'Refuse') ? 'REFUSER' : (action === 'Validate' ? 'VALIDER' : ''),
+                actionGlobale: (action === 'Validate' ? 'VALIDER' : ''),
                 isTechMode: this.isTechMode
             };
 

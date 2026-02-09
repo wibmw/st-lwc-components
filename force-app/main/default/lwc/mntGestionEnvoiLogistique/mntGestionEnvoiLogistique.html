@@ -345,7 +345,19 @@
                                     <p>Aucun détail trouvé pour cette commande.</p>
                                 </template>
                             </div>
-                        </lightning-card>
+                        </lightning-card>    
+                    </div>
+                        <!-- BOUTON REFUSER LA COMMANDE (Nouveau bouton séparé) -->
+                        <template if:true={canRefuseOrder}>
+                            <div class="slds-p-around_medium slds-text-align_right">
+                                <lightning-button 
+                                    label="Refuser la Commande" 
+                                    variant="destructive" 
+                                    onclick={handleRefuseOrder} 
+                                    disabled={isReadOnly}>
+                                </lightning-button>
+                            </div>
+                        </template> 
                     </div>
                 </div>
             </template>
