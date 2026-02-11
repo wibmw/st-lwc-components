@@ -1,0 +1,171 @@
+/* Styles pour le composant Scanner de Code-Barres */
+
+.scanner-component-wrapper {
+    width: 100%;
+}
+
+.scanner-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    max-width: 100%;
+}
+
+.scan-button {
+    flex-shrink: 0;
+}
+
+/* Forcer le retour à la ligne dans le bouton */
+.scan-button button {
+    white-space: normal !important;
+    height: auto !important;
+    min-height: 2.5rem;
+    line-height: 1.2 !important;
+    text-align: center;
+    padding: 0.5rem 1rem;
+}
+
+.result-box {
+    flex-grow: 1;
+    margin: 0 !important;
+    padding: 0.5rem !important;
+    background-color: #f3f9f4;
+    color: darkslateblue;
+    border: 1px solid #4bca81;
+    border-radius: 0.25rem;
+    display: flex;
+    align-items: center;
+    min-height: 3rem;
+}
+
+.result-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.scanned-value {
+    font-size: 1rem;
+    font-weight: bold;
+    word-break: break-all;
+}
+
+/* Interface de scan */
+.scanner-view {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #000;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+}
+
+.scanner-header {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 1rem;
+}
+
+.video-container {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.scanner-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Overlay avec cadre de scan */
+.scanner-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 35%; /* Position the frame 25% from top */
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+.scanner-frame {
+    width: 80%;
+    max-width: 300px;
+    height: 200px;
+    border: 3px solid #4bca81;
+    border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+/* Animation du cadre */
+.scanner-frame::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #4bca81, transparent);
+    animation: scan-animation 2s ease-in-out infinite;
+}
+
+@keyframes scan-animation {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(197px);
+    }
+}
+
+.scanner-actions {
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+}
+
+/* Mobile-specific adjustments if needed */
+@media (max-width: 768px) {
+    .scan-button {
+        /* On mobile, we might want to allow it to shrink if needed, but keeping it fixed is usually better for the button */
+    }
+    
+    .scanner-frame {
+        width: 85%;
+        max-width: none;
+        height: 180px;
+    }
+    
+    .result-box {
+       /* Keep inline on mobile too as requested */
+    }
+}
+
+/* Landscape mode */
+@media (orientation: landscape) and (max-height: 500px) {
+    .scanner-frame {
+        height: 120px;
+    }
+    
+    @keyframes scan-animation {
+        0%, 100% {
+            transform: translateY(0);
+        }
+        50% {
+            transform: translateY(117px);
+        }
+    }
+}

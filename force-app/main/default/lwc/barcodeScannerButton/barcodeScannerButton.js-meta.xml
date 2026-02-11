@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>60.0</apiVersion>
+    <isExposed>true</isExposed>
+    <targets>
+        <target>lightning__FlowScreen</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowScreen">
+            <!-- Input Properties -->
+            <property name="buttonLabel" type="String" label="Texte du Bouton" 
+                      default="Scanner Code-Barres" 
+                      description="Le texte affiché sur le bouton"/>
+            <property name="buttonVariant" type="String" label="Style du Bouton" 
+                      default="brand" 
+                      description="Style du bouton (brand, neutral, destructive, success)"/>
+            <property name="buttonIconName" type="String" label="Icône du Bouton" 
+                      default="utility:scan" 
+                      description="Nom de l'icône SLDS (ex: utility:scan, utility:photo)"/>
+            <property name="instructionText" type="String" label="Instructions de Scan" 
+                      default="Positionnez le code-barres dans le cadre" 
+                      description="Message affiché pendant le scan"/>
+            <property name="successText" type="String" label="Message de Succès" 
+                      default="Code-barres scanné avec succès!" 
+                      description="Message après un scan réussi (propriété conservée pour compatibilité)"/>
+            
+            <!-- Output Property -->
+            <property name="scannedValue" type="String" label="Valeur Scannée" 
+                      role="outputOnly" 
+                      description="Le code-barres ou numéro de série scanné (utilisable comme variable de sortie dans le Flow)"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

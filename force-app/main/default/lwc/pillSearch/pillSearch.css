@@ -43,6 +43,12 @@
     z-index: 9999;
 }
 
+/* Custom fluid dropdown to match input width */
+.pillsearch-dropdown_fluid {
+    min-width: 100%;
+    max-width: 100%;
+}
+
 /* Force uppercase input */
 .search-input-uppercase,
 .search-input-uppercase input {

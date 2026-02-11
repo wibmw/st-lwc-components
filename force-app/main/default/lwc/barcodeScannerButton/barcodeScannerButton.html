@@ -1,0 +1,60 @@
+<template>
+    <div class="scanner-component-wrapper">
+        <div class="slds-m-around_small scanner-container">
+            <!-- Bouton principal -->
+            <template if:false={showScanner}>
+                <lightning-button
+                    label={buttonLabel}
+                    variant={buttonVariant}
+                    icon-name={buttonIconName}
+                    onclick={handleScanClick}
+                    disabled={isScanning}
+                    class="scan-button stretch-button">
+                </lightning-button>
+                
+                <!-- Résultat (à côté du bouton) -->
+                <template if:true={scannedValue}>
+                    <div class="result-box">
+                        <div class="result-content">
+                            <p class="slds-text-body_small slds-m-bottom_none" style="color: #0d6e36;">
+                                <lightning-icon icon-name="utility:success" size="xx-small" class="slds-m-right_xx-small"></lightning-icon>
+                                N° Série copié:
+                            </p>
+                            <p class="scanned-value">
+                                {scannedValue}
+                            </p>
+                        </div>
+                    </div>
+                </template>
+            </template>
+            
+            <!-- Interface de scan (Overlay plein écran ou modal) -->
+            <template if:true={showScanner}>
+                <div class="scanner-view">
+                    <div class="scanner-header">
+                        <p class="slds-text-heading_small slds-text-align_center slds-p-around_small">
+                            {instructionText}
+                        </p>
+                    </div>
+                
+                <div class="video-container">
+                    <video class="scanner-video" autoplay playsinline></video>
+                    <div class="scanner-overlay">
+                        <div class="scanner-frame"></div>
+                    </div>
+                </div>
+                
+                <div class="scanner-actions slds-p-around_small">
+                    <lightning-button
+                        label="Annuler"
+                        variant="neutral"
+                        onclick={handleCancelClick}
+                        class="slds-m-horizontal_small">
+                    </lightning-button>
+                </div>
+            </div>
+        </template>
+    
+        </div>
+    </div>
+</template>
