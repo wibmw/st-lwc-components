@@ -4,6 +4,17 @@
         <template if:true={isLoading}>
             <lightning-spinner alternative-text="Chargement..."></lightning-spinner>
         </template>
+
+        <!-- Error Message Banner -->
+        <template if:true={errorMessage}>
+            <div class="slds-notify slds-notify_alert slds-theme_alert-texture slds-theme_error sticky-error-header" role="alert">
+                <span class="slds-assistive-text">erreur</span>
+                <span class="slds-icon_container slds-icon-utility-error slds-m-right_x-small" title="Description of icon when needed">
+                    <lightning-icon icon-name="utility:error" variant="inverse" size="x-small"></lightning-icon>
+                </span>
+                <h2>{errorMessage}</h2>
+            </div>
+        </template>
     <!-- L'affichage conditionnel principal est basé sur le contexte de la page -->
         <!-- ======================= CORPS EN DEUX COLONNES ======================= -->
         <div class="slds-grid slds-wrap slds-gutters_medium slds-p-around_medium">
@@ -317,29 +328,6 @@
                                             </lightning-datatable>
                                         </template>
                                     </div>
-                                    
-                                    <!--template if:false={isDesktop}>
-                                        <template for:each={commandeDetails} for:item="detail">
-                                            <div key={detail.articleName} class="mobile-card">
-                                                <div class="mobile-card-header">
-                                                    <div class="mobile-card-title">{detail.articleName}</div>
-                                                    <div class="mobile-card-subtitle"><strong>Qte:</strong> <span class="slds-text-heading_small slds-text-color_default"><strong>{detail.quantite}</strong></span></div>
-                                                </div>
-                                                <div class="mobile-card-body">
-                                                    <p class="slds-text-body_small"><strong>Stock:</strong> {detail.siteName}</p>
-                                                    <p class="slds-text-body_small"><strong>Statut:</strong> {detail.statutForDisplay}</p>
-                                                    <div class="slds-m-top_xx-small" if:true={detail.commentaire}>
-                                                        <p class="slds-text-body_small"><strong>Commentaire:</strong></p>
-                                                        <p class="slds-text-body_small">{detail.commentaire}</p>
-                                                    </div>
-                                                </div>
-                                                <div class="mobile-card-footer" if:false={isReadOnly}>
-                                                    <lightning-button-icon icon-name="utility:check" variant="border-filled" alternative-text="Disponible" title="Disponible" class="slds-icon-text-success" data-action="validate" data-articlename={detail.articleName} data-sitename={detail.siteName} onclick={handleMobileStatusAction} disabled={isReadOnly}></lightning-button-icon>
-                                                    <lightning-button-icon icon-name="utility:close" variant="border-filled" alternative-text="Non Disponible" title="Non Disponible" class="slds-icon-text-error" data-action="refuse" data-articlename={detail.articleName} data-sitename={detail.siteName} onclick={handleMobileStatusAction} disabled={isReadOnly}></lightning-button-icon>
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </template-->
                                 </template>
                                 <template if:false={commandeDetails.length}>
                                     <p>Aucun détail trouvé pour cette commande.</p>
@@ -361,6 +349,7 @@
                 </div>
             </template>
         </div>
+        <br/>
         <!-- ======================= CORPS PRINCIPAL : RECHERCHE PIÈCES & PANIER ======================= -->
         <div class="slds-grid slds-wrap slds-gutters_medium slds-p-horizontal_medium slds-p-bottom_medium">
             
@@ -368,17 +357,18 @@
             <div class="slds-col slds-size_1-of_1 slds-large-size_5-of-12 slds-m-bottom_medium">
                 <div class="slds-box slds-box_small slds-theme_shade" style="height: 100%;">
                     <h2 class="slds-text-heading_medium slds-m-bottom_medium">Recherche de pièces</h2>
-
-                    <lightning-input 
-                        type="search" 
-                        label="Rechercher des pièces disponibles" 
-                        variant="label-hidden" 
-                        placeholder="Tapez le nom d'une pièce (min. 3 caractères)..." 
-                        onchange={handleSearch} 
-                        class="slds-m-bottom_medium" 
-                        data-search-input="true"
-                        disabled={isSearchDisabled}>
-                    </lightning-input>
+                    <template if:false={isTechMode}>
+                        <lightning-input 
+                            type="search" 
+                            label="Rechercher des pièces disponibles" 
+                            variant="label-hidden" 
+                            placeholder="Tapez le nom d'une pièce (min. 3 caractères)..." 
+                            onchange={handleSearch} 
+                            class="slds-m-bottom_medium" 
+                            data-search-input="true"
+                            disabled={isSearchDisabled}>
+                        </lightning-input>
+                    </template>
 
                     <!-- LISTE DES RÉSULTATS (Style Cartes) -->
                     <div class="slds-scrollable_y max-h-400">
@@ -425,7 +415,7 @@
                                     </template>
                                     <template if:false={isDesktop}>
                                         <!-- Mobile Layout (Optimized) -->
-                                        <div class="mobile-cart-card">
+                                        <div class="mobile-cart-card mobile-card-search-container">
                                             <div class="slds-grid slds-grid_vertical-align-center">
                                                 <!-- Conteneur texte -->
                                                 <div class="mobile-text-container slds-col">
@@ -437,7 +427,7 @@
                                                     <div class="slds-truncate slds-text-body_small slds-text-color_weak slds-m-top_xxx-small" title={result.description}>{result.description}</div>
                                                 </div>
                                                 <!-- Bouton ajouter -->
-                                                <div class="slds-col slds-shrink-none">
+                                                <div class="slds-col slds-shrink-none mobile-search-button-container">
                                                     <lightning-button-icon 
                                                         icon-name="utility:add" 
                                                         variant="brand" 
@@ -467,7 +457,7 @@
                     </div>
                 </div>
             </div>
-
+            <br/>
             <!-- COLONNE DE DROITE : PANIER (Style "Demande") -->
             <div class="slds-col slds-size_1-of_1 slds-large-size_7-of-12">
                 <div class="slds-box slds-box_small slds-theme_shade" style="height: 100%;">
@@ -501,7 +491,8 @@
                                                                 value={item.numBonLivraison} 
                                                                 data-id={item.pieceUnitaireId}
                                                                 onchange={handleCartInputChange}
-                                                                disabled={isBlReadOnly}>
+                                                                disabled={isBlReadOnly}
+                                                                class={item.desktopInputClass}>
                                                             </lightning-input>
                                                         </div>
                                                         <div class="slds-col slds-shrink-none">
@@ -540,8 +531,10 @@
                                                 <div class="mobile-text-container slds-col">
                                                     <div class="slds-grid slds-grid_align-spread">
                                                         <div class="slds-truncate slds-text-title_bold" title={item.name}>
-                                                            {item.name}
+                                                            {item.name}-{item.cleEquipement}
                                                         </div>
+                                                    </div>
+                                                    <div class="slds-grid slds-grid_align-spread">
                                                         <div class="slds-text-body_small slds-text-color_weak" style="flex-shrink: 0; padding-left: 0.5rem;">
                                                             {item.mnemonique}
                                                         </div>
@@ -560,7 +553,7 @@
                                                                 data-id={item.pieceUnitaireId}
                                                                 onchange={handleCartInputChange}
                                                                 disabled={isBlReadOnly}
-                                                                class="compact-input">
+                                                                class={item.mobileInputClass}>
                                                             </lightning-input>
                                                         </div>
                                                     </div>
@@ -604,9 +597,6 @@
             </div>
         </div>
             
-            <!-- ======================= BOUTON DE SAUVEGARDE ======================= -->
-<!-- ... FOOTER ... -->
-
         </lightning-card>
 
 </template>

@@ -409,4 +409,34 @@
     .slds-m-bottom_small {
         margin-bottom: 0.25rem !important;
     }
+
+    /* Fix for search button alignment */
+    .mobile-card-search-container {
+        position: relative !important;
+        padding-right: 3.5rem !important; /* increased padding for button space */
+    }
+    
+    
+    .mobile-search-button-container {
+        position: absolute !important;
+        right: 0.5rem !important; /* align to right */
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        background-color: white; /* Ensure text doesn't bleed through transparent button bg if any overlap */
+        z-index: 10;
+        margin-left: 0 !important; /* Override potential margin from flex/grid */
+    }
+}
+
+.input-error {
+    --slds-c-input-color-border: rgb(234, 0, 30);
+    --slds-c-input-color-border-focus: rgb(234, 0, 30);
+    border-radius: 4px;
+}
+
+.sticky-error-header {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    box-shadow: 0 4px 4px -2px rgba(0, 0, 0, 0.2);
 }

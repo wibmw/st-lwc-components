@@ -1,0 +1,84 @@
+<template>
+    <div class="cards-list-container">
+        <lightning-accordion allow-multiple-sections-open>
+            <lightning-accordion-section name="cardsSection" label={sectionName}>
+                <span slot="actions" class="slds-badge">{records.length}</span>
+                
+                <template if:true={loading}>
+                    <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+                </template>
+        
+                <template if:true={error}>
+                    <div class="slds-text-color_error slds-p-around_medium">
+                        {error}
+                    </div>
+                </template>
+        
+                <template if:true={hasRecords}>
+                    <template for:each={records} for:item="record">
+                        <div key={record.id} 
+                             data-id={record.id}
+                             onclick={handleRecordClick}
+                             class="slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small custom-card"
+                             role="button"
+                             tabindex="0">
+                            <div class="card-wrapper">
+                                <div class="card-content">
+                                    <!-- Top Row -->
+                                    <template if:true={record.hasTopRow}>
+                                        <div class="slds-grid slds-grid_align-spread">
+                                            <template if:true={record.topLeft}>
+                                                <span class="slds-text-title_bold slds-truncate top-left">{record.topLeft}</span>
+                                            </template>
+                                            <template if:true={record.topRight}>
+                                                <span class="slds-text-body_small slds-truncate top-right">{record.topRight}</span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Middle Row -->
+                                    <template if:true={record.hasMiddleRow}>
+                                        <div class="slds-grid slds-grid_align-spread slds-m-top_xx-small">
+                                            <template if:true={record.middleLeft}>
+                                                <span class="slds-text-body_small slds-truncate middle-left">{record.middleLeft}</span>
+                                            </template>
+                                            <template if:true={record.middleRight}>
+                                                <span class="slds-text-body_small slds-truncate middle-right">{record.middleRight}</span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Bottom Row -->
+                                    <template if:true={record.hasBottomRow}>
+                                        <div class="slds-grid slds-grid_align-spread slds-m-top_xx-small">
+                                            <template if:true={record.bottomLeft}>
+                                                <span class="slds-text-body_small slds-text-color_weak slds-truncate bottom-left">{record.bottomLeft}</span>
+                                            </template>
+                                            <template if:true={record.bottomRight}>
+                                                <span class="slds-text-body_small slds-truncate bottom-right">{record.bottomRight}</span>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                                
+                                <!-- Navigation arrow -->
+                                <div class="nav-arrow">
+                                    <lightning-icon icon-name="utility:chevronright" size="x-small"></lightning-icon>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </template>
+                
+                <template if:false={hasRecords}>
+                    <template if:false={loading}>
+                        <div class="slds-text-align_center slds-p-around_medium">
+                            No records found to display.
+                        </div>
+                    </template>
+                </template>
+
+            </lightning-accordion-section>
+        </lightning-accordion>
+    </div>
+</template>

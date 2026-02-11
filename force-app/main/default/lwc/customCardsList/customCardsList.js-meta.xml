@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>60.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Custom Cards List</masterLabel>
+    <description>Configurable list view component with dynamic object selection, custom filters, and 6-position card layout. Combines features from mobileListView and pillSearch.</description>
+    <targets>
+        <target>lightning__FlowScreen</target>
+        <target>lightning__AppPage</target>
+        <target>lightning__HomePage</target>
+        <target>lightning__RecordPage</target>
+    </targets>
+    
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowScreen">
+            <!-- Core Configuration -->
+            <property name="sObjectType" type="String" label="Object API Name" description="Salesforce object API name (e.g., 'Account', 'Contact')" required="true"/>
+            <property name="fields" type="String" label="Fields to Retrieve" description="Comma-separated field names (e.g., 'Name,Type,Industry,Owner.Name'). Supports relationship fields." required="true"/>
+            <property name="filterClause" type="String" label="Filter Clause" description="Optional WHERE clause (e.g., 'Type = \'Customer\' AND Industry != null')"/>
+            <property name="orderBy" type="String" label="Order By Field" description="Field name to sort by (e.g., 'Name', 'CreatedDate'). Defaults to 'Name' if available."/>
+            <property name="limitRecords" type="Integer" label="Limit Records" description="Maximum number of records to display (default: 50, max: 200)" default="50"/>
+            
+            <!-- Display Configuration -->
+            <property name="sectionName" type="String" label="Section Name" description="Accordion section title" default="Records"/>
+            <property name="iconName" type="String" label="Icon Name" description="SLDS icon name (e.g., 'standard:account')" default="standard:record"/>
+            
+            <!-- Navigation Configuration -->
+            <property name="flowUrl" type="String" label="Flow URL" description="URL for redirection on card click (e.g., '/flow/My_Flow'). Adds ?recordId={id} automatically."/>
+            <property name="techMode" type="Boolean" label="Tech Mode" description="If checked, adds &amp;TechMode=true to the URL" default="false"/>
+            
+            <!-- Card Position Fields (Simple Field Names) -->
+            <property name="topLeftField" type="String" label="Top Left Field" description="Field name for top left position (e.g., 'Name')"/>
+            <property name="topRightField" type="String" label="Top Right Field" description="Field name for top right position (e.g., 'Type')"/>
+            <property name="middleLeftField" type="String" label="Middle Left Field" description="Field name for middle left position"/>
+            <property name="middleRightField" type="String" label="Middle Right Field" description="Field name for middle right position"/>
+            <property name="bottomLeftField" type="String" label="Bottom Left Field" description="Field name for bottom left position"/>
+            <property name="bottomRightField" type="String" label="Bottom Right Field" description="Field name for bottom right position"/>
+            
+            <!-- Card Position Templates (Advanced - Overrides Field Names) -->
+            <property name="topLeftFormat" type="String" label="Top Left Format" description="Template for top left (e.g., '{Name} - {Type}'). Use field names in braces. Overrides Top Left Field if set."/>
+            <property name="topRightFormat" type="String" label="Top Right Format" description="Template for top right position"/>
+            <property name="middleLeftFormat" type="String" label="Middle Left Format" description="Template for middle left position"/>
+            <property name="middleRightFormat" type="String" label="Middle Right Format" description="Template for middle right position"/>
+            <property name="bottomLeftFormat" type="String" label="Bottom Left Format" description="Template for bottom left position"/>
+            <property name="bottomRightFormat" type="String" label="Bottom Right Format" description="Template for bottom right position"/>
+        </targetConfig>
+        
+        <targetConfig targets="lightning__AppPage,lightning__HomePage,lightning__RecordPage">
+            <!-- Core Configuration -->
+            <property name="sObjectType" type="String" label="Object API Name" required="true"/>
+            <property name="fields" type="String" label="Fields to Retrieve" required="true"/>
+            <property name="filterClause" type="String" label="Filter Clause"/>
+            <property name="orderBy" type="String" label="Order By Field"/>
+            <property name="limitRecords" type="Integer" label="Limit Records" default="50"/>
+            
+            <!-- Display Configuration -->
+            <property name="sectionName" type="String" label="Section Name" default="Records"/>
+            <property name="iconName" type="String" label="Icon Name" default="standard:record"/>
+            
+            <!-- Card Position Fields -->
+            <property name="topLeftField" type="String" label="Top Left Field"/>
+            <property name="topRightField" type="String" label="Top Right Field"/>
+            <property name="middleLeftField" type="String" label="Middle Left Field"/>
+            <property name="middleRightField" type="String" label="Middle Right Field"/>
+            <property name="bottomLeftField" type="String" label="Bottom Left Field"/>
+            <property name="bottomRightField" type="String" label="Bottom Right Field"/>
+            
+            <!-- Card Position Templates -->
+            <property name="topLeftFormat" type="String" label="Top Left Format"/>
+            <property name="topRightFormat" type="String" label="Top Right Format"/>
+            <property name="middleLeftFormat" type="String" label="Middle Left Format"/>
+            <property name="middleRightFormat" type="String" label="Middle Right Format"/>
+            <property name="bottomLeftFormat" type="String" label="Bottom Left Format"/>
+            <property name="bottomRightFormat" type="String" label="Bottom Right Format"/>
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

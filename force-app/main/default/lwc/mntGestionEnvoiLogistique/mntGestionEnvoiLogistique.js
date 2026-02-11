@@ -81,6 +81,8 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     @track linkedCommandeId;
     @track isContextCommande = false;
     @track isTechMode = false;
+    @track attemptedSave = false;
+    @track errorMessage = '';
 
     delayTimeout;
     commandeDetailsCols = COMMANDE_DETAILS_COLS;
@@ -119,14 +121,20 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         const baseClass = this.isDesktop 
             ? 'slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small border-left-blue'
             : 'mobile-card2 slds-m-bottom_xx-small';
-        return this.cart.map(item => ({
-            ...item,
-            cardClass: baseClass,
-            isTrackingDisabled: !item.numBonLivraison,
-            trackingUrl: item.numBonLivraison
-                ? `https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLT=${item.numBonLivraison}`
-                : null
-        }));
+        return this.cart.map(item => {
+            const hasError = this.attemptedSave && (!item.numBonLivraison || item.numBonLivraison.trim() === '');
+            const errorClass = hasError ? 'input-error' : '';
+            return {
+                ...item,
+                cardClass: baseClass,
+                isTrackingDisabled: !item.numBonLivraison,
+                mobileInputClass: `compact-input ${errorClass}`,
+                desktopInputClass: `${errorClass}`,
+                trackingUrl: item.numBonLivraison
+                    ? `https://www.chronopost.fr/tracking-no-cms/suivi-page?listeNumerosLT=${item.numBonLivraison}`
+                    : null
+            };
+        });
     }
 
     get envoiTitle() {
@@ -798,6 +806,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
     handleCartInputChange(event) {
         const pieceId = event.target.dataset.id;
         const value = event.target.value;
+        if (this.errorMessage) this.errorMessage = '';
         this.cart = this.cart.map(item =>
             item.pieceUnitaireId === pieceId 
                 ? { ...item, numBonLivraison: value } 
@@ -884,11 +893,18 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
             
             const action = this.mainButtonAction; // Based on mode
 
+            // ---------------------------------
+            
+            this.attemptedSave = true;
+            this.errorMessage = '';
+
             // --- VALIDATION BL OBLIGATOIRE ---
-            if (action === 'Validate') {
+            if (action === 'Validate' || this.isTechMode) {
                 const missingBl = this.cart.some(item => !item.numBonLivraison || item.numBonLivraison.trim() === '');
                 if (missingBl) {
-                    this.showToast('Erreur', 'Le N° de Bon de Livraison est obligatoire pour toutes les pièces lors de la validation.', 'error');
+                    const msg = 'Le N° de Bon de Livraison est obligatoire pour toutes les pièces.';
+                    this.showToast('Erreur', msg, 'error');
+                    this.errorMessage = msg;
                     this.isLoading = false;
                     return;
                 }
