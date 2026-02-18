@@ -1,4 +1,14 @@
 <template>
+    <template if:true={showSuccessMessage}>
+        <div class="success-overlay">
+            <div class="success-card">
+                <div class="success-icon-container">
+                    <lightning-icon icon-name="action:approval" alternative-text="Succès" size="large"></lightning-icon>
+                </div>
+                <div class="success-text">Demande créée avec succès !</div>
+            </div>
+        </div>
+    </template>
   <lightning-card title={cardTitle} icon-name="utility:cart">
       <div slot="actions">
         <template if:true={isDesktop}>

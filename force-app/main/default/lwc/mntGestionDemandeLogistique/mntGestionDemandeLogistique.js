@@ -28,6 +28,12 @@ const getRowActions = (row, doneCallback) => {
     doneCallback(actions);
 };
 
+// Store file data as JSON STRING (primitive) to bypass LWS Proxy
+// LWS cannot proxy primitive strings, so data stays intact
+let _pendingFilesJSON = '[]';
+let _pendingFileCount = 0;  // Track count separately for reactivity trigger
+let _previewUrls = [];      // Preview URLs don't go to Apex so Proxy doesn't matter
+
 const COLS_CART_EDIT = [
     { label: 'Site', fieldName: 'siteName', type: 'text' },
     { label: 'Article', fieldName: 'articleName', type: 'text' },
@@ -76,10 +82,12 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     @track pecRetraitementBy;
     @track status;
     
-    @track filesToUpload = [];
+    // filesToUpload stored in module-level WeakMap to avoid LWC Proxy
     @track attachedFiles = [];
     @track activeSections = ['info_demande'];
     @track articleSearchTerm = '';
+    @track showSuccessMessage = false;
+    @track isLoadingFiles = false;
     
     // Flag pour éviter la double initialisation
     isInitialized = false;
@@ -159,6 +167,9 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     }
 
     get isDisabled() {
+        // Prevent save while files are loading
+        if (this.isLoadingFiles) return true;
+        
         if (this.isDesktop) {
             if (this.isEditMode) {
                 const forbiddenStatusesForUpdate = ['Nouveau', 'Clôturé','À Retraiter'];
@@ -221,7 +232,16 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     }
 
     get hasFilesToUpload() {
-        return this.filesToUpload.length > 0;
+        return _pendingFileCount > 0;
+    }
+    
+    // Expose files for template iteration (preview only)
+    get filesToUpload() {
+        try {
+            return JSON.parse(_pendingFilesJSON);
+        } catch(e) {
+            return [];
+        }
     }
 
     get hasAttachedFiles() {
@@ -256,6 +276,10 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
     }
 
     connectedCallback() {
+        // Reset file storage
+        _pendingFilesJSON = '[]';
+        _pendingFileCount = 0;
+        
         console.log('mntGestionDemandeLogistique connected. recordId:', this.recordId, 'objectApiName:', this.objectApiName, 'nTicketId:', this.nTicketId);
         
         if (this.ticketCorrectifID && !this.nTicketId) {
@@ -347,9 +371,23 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
             }
 
             // Pré-remplissage Compte Projet sur Mobile
-            if (this.isMobile && data.userCompteProjet) {
-                this.compteProjet = data.userCompteProjet;
-                console.log('📱 Mobile: Compte Projet pré-rempli depuis User:', this.compteProjet);
+            if (this.isMobile) {
+                if (data.userCompteProjet) {
+                    this.compteProjet = data.userCompteProjet;
+                    console.log('📱 Mobile: Compte Projet pré-rempli depuis User:', this.compteProjet);
+                }
+                
+                // Pré-remplissage Adresse de Livraison Préférée sur Mobile
+                if (data.adresseLivraisonPrefereId && !this.adresseLivraisonId) {
+                    this.adresseLivraisonId = data.adresseLivraisonPrefereId;
+                    this.selectedAdresseLivraison = {
+                        value: data.adresseLivraisonPrefereId,
+                        label: data.adresseLivraisonPrefereName,
+                        sublabel: data.adresseLivraisonPrefereFull
+                    };
+                    this.contactAddress = data.adresseLivraisonPrefereFull;
+                    console.log('📱 Mobile: Adresse Livraison pré-remplie depuis User:', this.selectedAdresseLivraison);
+                }
             }
 
             if (data.lieuId && !this.lieuId) {
@@ -509,27 +547,32 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
                 // Assigner recordId pour permettre les opérations suivantes
                 this.recordId = newOrderId;
 
-                if (this.filesToUpload.length > 0) {
-                    const filesData = this.filesToUpload.map(f => ({ title: f.name, base64Data: f.base64 }));
-                    await uploadFiles({ recordId: newOrderId, files: filesData });
+                // Send files as JSON STRING directly to Apex (bypasses LWS Proxy completely)
+                if (_pendingFileCount > 0) {
+                    const parsedFiles = JSON.parse(_pendingFilesJSON);
+                    const apexFiles = parsedFiles.map(f => ({ title: f.name, base64Data: f.base64 }));
+                    const filesJSON = JSON.stringify(apexFiles);
+                    await uploadFiles({ recordId: newOrderId, filesJSON: filesJSON });
                     
-                    // Rafraîchir la liste des fichiers après upload
-                    // await this.refreshAttachedFiles();
+                    _pendingFilesJSON = '[]';
+                    _pendingFileCount = 0;
                 }
 
-                this.toast('Succès', 'Commande créée avec succès.', 'success');
-                getRecordNotifyChange([{ recordId: newOrderId }]);
-                this.isSaveComplete = true;
+                this.isSaveComplete = true; // Still keep this for desktop/general flow logic
                 
-                // Mobile: retour arrière vers page précédente
-                setTimeout(() => {
-                    if (!this.isDesktop) {
+                if (!this.isDesktop) {
+                    // Mobile: Show overlay then redirect
+                    this.showSuccessMessage = true;
+                    setTimeout(() => {
                         window.history.back();
-                        this.handleCancel(); //this.dispatchEvent(new FlowNavigationNextEvent());
-                    } else if (this.isDesktop && !this.isEditMode){
+                        this.handleCancel(); 
+                    }, 2000);
+                } else if (this.isDesktop && !this.isEditMode){
+                    this.toast('Succès', 'Commande créée avec succès.', 'success'); // Keep toast for desktop
+                    setTimeout(() => {
                         window.location.assign('/lightning/r/Commande_Pi_ces__c/' + newOrderId + '/view');
-                    }
-                }, 1000);
+                    }, 1000);
+                }
             }
         } catch (e) {
             this.toast('Erreur', e?.body?.message || 'Erreur lors de la sauvegarde.', 'error');
@@ -642,29 +685,51 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
         }
     }
 
-    handleFileSelect(event) {
+    async handleFileSelect(event) {
         const files = event.target.files;
-        if (files) {
+        if (!files || files.length === 0) return;
+        
+        this.isLoadingFiles = true;
+        
+        try {
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const base64 = reader.result.split(',')[1];
-                    this.filesToUpload.push({
-                        name: file.name,
-                        base64: base64,
-                        previewUrl: URL.createObjectURL(file),
-                        key: Date.now() + i
-                    });
-                };
-                reader.readAsDataURL(file);
+                
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = () => reject(new Error('Failed to read file'));
+                    reader.readAsDataURL(file);
+                });
+                
+                const currentFiles = JSON.parse(_pendingFilesJSON);
+                currentFiles.push({
+                    name: file.name,
+                    base64: base64,
+                    previewUrl: URL.createObjectURL(file),
+                    key: Date.now() + i
+                });
+                _pendingFilesJSON = JSON.stringify(currentFiles);
+                _pendingFileCount = currentFiles.length;
             }
+        } catch (error) {
+            console.error('Error loading files:', error);
+            this.toast('Erreur', 'Erreur lors du chargement des fichiers', 'error');
+        } finally {
+            this.isLoadingFiles = false;
         }
     }
 
     handleRemoveFileToUpload(event) {
-        const index = event.target.dataset.index;
-        this.filesToUpload.splice(index, 1);
+        const index = parseInt(event.target.dataset.index, 10);
+        try {
+            const currentFiles = JSON.parse(_pendingFilesJSON);
+            currentFiles.splice(index, 1);
+            _pendingFilesJSON = JSON.stringify(currentFiles);
+            _pendingFileCount = currentFiles.length;
+        } catch(e) {
+            console.error('Error removing file:', e);
+        }
     }
 
     async handlePecAction(event) {

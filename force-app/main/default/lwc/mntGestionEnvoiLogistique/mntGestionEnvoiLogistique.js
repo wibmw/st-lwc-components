@@ -589,7 +589,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         this.isSearching = true;
 
         try {
-            const results = await searchPiecesUnitaires({ searchTerm: searchTerm, typeEnvoi: this.typeEnvoi });
+            const results = await searchPiecesUnitaires({ searchTerm: searchTerm, typeEnvoi: this.typeEnvoi, stockId: this.sourceStockId });
             const cartIds = new Set(this.cart.map(item => item.pieceUnitaireId));
             this.searchResults = results.filter(res => !cartIds.has(res.id)).map(r => ({
                 id: r.id,
@@ -904,7 +904,9 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
                 if (missingBl) {
                     const msg = 'Le N° de Bon de Livraison est obligatoire pour toutes les pièces.';
                     this.showToast('Erreur', msg, 'error');
-                    this.errorMessage = msg;
+                    if (!this.isDesktop) {
+                        this.errorMessage = msg;
+                    }
                     this.isLoading = false;
                     return;
                 }

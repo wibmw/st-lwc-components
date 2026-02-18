@@ -657,24 +657,29 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
     }
 
     @AuraEnabled(cacheable=true)
-    public static List<PieceUnitaireResult> searchPiecesUnitaires(String searchTerm, String typeEnvoi) {
+    public static List<PieceUnitaireResult> searchPiecesUnitaires(String searchTerm, String typeEnvoi, String stockId) {
         String queryTerm = '%' + searchTerm + '%';
-        Id currentUserId = UserInfo.getUserId();
+        String currentUserName = '%' + UserInfo.getName() + '%';
         List<PieceUnitaireResult> results = new List<PieceUnitaireResult>();
 
         // Logique de filtrage dynamique sur le statut
         String statutAFiltrer = 'Réparateur'.equals(typeEnvoi) ? 'A Envoyer en REP' : 'En Stock';
         
-        // La requête inclut maintenant RMA__c et filtre sur le statut dynamique
-        for(Pi_ce_Unitaire__c piece : [
-            SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c, Code_Article__r.Mnemonique__c, Code_Article__r.Description__c,
-                   Pi_ce_Install_e__r.N_Serie__c
-            FROM Pi_ce_Unitaire__c
-            WHERE (Name LIKE :queryTerm OR Cl_quipement__c LIKE :queryTerm OR Code_Article__r.Mnemonique__c LIKE :queryTerm)
-              AND Statut__c = :statutAFiltrer
-              AND Lieu__r.Logisticien__c = :currentUserId
-            LIMIT 50
-        ]) {
+        String query = 'SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c, Code_Article__r.Mnemonique__c, Code_Article__r.Description__c, Pi_ce_Install_e__r.N_Serie__c ' +
+                       'FROM Pi_ce_Unitaire__c ' +
+                       'WHERE (Name LIKE :queryTerm OR Cl_quipement__c LIKE :queryTerm OR Code_Article__r.Mnemonique__c LIKE :queryTerm OR Code_Article__r.Name LIKE :queryTerm) ' +
+                       'AND Statut__c = :statutAFiltrer ';
+
+        if (String.isNotBlank(stockId)) {
+             query += 'AND Lieu__c = :stockId ';
+        } else {
+             query += 'AND Lieu__r.Liste_Logisticiens__c LIKE :currentUserName ';
+        }
+
+        query += 'ORDER BY Code_Article__r.Mnemonique__c, Code_Article__r.Name ' +
+                 'LIMIT 10';
+        
+        for(Pi_ce_Unitaire__c piece : Database.query(query)) {
             PieceUnitaireResult res = new PieceUnitaireResult();
             res.id = piece.Id;
             res.name = piece.Name;
@@ -810,7 +815,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             // --- 7. GESTION DU PANIER (HISTORIQUES & PIECES) ---
             System.debug('### Manage Cart Items...');
             Envoi_Logistique__c fullEnvoi = [
-                SELECT Id, Statut__c, Destinataire__r.Name, Stock__r.Name, 
+                SELECT Id, Statut__c, Destinataire__r.Name, Stock__r.Id, Stock__r.Name, Lieu_de_Destination__r.Name, Lieu_de_Destination__r.Id,
                        N_Ticket_Correctif__c, N_Ticket_Correctif__r.ID_ticket_client__c, 
                        N_Ticket_Correctif__r.Code_site__c, N_Ticket_Correctif__r.Nom_du_site__c 
                 FROM Envoi_Logistique__c 
@@ -863,7 +868,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
             if (!currentPieceIdsInCart.isEmpty()) {
                 Map<Id, Pi_ce_Unitaire__c> piecesDataMap = new Map<Id, Pi_ce_Unitaire__c>([SELECT Id, Name, Lieu__c, Lieu__r.Name, RMA__c, Panne__c, Pi_ce_Install_e__r.N_Serie__c FROM Pi_ce_Unitaire__c WHERE Id IN :currentPieceIdsInCart]); 
                 String today = Date.today().format();
-                String toLocation = (fullEnvoi.Stock__r != null ? fullEnvoi.Stock__r.Name : '');
+                String toLocation = (fullEnvoi.Lieu_de_Destination__r != null ? fullEnvoi.Lieu_de_Destination__r.Name : '');
                 
                 // Trigramme Mapping
                 Map<String, String> trigrammeMap = new Map<String, String>{
@@ -886,15 +891,19 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                         hist.N_Bon_Livraison__c = line.numBonLivraison;
                         hist.Statut__c = newStatusForSentPieces;
                         hist.Type__c = 'ENV';
+                        hist.Statut_Envoi__c = 'Envoyé';
                         hist.Lieu__c = input.lieuId;
                         hist.Statut_Chronopost__c = line.statutChronopost;
                         
-                        historiesToCreate.add(hist);
-                        hist.Envoi_Logistique__c = '';
-    
                         Historique_Pi_ces__c histPU = hist.clone(false, true, false, false);
                         histPU.Type__c = 'PU';
+                        histPU.Envoi_Logistique__c = null;
                         Pi_ce_Unitaire__c pieceToUpdate;
+
+                        historiesToCreate.add(hist);
+
+                        String toLocationId = (fullEnvoi.Lieu_de_Destination__r != null ? fullEnvoi.Lieu_de_Destination__r.Id : input.lieuId);
+                        String fromLocationId = (fullEnvoi.Stock__r != null ? fullEnvoi.Stock__r.Id : pieceActuelle.Lieu__c);
                         
                         if ('Réparateur'.equals(input.typeEnvoi)) {
                             String trigramme = '';
@@ -921,7 +930,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                             
                         } else {
                             histPU.INVENTAI__c = true;
-                            String fromLocation = (pieceActuelle.Lieu__r != null ? pieceActuelle.Lieu__r.Name : '');
+                            String fromLocation = (fullEnvoi.Stock__r != null ? fullEnvoi.Stock__r.Name : '');
                             
                             // TechMode custom remarks
                             if (input.isTechMode != null && input.isTechMode) {
@@ -944,9 +953,9 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                             historiesToCreate.add(histPU);
                         }
                         if(pieceActuelle.Lieu__r.Name != 'REBUT'){
-                            pieceToUpdate = new Pi_ce_Unitaire__c(Id = pieceActuelle.Id, Statut__c = newStatusForSentPieces, Lieu_Pr_c_dent__c = pieceActuelle.Lieu__c, Lieu__c = input.lieuId); }
+                            pieceToUpdate = new Pi_ce_Unitaire__c(Id = pieceActuelle.Id, Statut__c = newStatusForSentPieces, Lieu_Pr_c_dent__c = fromLocationId, Lieu__c = toLocationId); }
                         else {
-                            pieceToUpdate = new Pi_ce_Unitaire__c(Id = pieceActuelle.Id, Statut__c = 'Rebut', Lieu__c = input.lieuId); 
+                            pieceToUpdate = new Pi_ce_Unitaire__c(Id = pieceActuelle.Id, Statut__c = 'Rebut', Lieu__c = toLocationId); 
                         }
                         piecesToUpdate.add(pieceToUpdate);
 

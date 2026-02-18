@@ -77,6 +77,10 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
 
         @AuraEnabled public String pillLabels;
         @AuraEnabled public String userCompteProjet;
+        
+        @AuraEnabled public Id adresseLivraisonPrefereId;
+        @AuraEnabled public String adresseLivraisonPrefereName;
+        @AuraEnabled public String adresseLivraisonPrefereFull;
     }
 
     public class OrderDetailsWrapper {
@@ -120,12 +124,19 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         String currentUserName = UserInfo.getName();
         data.currentUserName = currentUserName;
 
-        // Récupérer le Compte Projet du User pour le mobile
+        // Récupérer le Compte Projet et l'Adresse de Livraison Préférée du User pour le mobile
         try {
-            User u = [SELECT Compte_Projet_Logistique__c FROM User WHERE Id = :data.currentUserId LIMIT 1];
+            User u = [SELECT Compte_Projet_Logistique__c, Adresse_de_Livraison_Pr_f_r_e__c FROM User WHERE Id = :data.currentUserId LIMIT 1];
             data.userCompteProjet = u.Compte_Projet_Logistique__c;
+            
+            if (u.Adresse_de_Livraison_Pr_f_r_e__c != null) {
+                Contact c = [SELECT Id, Name, MailingStreet, MailingCity, MailingPostalCode FROM Contact WHERE Id = :u.Adresse_de_Livraison_Pr_f_r_e__c LIMIT 1];
+                data.adresseLivraisonPrefereId = c.Id;
+                data.adresseLivraisonPrefereName = c.Name;
+                data.adresseLivraisonPrefereFull = formatAddress(c.MailingStreet, c.MailingPostalCode, c.MailingCity);
+            }
         } catch (Exception e) {
-            System.debug('Error querying User Compte Projet: ' + e.getMessage());
+            System.debug('Error querying User details: ' + e.getMessage());
         }
 
         System.debug('Tech Name: ' + currentUserName);
@@ -330,9 +341,9 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
             // Desktop behavior: Group by Site + Article
             List<AggregateResult> aggResults = [
                 SELECT Lieu__c siteId, Lieu__r.Name siteName, Lieu__r.Nom_du_site__c siteNom, Code_Article__c articleId, Code_Article__r.Name articleName, Code_Article__r.Mnemonique__c mnemonique, COUNT(Id) stock
-                FROM Pi_ce_Unitaire__c WHERE Code_Article__c IN :articleIds AND Statut__c = 'En Stock'
+                FROM Pi_ce_Unitaire__c WHERE Code_Article__c IN :articleIds AND Statut__c = 'En Stock' AND (NOT Lieu__r.Name LIKE 'STE%')
                 GROUP BY Lieu__c, Lieu__r.Name, Lieu__r.Nom_du_site__c, Code_Article__c, Code_Article__r.Name, Code_Article__r.Mnemonique__c
-                ORDER BY Lieu__r.Name, Code_Article__r.Name LIMIT :limitSize OFFSET :offsetVal
+                ORDER BY Lieu__r.Name, Code_Article__r.Mnemonique__c, Code_Article__r.Name LIMIT :limitSize OFFSET :offsetVal
             ];
 
             // Descriptions for desktop
@@ -535,8 +546,19 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
             // Logique de transition de statut : si le statut est 'PEC Cockpit' ou 'PEC Retraitement'
             // et qu'il y a des lignes dans le panier, on passe à 'Commande en Cours'
             if (input.lines != null && !input.lines.isEmpty()) {
-                if (currentStatus == 'PEC Cockpit' || currentStatus == 'PEC Retraitement') {
+                if (currentStatus == 'PEC Cockpit') {
                     orderToUpdate.Statut_Commande__c = 'Commande en Cours';
+                } else if (currentStatus == 'PEC Retraitement') {
+                     // Check for shipped/closed Envois to determine partial delivery status
+                     Integer shippedCount = [SELECT COUNT() FROM Envoi_Logistique__c 
+                                             WHERE Commande_Pi_ces__c = :input.orderId 
+                                             AND Statut__c IN ('À Réceptionner', 'Clôturé OK', 'Clôturé NOK')];
+                     
+                     if (shippedCount > 0) {
+                         orderToUpdate.Statut_Commande__c = 'Livraison Partielle en Cours';
+                     } else {
+                         orderToUpdate.Statut_Commande__c = 'Commande en Cours';
+                     }
                 }
             } else {
                 // If cart is empty, set status to 'À Retraiter'
@@ -907,9 +929,15 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
     }
 
     @AuraEnabled
-    public static void uploadFiles(Id recordId, List<FileInfo> files) {
+    public static void uploadFiles(Id recordId, String filesJSON) {
+        List<FileInfo> files = (List<FileInfo>) JSON.deserialize(filesJSON, List<FileInfo>.class);
+        
         List<ContentVersion> cvList = new List<ContentVersion>();
         for (FileInfo file : files) {
+            if (String.isBlank(file.title) || String.isBlank(file.base64Data)) {
+                continue;
+            }
+            
             ContentVersion cv = new ContentVersion();
             cv.Title = file.title;
             cv.PathOnClient = file.title;
@@ -917,6 +945,11 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
             if (recordId != null) cv.FirstPublishLocationId = recordId;
             cvList.add(cv);
         }
+        
+        if (cvList.isEmpty()) {
+            return;
+        }
+        
         insert cvList;
         
         // Créer manuellement les ContentDocumentLink pour associer les fichiers à la commande

@@ -315,3 +315,37 @@
     box-shadow: 0 0 3px #0176d3;
     border-color: #0176d3;
 }
+
+/* SUCCESS OVERLAY STYLES */
+.success-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.success-card {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    border: 1px solid #dddbda;
+    min-width: 300px;
+}
+
+.success-icon-container {
+    margin-bottom: 1rem;
+}
+
+.success-text {
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: #027e46; /* Salesforce Success Green */
+}
