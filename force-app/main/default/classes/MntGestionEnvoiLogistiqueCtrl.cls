@@ -892,6 +892,7 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
                         hist.Statut__c = newStatusForSentPieces;
                         hist.Type__c = 'ENV';
                         hist.Statut_Envoi__c = 'Envoyé';
+                        hist.Correctif__c = fullEnvoi.N_Ticket_Correctif__c;
                         hist.Lieu__c = input.lieuId;
                         hist.Statut_Chronopost__c = line.statutChronopost;
                         

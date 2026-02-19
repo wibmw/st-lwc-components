@@ -1,4 +1,4 @@
-public with sharing class MntMobilePieceReceptionCtrl {
+public without sharing class MntMobilePieceReceptionCtrl {
     
     public class PieceUnitaireWrapper {
         @AuraEnabled public Id id;

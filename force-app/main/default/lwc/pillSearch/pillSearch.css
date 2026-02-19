@@ -55,3 +55,21 @@
     text-transform: uppercase;
     --slds-c-input-text-transform: uppercase;
 }
+
+/* Multi-select pills container */
+.multi-pills-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 0;
+}
+
+.multi-pill {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    background-color: #f3f3f3;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.8125rem;
+}

@@ -583,24 +583,33 @@ export default class MntGestionDemandeLogistique extends NavigationMixin(Lightni
 
     async handlePecAction(event) {
         const actionName = event.target.name;
-        const newStatus = actionName === 'pec_cockpit' ? 'PEC Cockpit' : 'PEC Retraitement';
+        const pecType = actionName === 'pec_cockpit' ? 'Cockpit' : 'Retraitement';
         
         this.loading = true;
         try {
-            await updatePec({ 
+            const result = await updatePec({ 
                 orderId: this.recordId, 
-                status: newStatus 
+                pecType: pecType 
             });
             
-            this.toast('Succès', `Statut mis à jour vers ${newStatus}.`, 'success');
-            
-            // Rafraîchir le composant après délai pour s'assurer que le backend est à jour
-            setTimeout(() => {
-                getRecordNotifyChange([{ recordId: this.recordId }]);
-                // Rafraîchement global des listes
-                this.dispatchEvent(new RefreshEvent());
-                this.loadOrderData();
-            }, 500);
+            // Mise à jour locale immédiate des infos PEC (sans rechargement)
+            if (result) {
+                const pecDate = result.pecDate;
+                const pecByName = result.pecByName;
+                if (pecType === 'Cockpit') {
+                    this.pecCockpitDate = pecDate;
+                    this.pecCockpitBy = pecByName;
+                    this.status = 'PEC Cockpit';
+                } else {
+                    this.pecRetraitementDate = pecDate;
+                    this.pecRetraitementBy = pecByName;
+                    this.status = 'PEC Retraitement';
+                }
+            }
+
+            this.toast('Succès', `PEC ${pecType} enregistrée.`, 'success');
+            getRecordNotifyChange([{ recordId: this.recordId }]);
+            this.dispatchEvent(new RefreshEvent());
 
         } catch (error) {
             this.toast('Erreur', 'Impossible de mettre à jour le statut : ' + (error.body?.message || error.message), 'error');

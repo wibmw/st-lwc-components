@@ -1,36 +1,43 @@
 /**
- * @description Generic pill search component for Screen Flows and Lightning Pages
+ * @description Generic pill search component for Screen Flows and Lightning Pages.
+ *              Supports single selection and multi-selection mode.
  * @author Antigravity AI
  * @date 2026-01-30
- * 
- * @property {String} label - Field label
- * @property {String} placeholder - Search input placeholder
- * @property {String} iconName - SLDS icon name (e.g., 'standard:account')
- * @property {String} sObjectType - Salesforce object API name
- * @property {String} searchFields - Comma-separated fields to search (supports relationships)
- * @property {String} labelField - Field to display as main label (supports relationships)
- * @property {String} sublabelField - Field to display as sublabel (supports relationships)
- * @property {String} labelFormat - Optional template for label formatting (e.g., '{Name} - {Email}')
- * @property {String} sublabelFormat - Optional template for sublabel formatting
- * @property {String} filterClause - Optional WHERE clause filter
- * @property {Boolean} readOnly - Whether component is read-only
- * @property {Boolean} required - Whether field is required
- * @property {String} selectedRecordId - Output: Selected record ID
+ *
+ * @property {String}  label           - Field label
+ * @property {String}  placeholder     - Search input placeholder
+ * @property {String}  iconName        - SLDS icon name (e.g., 'standard:account')
+ * @property {String}  sObjectType     - Salesforce object API name
+ * @property {String}  searchFields    - Comma-separated fields to search (supports relationships)
+ * @property {String}  labelField      - Field to display as main label (supports relationships)
+ * @property {String}  sublabelField   - Field to display as sublabel (supports relationships)
+ * @property {String}  labelFormat     - Optional template for label formatting
+ * @property {String}  sublabelFormat  - Optional template for sublabel formatting
+ * @property {String}  filterClause    - Optional WHERE clause filter
+ * @property {Boolean} readOnly        - Whether component is read-only
+ * @property {Boolean} required        - Whether field is required
+ * @property {Boolean} multiSelect     - Enable multi-selection mode
+ *
+ * Single mode outputs:
+ * @property {String} selectedRecordId   - Output: Selected record ID
  * @property {String} selectedRecordName - Output: Selected record Name
- * 
- * @fires select - When a lookup option is selected
- * @fires remove - When the pill is removed
+ *
+ * Multi mode outputs (via events):
+ * @fires select - detail.selectedValues : Array of { value, label, sublabel, pillLabel }
+ * @fires remove - detail.selectedValues : Array of { value, label, sublabel, pillLabel }
  */
 import { LightningElement, api, track } from 'lwc';
 import searchRecords from '@salesforce/apex/PillSearchCtrl.searchRecords';
-import getRecordDetails from '@salesforce/apex/PillSearchCtrl.getRecordDetails';
+import getRecordsDetails from '@salesforce/apex/PillSearchCtrl.getRecordsDetails';
 
 export default class PillSearch extends LightningElement {
-    
+
     _selectedRecordId = '';
     _initialized = false;
+    _selectedRecordIds = []; // Private backing field
+
     // ==================== INPUT PROPERTIES ====================
-    
+
     @api label = '';
     @api placeholder = 'Rechercher...';
     @api iconName = 'standard:record';
@@ -43,33 +50,83 @@ export default class PillSearch extends LightningElement {
     @api filterClause = '';
     @api readOnly = false;
     @api required = false;
+    @api multiSelect = false;
 
-    // ==================== OUTPUT PROPERTIES ====================
-    
-    @api 
+    // ==================== OUTPUT PROPERTIES (single mode) ====================
+
+    @api
     get selectedRecordId() {
         return this._selectedRecordId;
     }
     set selectedRecordId(value) {
         this._selectedRecordId = value;
-        // If value changes after initialization (e.g. from flow), fetch details
         if (this._initialized && value && !this.selectedValue) {
             this.fetchRecordDetails(value);
         } else if (this._initialized && !value) {
-            this.handleRemove();
+            this.handleRemoveSingle();
         }
     }
-    
+
     @api selectedRecordName = '';
 
+    // Multi mode output for Flow (Collection Variable)
+    @api
+    get selectedRecordIds() {
+        return this._selectedRecordIds;
+    }
+    set selectedRecordIds(value) {
+        // If value is null/undefined, treat as empty array
+        const newIds = value ? [...value] : [];
+        
+        // Deep comparison to avoid infinite loops if the array content is the same
+        if (JSON.stringify(this._selectedRecordIds) === JSON.stringify(newIds)) {
+            return;
+        }
+
+        this._selectedRecordIds = newIds;
+
+        // If we have IDs but no selectedValues objects, fetch them
+        // This handles the pre-selection case
+        if (this._initialized && this.multiSelect && newIds.length > 0) {
+            // Check if we need to fetch details (i.e. we don't have descriptions for these IDs)
+            const idsToFetch = newIds.filter(id => !this.selectedValues.find(sv => sv.value === id));
+            if (idsToFetch.length > 0) {
+                this.fetchRecordsDetails(newIds);
+            }
+        } else if (this._initialized && this.multiSelect && newIds.length === 0) {
+            this.selectedValues = [];
+        }
+    }
+
     // ==================== PRIVATE PROPERTIES ====================
-    
+
     @track suggestions = [];
     @track isOpen = false;
     @track isLoading = false;
+
+    // Single mode
     @track selectedValue = null;
 
+    // Multi mode
+    @track selectedValues = [];
+
     searchTimeout;
+
+    // ==================== LIFECYCLE ====================
+
+    connectedCallback() {
+        this._initialized = true;
+        
+        // Single mode pre-selection
+        if (!this.multiSelect && this.selectedRecordId) {
+            this.fetchRecordDetails(this.selectedRecordId);
+        }
+        
+        // Multi mode pre-selection
+        if (this.multiSelect && this.selectedRecordIds && this.selectedRecordIds.length > 0) {
+            this.fetchRecordsDetails(this.selectedRecordIds);
+        }
+    }
 
     // ==================== GETTERS ====================
 
@@ -77,15 +134,17 @@ export default class PillSearch extends LightningElement {
         return `slds-combobox slds-dropdown-trigger slds-dropdown-trigger_click ${this.isOpen ? 'slds-is-open' : ''}`;
     }
 
-    connectedCallback() {
-        this._initialized = true;
-        if (this.selectedRecordId) {
-            this.fetchRecordDetails(this.selectedRecordId);
-        }
+    get hasSelectedValue() {
+        return !this.multiSelect && this.selectedValue !== null && this.selectedValue !== undefined;
     }
 
-    get hasSelectedValue() {
-        return this.selectedValue !== null && this.selectedValue !== undefined;
+    get hasSelectedValues() {
+        return this.multiSelect && this.selectedValues.length > 0;
+    }
+
+    // In multi mode, input is always visible. In single mode, hide when a value is selected.
+    get isInputVisible() {
+        return this.multiSelect || !this.hasSelectedValue;
     }
 
     get pillLabel() {
@@ -108,19 +167,16 @@ export default class PillSearch extends LightningElement {
         return this.readOnly;
     }
 
-    get inputVariant() {
-        return this.label ? 'label-hidden' : 'label-hidden';
-    }
-
     // ==================== EVENT HANDLERS ====================
 
     /**
-     * Handle search input changes
+     * Handle search input changes — forces uppercase
      */
     handleSearchInput(event) {
-        const searchTerm = event.target.value;
-        
-        // Clear previous timeout
+        const upperValue = event.target.value.toUpperCase();
+        event.target.value = upperValue;
+        const searchTerm = upperValue;
+
         if (this.searchTimeout) {
             clearTimeout(this.searchTimeout);
         }
@@ -128,8 +184,6 @@ export default class PillSearch extends LightningElement {
         if (searchTerm && searchTerm.length >= 3) {
             this.isOpen = true;
             this.isLoading = true;
-            
-            // Debounce search
             this.searchTimeout = setTimeout(() => {
                 this.performSearch(searchTerm);
             }, 300);
@@ -140,23 +194,6 @@ export default class PillSearch extends LightningElement {
     }
 
     /**
-     * Handle pill removal
-     */
-    handleRemove() {
-        if (this.readOnly) return;
-
-        const previousValue = this.selectedValue;
-        this.selectedValue = null;
-        this.selectedRecordId = '';
-        this.selectedRecordName = '';
-        
-        // Emit remove event
-        this.dispatchEvent(new CustomEvent('remove', {
-            detail: { previousValue }
-        }));
-    }
-
-    /**
      * Handle suggestion selection
      */
     handleSelect(event) {
@@ -164,47 +201,88 @@ export default class PillSearch extends LightningElement {
         const label = event.currentTarget.dataset.label;
         const sublabel = event.currentTarget.dataset.sublabel;
         const pillLabel = event.currentTarget.dataset.pilllabel || label;
-        
-        // Build selected value object
-        const selectedValue = {
-            value,
-            label,
-            sublabel,
-            pillLabel
-        };
 
-        this.selectedValue = selectedValue;
-        this.selectedRecordId = value;
-        this.selectedRecordName = label;
-        this.isOpen = false;
-        this.suggestions = [];
+        const selectedItem = { value, label, sublabel, pillLabel };
 
-        // Clear input
-        const input = this.template.querySelector('lightning-input');
-        if (input) {
-            input.value = '';
+        if (this.multiSelect) {
+            // Avoid duplicates
+            const alreadySelected = this.selectedValues.some(v => v.value === value);
+            if (!alreadySelected) {
+                this.selectedValues = [...this.selectedValues, selectedItem];
+                
+                // Update specific backing field to avoid triggering setter logic unnecessarily
+                const newIds = this.selectedValues.map(item => item.value);
+                this._selectedRecordIds = newIds;
+                
+                // Notify parent/flow
+                this.dispatchEvent(new CustomEvent('selectedrecordidschange', { detail: { value: newIds } }));
+            }
+            // Keep dropdown open — clear input
+            const input = this.template.querySelector('lightning-input');
+            if (input) input.value = '';
+            this.isOpen = false;
+            this.suggestions = [];
+
+            this.dispatchEvent(new CustomEvent('select', {
+                detail: { selectedValues: [...this.selectedValues] }
+            }));
+        } else {
+            this.selectedValue = selectedItem;
+            this.selectedRecordId = value;
+            this.selectedRecordName = label;
+            this.isOpen = false;
+            this.suggestions = [];
+
+            const input = this.template.querySelector('lightning-input');
+            if (input) input.value = '';
+
+            this.dispatchEvent(new CustomEvent('select', { detail: selectedItem }));
         }
-
-        // Emit select event
-        this.dispatchEvent(new CustomEvent('select', {
-            detail: selectedValue
-        }));
     }
 
     /**
-     * Handle focus - open dropdown if there are cached suggestions
+     * Remove a single pill (multi mode) — called via data-id on the remove button
      */
+    handleRemoveMulti(event) {
+        event.stopPropagation();
+        const idToRemove = event.currentTarget.dataset.id;
+        this.selectedValues = this.selectedValues.filter(v => v.value !== idToRemove);
+        
+        // Update backing field
+        const newIds = this.selectedValues.map(item => item.value);
+        this._selectedRecordIds = newIds;
+
+        this.dispatchEvent(new CustomEvent('remove', {
+            detail: { selectedValues: [...this.selectedValues] }
+        }));
+        // Emit change for Flow
+        this.dispatchEvent(new CustomEvent('selectedrecordidschange', { detail: { value: newIds } }));
+    }
+
+    /**
+     * Remove selected value (single mode)
+     */
+    handleRemoveSingle() {
+        if (this.readOnly) return;
+        const previousValue = this.selectedValue;
+        this.selectedValue = null;
+        this.selectedRecordId = '';
+        this.selectedRecordName = '';
+        this.dispatchEvent(new CustomEvent('remove', { detail: { previousValue } }));
+    }
+
+    /** Kept for backward compatibility */
+    handleRemove() {
+        this.handleRemoveSingle();
+    }
+
     handleFocus() {
         if (this.suggestions.length > 0) {
             this.isOpen = true;
         }
     }
 
-    /**
-     * Handle blur - close dropdown after a delay
-     */
     handleBlur() {
-        // Delay to allow click on suggestion
         setTimeout(() => {
             this.isOpen = false;
         }, 200);
@@ -212,9 +290,6 @@ export default class PillSearch extends LightningElement {
 
     // ==================== PRIVATE METHODS ====================
 
-    /**
-     * Perform Apex search
-     */
     async performSearch(searchTerm) {
         if (!this.sObjectType) {
             this.isLoading = false;
@@ -231,23 +306,16 @@ export default class PillSearch extends LightningElement {
                 labelFormat: this.labelFormat,
                 sublabelFormat: this.sublabelFormat
             });
-            
+
             this.suggestions = results || [];
             this.isLoading = false;
         } catch (error) {
             this.suggestions = [];
             this.isLoading = false;
-            
-            // Optionally emit error event
-            this.dispatchEvent(new CustomEvent('error', {
-                detail: { error }
-            }));
+            this.dispatchEvent(new CustomEvent('error', { detail: { error } }));
         }
     }
 
-    /**
-     * Fetch details for selected record ID
-     */
     async fetchRecordDetails(recordId) {
         if (!recordId || !this.sObjectType) return;
 
@@ -270,12 +338,42 @@ export default class PillSearch extends LightningElement {
                 };
                 this.selectedRecordName = result.label;
             } else {
-                // If record not found, clear selection
-                this.handleRemove();
+                this.handleRemoveSingle();
             }
         } catch (error) {
             console.error('Error fetching record details:', error);
-            this.handleRemove();
+            this.handleRemoveSingle();
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    async fetchRecordsDetails(recordIds) {
+        if (!recordIds || recordIds.length === 0 || !this.sObjectType) return;
+
+        try {
+            this.isLoading = true;
+            const results = await getRecordsDetails({
+                recordIds: recordIds,
+                sObjectType: this.sObjectType,
+                displayFields: `${this.labelField}${this.sublabelField ? ',' + this.sublabelField : ''}`,
+                labelFormat: this.labelFormat,
+                sublabelFormat: this.sublabelFormat
+            });
+
+            if (results && results.length > 0) {
+                this.selectedValues = results.map(result => ({
+                    value: result.value,
+                    label: result.label,
+                    sublabel: result.sublabel,
+                    pillLabel: result.pillLabel
+                }));
+            } else {
+                this.selectedValues = [];
+            }
+        } catch (error) {
+            console.error('Error fetching records details:', error);
+            this.selectedValues = [];
         } finally {
             this.isLoading = false;
         }
@@ -283,17 +381,28 @@ export default class PillSearch extends LightningElement {
 
     // ==================== PUBLIC API METHODS ====================
 
-    /**
-     * Clear the selection programmatically
-     */
+    /** Clear single selection */
     @api
     clear() {
-        this.handleRemove();
+        this.handleRemoveSingle();
     }
 
-    /**
-     * Set selection programmatically
-     */
+    /** Clear all selections (multi mode) */
+    @api
+    clearAll() {
+        this.selectedValues = [];
+        this.selectedValue = null;
+        this.selectedRecordId = '';
+        this.selectedRecordName = '';
+    }
+
+    /** Get all selected values (multi mode) */
+    @api
+    getSelectedValues() {
+        return [...this.selectedValues];
+    }
+
+    /** Set selection programmatically (single mode) */
     @api
     setSelection(recordId, recordName) {
         this.selectedValue = {

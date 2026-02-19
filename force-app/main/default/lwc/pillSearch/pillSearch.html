@@ -13,8 +13,8 @@
     <div class="slds-form-element__control">
         <div class={comboboxClass} aria-expanded={isOpen} aria-haspopup="listbox" role="combobox">
             <div class="slds-combobox__form-element slds-input-has-icon slds-input-has-icon_right" role="none">
-                
-                <!-- Selected Value Pill -->
+
+                <!-- SINGLE MODE: Selected Value Pill -->
                 <template if:true={hasSelectedValue}>
                     <div class="slds-pill-container" style="max-width: 100%">
                         <span class="slds-pill slds-size_1-of-1">
@@ -31,20 +31,41 @@
                                     </template>
                                 </span>
                             </span>
-                            <button class="slds-button slds-button_icon slds-button_icon slds-pill__remove" title="Retirer" onclick={handleRemove}>
+                            <button class="slds-button slds-button_icon slds-button_icon slds-pill__remove" title="Retirer" onclick={handleRemoveSingle}>
                                 <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Retirer"></lightning-icon>
                             </button>
                         </span>
                     </div>
                 </template>
 
-                <!-- Search Input -->
-                <template if:false={hasSelectedValue}>
-                    <lightning-input 
+                <!-- MULTI MODE: Selected Pills List -->
+                <template if:true={hasSelectedValues}>
+                    <div class="multi-pills-container">
+                        <template for:each={selectedValues} for:item="item">
+                            <span key={item.value} class="slds-pill multi-pill">
+                                <span class="slds-pill__icon_container">
+                                    <lightning-icon icon-name={iconName} size="x-small"></lightning-icon>
+                                </span>
+                                <span class="slds-pill__label slds-truncate">{item.pillLabel}</span>
+                                <button
+                                    class="slds-button slds-button_icon slds-button_icon slds-pill__remove"
+                                    title="Retirer"
+                                    data-id={item.value}
+                                    onclick={handleRemoveMulti}>
+                                    <lightning-icon icon-name="utility:close" size="x-small" alternative-text="Retirer"></lightning-icon>
+                                </button>
+                            </span>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Search Input (always visible in multi mode, hidden when selected in single mode) -->
+                <template if:true={isInputVisible}>
+                    <lightning-input
                         class="search-input-uppercase"
-                        type="search" 
-                        variant={inputVariant}
-                        placeholder={placeholder} 
+                        type="search"
+                        variant="label-hidden"
+                        placeholder={placeholder}
                         onchange={handleSearchInput}
                         onfocus={handleFocus}
                         onblur={handleBlur}
@@ -57,7 +78,7 @@
             <!-- Suggestions Dropdown -->
             <template if:true={isOpen}>
                 <div class="slds-listbox slds-listbox_vertical slds-dropdown pillsearch-dropdown_fluid slds-dropdown_left" role="listbox">
-                    
+
                     <!-- Loading Spinner -->
                     <template if:true={isLoading}>
                         <div class="slds-align_absolute-center slds-m-around_small">
@@ -71,22 +92,22 @@
                             <ul class="slds-listbox slds-listbox_vertical" role="presentation">
                                 <template for:each={formattedSuggestions} for:item="suggestion">
                                     <li key={suggestion.value} role="presentation" class="slds-listbox__item">
-                                        <div 
-                                            class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta" 
-                                            role="option" 
+                                        <div
+                                            class="slds-media slds-listbox__option slds-listbox__option_entity slds-listbox__option_has-meta"
+                                            role="option"
                                             onclick={handleSelect}
                                             data-value={suggestion.value}
                                             data-label={suggestion.label}
                                             data-sublabel={suggestion.sublabel}
                                             data-pilllabel={suggestion.pillLabel}>
-                                            
+
                                             <span class="slds-media__figure slds-listbox__option-icon">
-                                                <lightning-icon 
-                                                    icon-name={iconName} 
+                                                <lightning-icon
+                                                    icon-name={iconName}
                                                     size="small">
                                                 </lightning-icon>
                                             </span>
-                                            
+
                                             <span class="slds-media__body">
                                                 <span class="slds-listbox__option-text slds-listbox__option-text_entity">
                                                     {suggestion.label}
@@ -106,7 +127,7 @@
                         <!-- No Results -->
                         <template if:false={hasSuggestions}>
                             <div class="slds-align_absolute-center slds-m-around_small">
-                                <p class="slds-text-body_small slds-text-color_weak">Aucun résultat</p>   
+                                <p class="slds-text-body_small slds-text-color_weak">Aucun résultat</p>
                             </div>
                         </template>
                     </template>

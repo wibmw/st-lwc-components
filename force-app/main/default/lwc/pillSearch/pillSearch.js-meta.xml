@@ -17,6 +17,7 @@
             <!-- Output Properties (Record ID is now Input/Output to support pre-selection) -->
             <property name="selectedRecordId" type="String" label="Selected Record ID" description="ID of the selected record"/>
             <property name="selectedRecordName" type="String" role="outputOnly" label="Selected Record Name" description="Name/label of the selected record"/>
+            <property name="selectedRecordIds" type="String[]" label="Selected Record IDs (Multi)" description="Collection of selected record IDs (Multi-select mode only)"/>
             
             <!-- Input Properties -->
             <property name="label" type="String" label="Label" description="Field label displayed above the component" default="Search" role="inputOnly"/>
@@ -31,6 +32,7 @@
             <property name="filterClause" type="String" label="Filter Clause" description="Optional WHERE clause filter (e.g., 'IsActive = true' or 'Type = \'Customer\' AND AccountId != null')" role="inputOnly"/>
             <property name="readOnly" type="Boolean" label="Read Only" description="Make the component read-only" default="false" role="inputOnly"/>
             <property name="required" type="Boolean" label="Required" description="Mark field as required" default="false" role="inputOnly"/>
+            <property name="multiSelect" type="Boolean" label="Multi-Sélection" description="Active la sélection multiple. Les éléments sélectionnés s'affichent sous forme de plusieurs pills." default="false" role="inputOnly"/>
         </targetConfig>
         
         <targetConfig targets="lightning__AppPage,lightning__RecordPage,lightning__HomePage">
@@ -44,6 +46,7 @@
             <property name="filterClause" type="String" label="Filter Clause" description="Optional WHERE clause filter"/>
             <property name="readOnly" type="Boolean" label="Read Only" default="false"/>
             <property name="required" type="Boolean" label="Required" default="false"/>
+            <property name="multiSelect" type="Boolean" label="Multi-Sélection" default="false"/>
         </targetConfig>
     </targetConfigs>
 </LightningComponentBundle>

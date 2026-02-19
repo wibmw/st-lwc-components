@@ -501,15 +501,18 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
     }
 
     @AuraEnabled
-    public static void updatePec(Id orderId, String pecType) {
+    public static Map<String, Object> updatePec(Id orderId, String pecType) {
+        DateTime now = DateTime.now();
+        String currentUserId = UserInfo.getUserId();
+        String currentUserName = UserInfo.getName();
         Commande_Pi_ces__c orderToUpdate = new Commande_Pi_ces__c(Id = orderId);
         if (pecType == 'Cockpit') {
-            orderToUpdate.PEC_Cockpit__c = DateTime.now();
-            orderToUpdate.Nom_PEC_Cockpit__c = UserInfo.getUserId();
+            orderToUpdate.PEC_Cockpit__c = now;
+            orderToUpdate.Nom_PEC_Cockpit__c = currentUserId;
             orderToUpdate.Statut_Commande__c = 'PEC Cockpit'; 
         } else if (pecType == 'Retraitement') {
-            orderToUpdate.PEC_Retraitement__c = DateTime.now();
-            orderToUpdate.Nom_PEC_Retraitement__c = UserInfo.getUserId();
+            orderToUpdate.PEC_Retraitement__c = now;
+            orderToUpdate.Nom_PEC_Retraitement__c = currentUserId;
             orderToUpdate.Statut_Commande__c = 'PEC Retraitement'; 
         }
         // 1. Update with Bypass = true
@@ -519,6 +522,14 @@ public without sharing class MntGestionDemandeLogistiqueCtrl {
         // 2. Reset Bypass = false
         orderToUpdate.Bypass_ValidationRules__c = false;
         update orderToUpdate;
+
+        // Return PEC info for real-time LWC update
+        return new Map<String, Object>{
+            'pecType'    => pecType,
+            'pecDate'    => now,
+            'pecByName'  => currentUserName,
+            'newStatus'  => orderToUpdate.Statut_Commande__c
+        };
     }
 
     @AuraEnabled
