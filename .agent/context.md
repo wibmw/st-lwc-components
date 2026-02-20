@@ -13,6 +13,8 @@
 ## Project Structure
 - LWC Components: force-app/main/default/lwc/
 - Apex Classes: force-app/main/default/classes/
+- Flows (IL_*): force-app/main/default/flows/ (local copies in /flows/)
+- Data Model Doc: .agent/data_model.md
 - Shared Apex:
   - Envoi Logistique: force-app/main/default/classes/MntGestionEnvoiLogistiqueCtrl.cls
 
@@ -35,11 +37,13 @@
 - mntGestionEnvoiLogistique: Envoi Pièces entre Stock
 - mntGestionEnvoiReparationLogistique: Envoi Pièces à un Réparateur de Pièces
 - mntGestionDemandeLogistique: Demande d'Envoi de Pièces
-- mntFilesManager: Upload and see pictures
+- mntFilesManager: Upload and see pictures (used in flows as file attachment)
 - trackingModal: Open an Iframe in a modal
 - oneClickPrint: Fusionne les fichiers PDF de tous les records sélectionnés
 - menuMobile: Afficher un menu de boutons au format mobile dans un flow
 - mobileListView: Affiche une listview au format d'une liste de carte contenant les 4 premiers champs
+- pillSearch: Lookup/Search component with single or multi-select mode, Flow-compatible (output: selectedRecordId, selectedRecordName, selectedRecordIds, selectedRecordIdsCSV)
+- customCardsList: Configurable list view with card format, supports Flow URL navigation
 
 ## Technology Stack
 - Framework: LWC (Lightning Web Components)
