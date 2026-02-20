@@ -28,6 +28,7 @@
  */
 import { LightningElement, api, track } from 'lwc';
 import searchRecords from '@salesforce/apex/PillSearchCtrl.searchRecords';
+import getRecordDetails from '@salesforce/apex/PillSearchCtrl.getRecordDetails';
 import getRecordsDetails from '@salesforce/apex/PillSearchCtrl.getRecordsDetails';
 
 export default class PillSearch extends LightningElement {
@@ -35,6 +36,7 @@ export default class PillSearch extends LightningElement {
     _selectedRecordId = '';
     _initialized = false;
     _selectedRecordIds = []; // Private backing field
+    _clearingId = false;     // Guard flag to prevent infinite loop in selectedRecordId setter
 
     // ==================== INPUT PROPERTIES ====================
 
@@ -62,8 +64,10 @@ export default class PillSearch extends LightningElement {
         this._selectedRecordId = value;
         if (this._initialized && value && !this.selectedValue) {
             this.fetchRecordDetails(value);
-        } else if (this._initialized && !value) {
+        } else if (this._initialized && !value && !this._clearingId) {
+            this._clearingId = true;
             this.handleRemoveSingle();
+            this._clearingId = false;
         }
     }
 
@@ -75,26 +79,56 @@ export default class PillSearch extends LightningElement {
         return this._selectedRecordIds;
     }
     set selectedRecordIds(value) {
-        // If value is null/undefined, treat as empty array
-        const newIds = value ? [...value] : [];
+        this.handleIdsChange(value);
+    }
+
+    // New: CSV String output/input for direct Text Field binding
+    @api
+    get selectedRecordIdsCSV() {
+        return this._selectedRecordIds ? this._selectedRecordIds.join(',') : '';
+    }
+    set selectedRecordIdsCSV(value) {
+        if (value) {
+            const ids = value.split(',').map(id => id.trim()).filter(id => id.length > 0);
+            
+            // Set oldRecordIds only if it's the first load (empty)
+            if (!this.oldRecordIds || this.oldRecordIds.length === 0) {
+                this.oldRecordIds = [...ids];
+            }
+            
+            this.handleIdsChange(ids);
+        } else {
+            this.handleIdsChange([]);
+        }
+    }
+
+    // New: Output for initial state (Old Record IDs)
+    @api oldRecordIds = [];
+
+    // Helper to handle ID changes from either Array or CSV source
+    handleIdsChange(newIds) {
+        newIds = newIds ? [...newIds] : [];
         
-        // Deep comparison to avoid infinite loops if the array content is the same
-        if (JSON.stringify(this._selectedRecordIds) === JSON.stringify(newIds)) {
+        // Deep comparison - sort both arrays to ensure order doesn't matter
+        const currentIdsSorted = [...this._selectedRecordIds].sort().join(',');
+        const newIdsSorted = [...newIds].sort().join(',');
+
+        if (currentIdsSorted === newIdsSorted) {
             return;
         }
 
         this._selectedRecordIds = newIds;
 
-        // If we have IDs but no selectedValues objects, fetch them
-        // This handles the pre-selection case
-        if (this._initialized && this.multiSelect && newIds.length > 0) {
-            // Check if we need to fetch details (i.e. we don't have descriptions for these IDs)
-            const idsToFetch = newIds.filter(id => !this.selectedValues.find(sv => sv.value === id));
-            if (idsToFetch.length > 0) {
-                this.fetchRecordsDetails(newIds);
+        if (this._initialized && this.multiSelect) {
+            if (newIds.length > 0) {
+                // Fetch details only for IDs we don't already have in selectedValues
+                const idsToFetch = newIds.filter(id => !this.selectedValues.find(sv => sv.value === id));
+                if (idsToFetch.length > 0) {
+                    this.fetchRecordsDetails(newIds);
+                }
+            } else {
+                this.selectedValues = [];
             }
-        } else if (this._initialized && this.multiSelect && newIds.length === 0) {
-            this.selectedValues = [];
         }
     }
 
@@ -216,6 +250,7 @@ export default class PillSearch extends LightningElement {
                 
                 // Notify parent/flow
                 this.dispatchEvent(new CustomEvent('selectedrecordidschange', { detail: { value: newIds } }));
+                this.dispatchEvent(new CustomEvent('selectedrecordidscsvchange', { detail: { value: newIds.join(',') } }));
             }
             // Keep dropdown open — clear input
             const input = this.template.querySelector('lightning-input');
@@ -257,6 +292,7 @@ export default class PillSearch extends LightningElement {
         }));
         // Emit change for Flow
         this.dispatchEvent(new CustomEvent('selectedrecordidschange', { detail: { value: newIds } }));
+        this.dispatchEvent(new CustomEvent('selectedrecordidscsvchange', { detail: { value: newIds.join(',') } }));
     }
 
     /**

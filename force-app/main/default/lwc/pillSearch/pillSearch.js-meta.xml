@@ -17,7 +17,9 @@
             <!-- Output Properties (Record ID is now Input/Output to support pre-selection) -->
             <property name="selectedRecordId" type="String" label="Selected Record ID" description="ID of the selected record"/>
             <property name="selectedRecordName" type="String" role="outputOnly" label="Selected Record Name" description="Name/label of the selected record"/>
-            <property name="selectedRecordIds" type="String[]" label="Selected Record IDs (Multi)" description="Collection of selected record IDs (Multi-select mode only)"/>
+            <property name="selectedRecordIds" type="String[]" label="Selected Record IDs (Multi - Collection)" description="Collection of selected record IDs (Multi-select mode only)"/>
+            <property name="selectedRecordIdsCSV" type="String" label="Selected Record IDs (Multi - CSV String)" description="Comma-separated string of selected IDs. Use this for binding to a Text field."/>
+            <property name="oldRecordIds" type="String[]" role="outputOnly" label="Old Record IDs (Initial Collection)" description="Collection of document IDs as they were when the component loaded."/>
             
             <!-- Input Properties -->
             <property name="label" type="String" label="Label" description="Field label displayed above the component" default="Search" role="inputOnly"/>

@@ -38,7 +38,22 @@
                     </div>
                 </template>
 
-                <!-- MULTI MODE: Selected Pills List -->
+                <!-- Search Input (always visible in multi mode, hidden when selected in single mode) -->
+                <template if:true={isInputVisible}>
+                    <lightning-input
+                        class="search-input-uppercase"
+                        type="search"
+                        variant="label-hidden"
+                        placeholder={placeholder}
+                        onchange={handleSearchInput}
+                        onfocus={handleFocus}
+                        onblur={handleBlur}
+                        disabled={isDisabled}
+                        autocomplete="off">
+                    </lightning-input>
+                </template>
+
+                <!-- MULTI MODE: Selected Pills List (Moved below input) -->
                 <template if:true={hasSelectedValues}>
                     <div class="multi-pills-container">
                         <template for:each={selectedValues} for:item="item">
@@ -57,21 +72,6 @@
                             </span>
                         </template>
                     </div>
-                </template>
-
-                <!-- Search Input (always visible in multi mode, hidden when selected in single mode) -->
-                <template if:true={isInputVisible}>
-                    <lightning-input
-                        class="search-input-uppercase"
-                        type="search"
-                        variant="label-hidden"
-                        placeholder={placeholder}
-                        onchange={handleSearchInput}
-                        onfocus={handleFocus}
-                        onblur={handleBlur}
-                        disabled={isDisabled}
-                        autocomplete="off">
-                    </lightning-input>
                 </template>
             </div>
 
