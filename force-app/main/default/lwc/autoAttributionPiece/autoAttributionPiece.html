@@ -1,0 +1,159 @@
+<template>
+    <lightning-card title="Auto Attribution d'une Pièce" icon-name="utility:record_alt">
+
+        <template if:true={isLoading}>
+            <lightning-spinner alternative-text="Chargement..." size="medium"></lightning-spinner>
+        </template>
+
+        <div class="slds-p-around_medium">
+
+            <!-- Site de destination (lecture seule) -->
+            <template if:true={destinationSiteName}>
+                <div class="slds-m-bottom_small site-info-box">
+                    <span class="slds-text-body_small slds-text-color_weak">Destination :</span>
+                    <span class="slds-text-title_bold slds-m-left_xx-small">{destinationSiteName}</span>
+                </div>
+            </template>
+
+            <template if:false={destinationSiteName}>
+                <template if:false={isLoading}>
+                    <div class="slds-notify slds-notify_alert slds-theme_error" role="alert">
+                        <span>Aucun site (STR) associé à votre profil. Contactez un administrateur.</span>
+                    </div>
+                </template>
+            </template>
+
+            <!-- Commentaire -->
+            <div class="slds-m-bottom_small">
+                <lightning-textarea
+                    label="Commentaire (optionnel)"
+                    value={commentaire}
+                    onchange={handleCommentChange}
+                    max-length="500"
+                ></lightning-textarea>
+            </div>
+
+            <!-- Section recherche -->
+            <div class="slds-section slds-is-open slds-m-top_small">
+                <h3 class="slds-section__title slds-text-heading_small slds-m-bottom_small">
+                    Rechercher un Article
+                </h3>
+
+                <div class="mobile-card-search-container slds-m-bottom_xx-small">
+                    <lightning-input
+                        type="search"
+                        placeholder="Rechercher..."
+                        value={searchTerm}
+                        onchange={handleSearch}
+                        variant="label-hidden"
+                    ></lightning-input>
+                </div>
+
+                <!-- Spinner de recherche -->
+                <template if:true={isSearching}>
+                    <div class="slds-align_absolute-center slds-m-vertical_x-small">
+                        <lightning-spinner alternative-text="Recherche..." size="small"></lightning-spinner>
+                    </div>
+                </template>
+
+                <!-- Résultats de recherche -->
+                <template for:each={searchResults} for:item="result">
+                    <div key={result.id} class="mobile-cart-card slds-m-bottom_xx-small">
+                        <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                            <div class="mobile-text-container">
+                                <div class="slds-truncate slds-text-title_bold">{result.name}</div>
+                                <div class="slds-truncate slds-text-body_small">{result.mnemonique}</div>
+                                <div class="slds-truncate slds-text-body_small slds-text-color_weak">{result.description}</div>
+                            </div>
+                            <div class="slds-col slds-shrink-none">
+                                <lightning-button-icon
+                                    icon-name="utility:add"
+                                    variant="brand"
+                                    size="medium"
+                                    disabled={result.isAddedToCart}
+                                    data-id={result.id}
+                                    onclick={handleAddToCart}
+                                    alternative-text="Ajouter"
+                                ></lightning-button-icon>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Section panier -->
+            <template if:true={hasCartItems}>
+                <div class="slds-section slds-is-open slds-m-top_medium">
+                    <h3 class="slds-section__title slds-text-heading_small slds-m-bottom_small">
+                        Pièces sélectionnées ({cartCount})
+                    </h3>
+
+                    <template for:each={cart} for:item="item">
+                        <div key={item.key} class="mobile-cart-card slds-m-bottom_small">
+
+                            <!-- En-tête pièce -->
+                            <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center">
+                                <div class="mobile-text-container">
+                                    <div class="slds-truncate slds-text-title_bold">{item.name}</div>
+                                    <div class="slds-truncate slds-text-body_small">{item.mnemonique}</div>
+                                    <div class="slds-truncate slds-text-body_small slds-text-color_weak">{item.description}</div>
+                                </div>
+                                <div class="slds-col slds-shrink-none">
+                                    <lightning-button-icon
+                                        icon-name="utility:delete"
+                                        variant="border-filled"
+                                        size="small"
+                                        data-id={item.pieceUnitaireId}
+                                        onclick={handleRemoveFromCart}
+                                        alternative-text="Supprimer"
+                                    ></lightning-button-icon>
+                                </div>
+                            </div>
+
+                            <!-- Upload photo -->
+                            <div class="slds-m-top_x-small">
+                                <lightning-file-upload
+                                    label="Photo(s) obligatoire(s)"
+                                    name="fileUploader"
+                                    accept={acceptedFormats}
+                                    record-id={item.pieceUnitaireId}
+                                    multiple
+                                    data-piece-id={item.pieceUnitaireId}
+                                    onuploadfinished={handleUploadFinished}
+                                ></lightning-file-upload>
+
+                                <!-- Indicateur photo -->
+                                <template if:true={item.hasPhoto}>
+                                    <div class="photo-indicator photo-ok">
+                                        <lightning-icon icon-name="utility:check" size="xx-small"></lightning-icon>
+                                        <span class="slds-m-left_xx-small">{item.photoCount} photo(s) ajoutée(s)</span>
+                                    </div>
+                                </template>
+                                <template if:false={item.hasPhoto}>
+                                    <div class="photo-indicator photo-missing">
+                                        <lightning-icon icon-name="utility:warning" size="xx-small" variant="error"></lightning-icon>
+                                        <span class="slds-m-left_xx-small slds-text-color_error">Au moins 1 photo requise</span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+        </div>
+
+        <!-- Footer : bouton Attribuer -->
+        <div slot="footer" class="slds-p-around_small">
+            <lightning-button
+                label="Attribuer les pièces"
+                variant="brand"
+                icon-name="utility:check"
+                icon-position="left"
+                onclick={handleSave}
+                disabled={isSaveDisabled}
+                class="slds-col slds-size_1-of-1"
+            ></lightning-button>
+        </div>
+    </lightning-card>
+</template>

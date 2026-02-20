@@ -1,0 +1,116 @@
+﻿{
+  "status": 0,
+  "result": {
+    "checkOnly": false,
+    "completedDate": "2026-02-20T14:01:32.000Z",
+    "createdBy": "005Jv000007a5YE",
+    "createdByName": "Ibrahim LAOUER",
+    "createdDate": "2026-02-20T14:01:27.000Z",
+    "details": {
+      "componentSuccesses": [
+        {
+          "changed": true,
+          "componentType": "ApexClass",
+          "created": false,
+          "createdDate": "2026-02-20T14:01:29.000Z",
+          "deleted": false,
+          "fileName": "classes/MntGestionEnvoiLogistiqueCtrl.cls",
+          "fullName": "MntGestionEnvoiLogistiqueCtrl",
+          "id": "01pAW00000RFDi9YAH",
+          "success": true
+        },
+        {
+          "changed": true,
+          "componentType": "LightningComponentBundle",
+          "created": true,
+          "createdDate": "2026-02-20T14:01:31.000Z",
+          "deleted": false,
+          "fileName": "lwc/autoAttributionPiece",
+          "fullName": "autoAttributionPiece",
+          "id": "0RbAW000005xGaX0AU",
+          "success": true
+        },
+        {
+          "changed": true,
+          "componentType": "",
+          "created": false,
+          "createdDate": "2026-02-20T14:01:31.000Z",
+          "deleted": false,
+          "fileName": "package.xml",
+          "fullName": "package.xml",
+          "success": true
+        }
+      ],
+      "runTestResult": {
+        "numFailures": 0,
+        "numTestsRun": 0,
+        "totalTime": 0,
+        "codeCoverage": [],
+        "codeCoverageWarnings": [],
+        "failures": [],
+        "flowCoverage": [],
+        "flowCoverageWarnings": [],
+        "successes": []
+      },
+      "componentFailures": []
+    },
+    "done": true,
+    "id": "0AfAW00000kip9C0AQ",
+    "ignoreWarnings": false,
+    "lastModifiedDate": "2026-02-20T14:01:32.000Z",
+    "numberComponentErrors": 0,
+    "numberComponentsDeployed": 2,
+    "numberComponentsTotal": 2,
+    "numberFiles": "10",
+    "numberTestErrors": 0,
+    "numberTestsCompleted": 0,
+    "numberTestsTotal": 0,
+    "rollbackOnError": true,
+    "runTestsEnabled": false,
+    "startDate": "2026-02-20T14:01:27.000Z",
+    "status": "Succeeded",
+    "success": true,
+    "zipSize": 19723,
+    "files": [
+      {
+        "fullName": "MntGestionEnvoiLogistiqueCtrl",
+        "type": "ApexClass",
+        "state": "Changed",
+        "filePath": "H:\\SiteTracker\\DEV\\st-lwc-components\\force-app\\main\\default\\classes\\MntGestionEnvoiLogistiqueCtrl.cls"
+      },
+      {
+        "fullName": "MntGestionEnvoiLogistiqueCtrl",
+        "type": "ApexClass",
+        "state": "Changed",
+        "filePath": "H:\\SiteTracker\\DEV\\st-lwc-components\\force-app\\main\\default\\classes\\MntGestionEnvoiLogistiqueCtrl.cls-meta.xml"
+      },
+      {
+        "fullName": "autoAttributionPiece",
+        "type": "LightningComponentBundle",
+        "state": "Created",
+        "filePath": "H:\\SiteTracker\\DEV\\st-lwc-components\\force-app\\main\\default\\lwc\\autoAttributionPiece\\autoAttributionPiece.css"
+      },
+      {
+        "fullName": "autoAttributionPiece",
+        "type": "LightningComponentBundle",
+        "state": "Created",
+        "filePath": "H:\\SiteTracker\\DEV\\st-lwc-components\\force-app\\main\\default\\lwc\\autoAttributionPiece\\autoAttributionPiece.html"
+      },
+      {
+        "fullName": "autoAttributionPiece",
+        "type": "LightningComponentBundle",
+        "state": "Created",
+        "filePath": "H:\\SiteTracker\\DEV\\st-lwc-components\\force-app\\main\\default\\lwc\\autoAttributionPiece\\autoAttributionPiece.js"
+      },
+      {
+        "fullName": "autoAttributionPiece",
+        "type": "LightningComponentBundle",
+        "state": "Created",
+        "filePath": "H:\\SiteTracker\\DEV\\st-lwc-components\\force-app\\main\\default\\lwc\\autoAttributionPiece\\autoAttributionPiece.js-meta.xml"
+      }
+    ],
+    "zipFileCount": 7,
+    "deployUrl": "https://sitetracker-circet--mnt.sandbox.my.salesforce.com/lightning/setup/DeployStatus/page?address=%2Fchangemgmt%2FmonitorDeploymentsDetails.apexp%3FasyncId%3D0AfAW00000kip9C0AQ%26retURL%3D%252Fchangemgmt%252FmonitorDeployment.apexp"
+  },
+  "warnings": []
+}

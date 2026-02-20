@@ -1032,4 +1032,216 @@ public without sharing class MntGestionEnvoiLogistiqueCtrl {
         @AuraEnabled public String siteName;
         @AuraEnabled public String compteProjet;
     }
+
+    // =========================================================
+    // AUTO ATTRIBUTION — Méthodes pour l'auto-attribution de pièce
+    // =========================================================
+
+    public class AutoAttributionSiteWrapper {
+        @AuraEnabled public Id siteId;
+        @AuraEnabled public String siteName;
+        @AuraEnabled public String siteSubLabel;
+        @AuraEnabled public List<Id> stockIds; // STR + STDs associés
+    }
+
+    /**
+     * Récupère le site STR de l'utilisateur connecté (via User.STR__c)
+     * ainsi que les sous-stocks STD associés.
+     */
+    @AuraEnabled(cacheable=true)
+    public static AutoAttributionSiteWrapper getUserSiteForAutoAttribution() {
+        AutoAttributionSiteWrapper result = new AutoAttributionSiteWrapper();
+        result.stockIds = new List<Id>();
+
+        User u = [SELECT STR__c FROM User WHERE Id = :UserInfo.getUserId() LIMIT 1];
+        if (u.STR__c == null) return result;
+
+        // STR__c contient l'ID du site principal
+        List<sitetracker__Site__c> strSites = [
+            SELECT Id, Name, Nom_du_site__c
+            FROM sitetracker__Site__c
+            WHERE Id = :u.STR__c
+            LIMIT 1
+        ];
+
+        if (strSites.isEmpty()) return result;
+
+        sitetracker__Site__c strSite = strSites[0];
+        result.siteId = strSite.Id;
+        result.siteName = strSite.Name;
+        result.siteSubLabel = strSite.Nom_du_site__c;
+        result.stockIds.add(strSite.Id);
+
+        // Ajouter les sous-stocks STD associés au STR
+        for (sitetracker__Site__c stdSite : [
+            SELECT Id FROM sitetracker__Site__c
+            WHERE Name LIKE 'STD%' AND Sous_Stock__c = :strSite.Id
+        ]) {
+            result.stockIds.add(stdSite.Id);
+        }
+
+        return result;
+    }
+
+    /**
+     * Recherche des pièces En Stock dans le site STR de l'utilisateur
+     * et ses sous-stocks STD associés.
+     */
+    @AuraEnabled(cacheable=true)
+    public static List<PieceUnitaireResult> searchPiecesForAutoAttribution(String searchTerm) {
+        List<PieceUnitaireResult> results = new List<PieceUnitaireResult>();
+        if (String.isBlank(searchTerm) || searchTerm.length() < 3) return results;
+
+        String queryTerm = '%' + searchTerm + '%';
+
+        // Récupérer le site STR de l'utilisateur
+        User u = [SELECT STR__c FROM User WHERE Id = :UserInfo.getUserId() LIMIT 1];
+        if (u.STR__c == null) return results;
+
+        Set<Id> stockIds = new Set<Id>{ u.STR__c };
+
+        // Ajouter les sous-stocks STD
+        for (sitetracker__Site__c stdSite : [
+            SELECT Id FROM sitetracker__Site__c
+            WHERE Name LIKE 'STD%' AND Sous_Stock__c = :u.STR__c
+        ]) {
+            stockIds.add(stdSite.Id);
+        }
+
+        for (Pi_ce_Unitaire__c piece : [
+            SELECT Id, Name, Cl_quipement__c, Sous_Lieux__c, RMA__c,
+                   Code_Article__r.Mnemonique__c, Code_Article__r.Description__c,
+                   Pi_ce_Install_e__r.N_Serie__c,
+                   Lieu__c, Lieu__r.Name
+            FROM Pi_ce_Unitaire__c
+            WHERE (Name LIKE :queryTerm
+                   OR Cl_quipement__c LIKE :queryTerm
+                   OR Code_Article__r.Mnemonique__c LIKE :queryTerm
+                   OR Code_Article__r.Name LIKE :queryTerm)
+              AND Statut__c = 'En Stock'
+              AND Lieu__c IN :stockIds
+            ORDER BY Code_Article__r.Mnemonique__c, Code_Article__r.Name
+            LIMIT 15
+        ]) {
+            PieceUnitaireResult res = new PieceUnitaireResult();
+            res.id = piece.Id;
+            res.name = piece.Name;
+            res.cleEquipement = piece.Cl_quipement__c;
+            res.sousLieu = piece.Sous_Lieux__c;
+            res.rma = piece.RMA__c;
+            res.mnemonique = piece.Code_Article__r != null ? piece.Code_Article__r.Mnemonique__c : '';
+            res.description = piece.Code_Article__r != null ? piece.Code_Article__r.Description__c : '';
+            res.nSerie = piece.Pi_ce_Install_e__r != null ? piece.Pi_ce_Install_e__r.N_Serie__c : '';
+            res.lieuId = piece.Lieu__c;
+            results.add(res);
+        }
+        return results;
+    }
+
+    public class AutoAttributionInputWrapper {
+        @AuraEnabled public Id destinationSiteId;
+        @AuraEnabled public String destinationSiteName;
+        @AuraEnabled public String commentaire;
+        @AuraEnabled public List<AutoAttributionCartLine> cart;
+    }
+
+    public class AutoAttributionCartLine {
+        @AuraEnabled public Id pieceUnitaireId;
+        @AuraEnabled public String lieuName; // Lieu__r.Name d'où vient la pièce
+        @AuraEnabled public Id lieuId;       // Lieu__c d'origine
+    }
+
+    /**
+     * Sauvegarde l'auto attribution :
+     * - Met à jour le Lieu__c et Statut__c de chaque pièce
+     * - Crée un historique PU (Type = 'PU', INVENTAI = true) par pièce
+     * - Ne crée PAS d'Envoi_Logistique__c
+     */
+    @AuraEnabled
+    public static List<Id> saveAutoAttribution(String inputJSON) {
+        try {
+            AutoAttributionInputWrapper input = (AutoAttributionInputWrapper) JSON.deserialize(inputJSON, AutoAttributionInputWrapper.class);
+
+            if (input == null || input.cart == null || input.cart.isEmpty()) {
+                throw new AuraHandledException('Le panier est vide.');
+            }
+            if (input.destinationSiteId == null) {
+                throw new AuraHandledException('Le site de destination est manquant.');
+            }
+
+            String today = Date.today().format();
+            String userName = UserInfo.getName();
+            String toSiteName = input.destinationSiteName != null ? input.destinationSiteName : '';
+
+            List<Pi_ce_Unitaire__c> piecesToUpdate = new List<Pi_ce_Unitaire__c>();
+            List<Historique_Pi_ces__c> histToCreate = new List<Historique_Pi_ces__c>();
+            List<Id> processedPieceIds = new List<Id>();
+
+            for (AutoAttributionCartLine line : input.cart) {
+                if (line.pieceUnitaireId == null) continue;
+
+                // Mise à jour de la pièce
+                piecesToUpdate.add(new Pi_ce_Unitaire__c(
+                    Id = line.pieceUnitaireId,
+                    Statut__c = 'En Stock',
+                    Lieu_Pr_c_dent__c = line.lieuId,
+                    Lieu__c = input.destinationSiteId
+                ));
+
+                // Historique PU uniquement
+                String fromLocation = line.lieuName != null ? line.lieuName : '';
+                Historique_Pi_ces__c hist = new Historique_Pi_ces__c();
+                hist.Pi_ce_Unitaire__c = line.pieceUnitaireId;
+                hist.Type__c = 'PU';
+                hist.INVENTAI__c = true;
+                hist.Statut__c = 'En Stock';
+                hist.Lieu__c = input.destinationSiteId;
+                hist.Statut_Envoi__c = 'Auto Attribution';
+                hist.Remarques__c = 'Auto Attribution par [' + userName + '] depuis [' + fromLocation + '] vers [' + toSiteName + '] le [' + today + ']';
+                if (String.isNotBlank(input.commentaire)) {
+                    hist.Remarques__c += ' - Commentaire : ' + input.commentaire;
+                }
+                histToCreate.add(hist);
+                processedPieceIds.add(line.pieceUnitaireId);
+            }
+
+            if (!piecesToUpdate.isEmpty()) update piecesToUpdate;
+            if (!histToCreate.isEmpty()) insert histToCreate;
+
+            return processedPieceIds;
+
+        } catch (Exception e) {
+            throw new AuraHandledException(e.getMessage() + ' at line ' + e.getLineNumber());
+        }
+    }
+
+    /**
+     * Renomme les fichiers uploadés après auto attribution.
+     * Format : AutoAttribution_[LieuNom]_[DD/MM/AAAA]
+     * Les caractères spéciaux dans LieuNom sont remplacés par _
+     */
+    @AuraEnabled
+    public static void renameAutoAttributionFiles(List<Id> contentDocumentIds, String lieuName, String dateStr) {
+        if (contentDocumentIds == null || contentDocumentIds.isEmpty()) return;
+
+        // Nettoyer le nom du lieu : remplacer tout caractère non alphanumérique par _
+        String cleanLieuName = '';
+        if (String.isNotBlank(lieuName)) {
+            cleanLieuName = lieuName.replaceAll('[^a-zA-Z0-9]', '_');
+        }
+
+        String baseName = 'AutoAttribution_' + cleanLieuName + '_' + (dateStr != null ? dateStr : '');
+
+        List<ContentDocument> docsToUpdate = [
+            SELECT Id, Title FROM ContentDocument WHERE Id IN :contentDocumentIds
+        ];
+
+        Integer counter = docsToUpdate.size() > 1 ? 1 : 0;
+        for (ContentDocument doc : docsToUpdate) {
+            doc.Title = counter > 0 ? baseName + '_' + counter : baseName;
+            counter++;
+        }
+
+        if (!docsToUpdate.isEmpty()) update docsToUpdate;
+    }
 }

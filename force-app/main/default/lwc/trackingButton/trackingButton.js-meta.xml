@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Bouton Suivi (Iframe)</masterLabel>
+    <description>Affiche un bouton qui ouvre une URL dans une fenêtre modale iframe.</description>
+    <targets>
+        <target>lightning__RecordPage</target>
+        <target>lightning__FlowScreen</target>
+        <target>lightning__AppPage</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__RecordPage,lightning__FlowScreen,lightning__AppPage">
+            <property name="url" type="String" label="URL de suivi" required="true" description="L'URL à afficher dans le popup iframe." />
+            <property name="title" type="String" label="Titre de la modale" default="Suivi de l'envoi" description="Le titre affiché en haut du popup." />
+            <property name="buttonLabel" type="String" label="Label du bouton" default="Voir le suivi" description="Le texte affiché sur le bouton." />
+        </targetConfig>
+    </targetConfigs>
+</LightningComponentBundle>

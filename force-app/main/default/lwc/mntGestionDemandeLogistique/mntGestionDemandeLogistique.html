@@ -401,18 +401,16 @@
                   </template>
                   <template if:false={isDesktop}>
                       <template for:each={enhancedRows} for:item="row">
-                          <div key={row.key} class="mobile-card">
-                              <div class="mobile-card-header">
-                                  <div>
-                                      <div class="mobile-card-title">{row.mnemonique}</div>
-                                      <div class="mobile-card-subtitle">{row.articleName}</div>
+                          <div key={row.key} class="mobile-cart-card mobile-card-search-container">
+                              <div class="slds-grid slds-grid_vertical-align-center">
+                                  <div class="mobile-text-container slds-col">
+                                      <div class="slds-truncate slds-text-title_bold" title={row.articleName}>{row.articleName}</div>
+                                      <div class="slds-truncate slds-text-body_small slds-m-top_xxx-small" title={row.mnemonique}>{row.mnemonique}</div>
+                                      <div class="slds-truncate slds-text-body_small slds-text-color_weak slds-m-top_xxx-small" title={row.description}>{row.description}</div>
                                   </div>
-                              </div>
-                              <div class="mobile-card-body">
-                                  <p class="slds-text-body_small">{row.description}</p>
-                              </div>
-                              <div class="mobile-card-footer">
-                                  <lightning-button label="Ajouter" variant="brand-outline" disabled={row.isAddedToCart} data-key={row.key} onclick={handleMobileAggAdd}></lightning-button>
+                                  <div class="slds-col slds-shrink-none mobile-search-button-container">
+                                      <lightning-button-icon icon-name="utility:add" variant="brand" size="medium" disabled={row.isAddedToCart} data-key={row.key} onclick={handleMobileAggAdd} alternative-text="Ajouter"></lightning-button-icon>
+                                  </div>
                               </div>
                           </div>
                       </template>
@@ -498,27 +496,30 @@
                       </template-->
                       <template if:false={isDesktop}>
                           <template for:each={cart} for:item="item">
-                              <div key={item.key} class="mobile-card">
-                                  <div class="mobile-card-header">
-                                      <div>
-                                          <div class="mobile-card-title">{item.mnemonique}</div>
-                                          <div class="mobile-card-subtitle">{item.articleName}</div>
+                              <div key={item.key} class="mobile-cart-card">
+                                  <div class="slds-grid slds-grid_vertical-align-center">
+                                      <div class="mobile-text-container slds-col">
+                                          <div class="slds-grid slds-grid_align-spread">
+                                              <div class="slds-truncate slds-text-title_bold" title={item.articleName}>{item.articleName}</div>
+                                          </div>
+                                          <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
+                                              <div class="slds-truncate" title={item.siteName} style="max-width: 65%;">
+                                                  <span class="slds-text-body_small slds-text-color_weak">{item.mnemonique}</span>
+                                              </div>
+                                              <div class="slds-truncate slds-text-align_right" style="max-width: 20%;">
+                                                  <lightning-input type="number" variant="label-hidden" placeholder="Qté" value={item.quantity} data-key={item.key} onfocusout={handleMobileQuantityChange} min="1" max={item.stock} class="compact-input"></lightning-input>
+                                              </div>
+                                          </div>
+                                          <template if:true={item.isAutre}>
+                                              <div class="slds-m-top_x-small">
+                                                  <lightning-textarea label="Commentaire" value={item.comment} data-key={item.key} onchange={handleMobileCommentChange} required></lightning-textarea>
+                                              </div>
+                                          </template>
                                       </div>
-                                      <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Supprimer" title="Supprimer" data-key={item.key} onclick={handleCartRemove}></lightning-button-icon>
-                                  </div>
-                                  <div class="mobile-card-body">
-                                      <p class="slds-text-body_small slds-m-bottom_small">{item.description}</p>
-                                      <div class="slds-grid slds-grid_vertical-align-center slds-m-bottom_small">
-                                           <label class="slds-col slds-size_1-of-3 slds-text-body_regular">Quantité</label>
-                                           <div class="slds-col slds-size_2-of-3">
-                                               <lightning-input type="number" variant="label-hidden" value={item.quantity} data-key={item.key} onfocusout={handleMobileQuantityChange} min="1"></lightning-input>
-                                           </div>
+                                      <div class="slds-shrink-none">
+                                          <lightning-button-icon icon-name="utility:delete" variant="bare" alternative-text="Supprimer" title="Supprimer" class="slds-icon-text-error" size="medium" data-key={item.key} onclick={handleCartRemove}></lightning-button-icon>
                                       </div>
-                                      <template if:true={item.isAutre}>
-                                          <lightning-textarea label="Commentaire" value={item.comment} data-key={item.key} onchange={handleMobileCommentChange} required></lightning-textarea>
-                                      </template>
                                   </div>
-                                  <!-- Footer removed as per requirement (no status management in mobile) -->
                               </div>
                           </template>
                       </template>

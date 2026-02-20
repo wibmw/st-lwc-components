@@ -1,8 +1,8 @@
 <template>
-    <lightning-modal-header label="Suivi de l'envoi"></lightning-modal-header>
+    <lightning-modal-header label={modalTitle}></lightning-modal-header>
     <lightning-modal-body>
         <!-- Affiche le site de suivi dans un cadre intégré -->
-        <iframe src={trackingUrl} width="100%" height="500px" frameborder="0"></iframe>
+        <iframe src={url} width="100%" height="500px" frameborder="0"></iframe>
     </lightning-modal-body>
     <lightning-modal-footer>
         <lightning-button label="Fermer" onclick={handleClose}></lightning-button>

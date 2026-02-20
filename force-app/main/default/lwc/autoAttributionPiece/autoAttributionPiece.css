@@ -1,0 +1,63 @@
+:host {
+    display: block;
+}
+
+.site-info-box {
+    background: #f4f6f9;
+    border-left: 4px solid #0176d3;
+    border-radius: 4px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+}
+
+/* Cartes du panier — style cohérent avec mntGestionEnvoiLogistique */
+.mobile-cart-card {
+    background: #fff;
+    border: 1px solid #dddbda;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.mobile-text-container {
+    flex: 1;
+    min-width: 0;
+    padding-right: 8px;
+}
+
+.mobile-card-search-container {
+    width: 100%;
+}
+
+/* Indicateur photo */
+.photo-indicator {
+    display: flex;
+    align-items: center;
+    margin-top: 6px;
+    font-size: 12px;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+
+.photo-ok {
+    background-color: #e9f4e1;
+    color: #2e7d32;
+}
+
+.photo-missing {
+    background-color: #fff3f3;
+    color: #ba1516;
+}
+
+/* Bouton attributer pleine largeur sur mobile */
+lightning-button {
+    width: 100%;
+}
+
+/* Responsive — mobile only */
+@media (max-width: 768px) {
+    .mobile-cart-card {
+        margin-bottom: 8px;
+    }
+}

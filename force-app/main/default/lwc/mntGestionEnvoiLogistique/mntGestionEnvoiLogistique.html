@@ -386,18 +386,17 @@
                                                 </div>
                                             <!-- Ligne 2 : Description + Sous-Lieu (aligned right) + Button -->
                                                 <div class="slds-grid slds-grid_align-spread slds-grid_vertical-align-center slds-m-top_xx-small">
-                                                <div class="slds-truncate" title={result.description} style="max-width: 65%;">
-                                                    <span class="slds-text-body_small slds-text-color_weak">{result.description}</span>
-                                                </div>
-                                                <div class="slds-truncate slds-text-align_right" style="max-width: 20%;">
-                                                    <template if:true={result.sousLieu}>
-                                                        <span class="slds-text-body_small slds-text-color_weak">{result.sousLieu}</span>
-                                                    </template>
-                                                    <template if:true={result.rma}>
-                                                        <span class="slds-text-body_small slds-text-color_error">RMA: {result.rma}</span>
-                                                    </template>
-                                                </div>
-    
+                                                    <div class="slds-truncate" title={result.description} style="max-width: 65%;">
+                                                        <span class="slds-text-body_small slds-text-color_weak">{result.description}</span>
+                                                    </div>
+                                                    <div class="slds-truncate slds-text-align_right" style="max-width: 20%;">
+                                                        <template if:true={result.sousLieu}>
+                                                            <span class="slds-text-body_small slds-text-color_weak">{result.sousLieu}</span>
+                                                        </template>
+                                                        <template if:true={result.rma}>
+                                                            <span class="slds-text-body_small slds-text-color_error">RMA: {result.rma}</span>
+                                                        </template>
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div class="slds-col slds-shrink-none slds-grid slds-grid_vertical slds-grid_align-center slds-grid_vertical-align-center" style="width: 5%; max-width: 5%; padding-left:0; padding-right:0;">

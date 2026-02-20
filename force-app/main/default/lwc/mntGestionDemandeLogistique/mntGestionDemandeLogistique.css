@@ -349,3 +349,34 @@
     font-weight: bold;
     color: #027e46; /* Salesforce Success Green */
 }
+
+/* Styles spécifiques aux cartes mobiles */
+.mobile-cart-card {
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: white;
+    border: 1px solid #dddbda;
+    border-left: 3px solid #0176d3;
+    border-radius: 0.25rem;
+    box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+.mobile-text-container {
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    padding-right: 10px;
+}
+
+.mobile-card-search-container {
+    position: relative;
+    padding-right: 3.5rem;
+}
+
+.mobile-search-button-container {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+}

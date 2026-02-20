@@ -809,7 +809,7 @@ export default class MntGestionEnvoiReparationLogistique extends NavigationMixin
             size: 'large',
             description: 'Popup de suivi Chronopost',
             // Passe l'URL au composant modal
-            trackingUrl: url,
+            url: url,
         });
     }
 

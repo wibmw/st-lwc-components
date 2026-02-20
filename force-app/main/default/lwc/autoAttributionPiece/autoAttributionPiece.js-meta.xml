@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>59.0</apiVersion>
+    <isExposed>true</isExposed>
+    <masterLabel>Auto Attribution d'une Pièce</masterLabel>
+    <description>Permet à un technicien de s'auto-attribuer des pièces depuis le stock logistique vers son site. Une photo par pièce est obligatoire.</description>
+    <targets>
+        <target>lightning__RecordPage</target>
+        <target>lightning__FlowScreen</target>
+        <target>lightning__AppPage</target>
+    </targets>
+</LightningComponentBundle>

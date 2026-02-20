@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <LightningComponentBundle xmlns="http://soap.sforce.com/2006/04/metadata">
     <apiVersion>59.0</apiVersion>
-    <isExposed>false</isExposed> <!-- Ce composant n'est utilisé que par un autre, pas besoin de l'exposer -->
+    <isExposed>true</isExposed>
+    <targets>
+        <target>lightning__FlowScreen</target>
+    </targets>
+    <targetConfigs>
+        <targetConfig targets="lightning__FlowScreen">
+            <property name="url" type="String" label="URL de suivi" required="true" description="L'URL à afficher dans l'iframe." />
+            <property name="title" type="String" label="Titre de la modale" default="Suivi de l'envoi" description="Le titre affiché en haut du popup." />
+        </targetConfig>
+    </targetConfigs>
 </LightningComponentBundle>

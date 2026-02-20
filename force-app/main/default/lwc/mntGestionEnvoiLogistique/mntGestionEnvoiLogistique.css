@@ -102,7 +102,7 @@
 
 /* Border utilities */
 .border-left-blue {
-    border-left: 3px solid #0176d3;
+    border-left: 3px solid #0176d3 !important;
 }
 
 .border-right-separator {

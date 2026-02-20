@@ -105,7 +105,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         if (!this.searchResults) return [];
         const cartIds = new Set(this.cart.map(c => c.pieceUnitaireId));
         const baseClass = this.isDesktop 
-            ? 'slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small'
+            ? 'slds-box slds-box_xx-small slds-theme_default slds-m-bottom_xx-small border-left-blue'
             : 'mobile-card2 slds-m-bottom_xx-small';
         return this.searchResults
             .filter(item => !cartIds.has(item.id))
@@ -218,9 +218,11 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         // 1. Global: Statut Clôturé
         if ((this.statutEnvoi && this.statutEnvoi.includes('Clôturé')) || (this.statutEnvoi && this.statutEnvoi.includes('Cloturé'))) return true;
 
-        // 2. Creation Mode: Cart check & Trackings
+        // 2. Creation Mode: Cart check & Bon de Livraison obligatoire
         if (this.isCreationMode) {
-             return this.cart.length === 0;
+            if (this.cart.length === 0) return true;
+            // Bloquer si au moins un N° de Bon de Livraison est manquant
+            return this.cart.some(item => !item.numBonLivraison || item.numBonLivraison.trim() === '');
         }
 
         // 3. Validation Mode: Cart check (quantities match)
@@ -970,7 +972,7 @@ export default class MntGestionEnvoiLogistique extends NavigationMixin(Lightning
         await TrackingModal.open({
             size: 'large',
             description: 'Popup de suivi Chronopost',
-            trackingUrl: url
+            url: url
         });
     }
 
